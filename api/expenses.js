@@ -189,7 +189,7 @@ async function ocrReceipt(req, res, user) {
 
     const promptText = "Kamu adalah asisten split bill. Ekstrak daftar barang/makanan dan harganya dari gambar struk ini. Abaikan subtotal, pajak, diskon umum, service charge, dan total keseluruhan. HANYA ambil item baris yang dibeli. Format output WAJIB berupa JSON array of objects dengan property 'item' (string nama barang) dan 'price' (number harga barang asli tanpa titik/koma desimal ribu). JANGAN sertakan markdown atau teks apapun, murni JSON saja.";
 
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
