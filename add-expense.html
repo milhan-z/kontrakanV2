@@ -3,6 +3,68 @@
 <head>
     <script>
         (function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);else if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');})();
+    
+        let activeMainTab = 'biasa';
+        let giliranFilePath = null;
+
+        function switchMainTab(tabId) {
+            activeMainTab = tabId;
+            document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            
+            document.querySelector(`.main-tab[onclick*="${tabId}"]`).classList.add('active');
+            if (tabId === 'biasa') {
+                document.getElementById('tabBiasa').classList.add('active');
+            } else {
+                document.getElementById('tabGiliran').classList.add('active');
+            }
+        }
+
+        function toggleGiliranType() {
+            const type = document.getElementById('giliranType').value;
+            document.getElementById('giliranQtyGroup').style.display = type === 'Galon' ? 'block' : 'none';
+        }
+
+        document.getElementById('giliranUploadArea').addEventListener('click', () => document.getElementById('giliranReceiptInput').click());
+        document.getElementById('giliranReceiptInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('giliranReceiptPreview').src = e.target.result;
+                document.getElementById('giliranReceiptPreview').classList.remove('hidden');
+                document.getElementById('giliranUploadArea').classList.add('has-file');
+            };
+            reader.readAsDataURL(file);
+            try {
+                const res = await uploadReceipt(file);
+                giliranFilePath = res.path;
+                showToast('Bukti terupload', 'success');
+            } catch { showToast('Gagal upload', 'error'); }
+        });
+
+        async function submitGiliran() {
+            const type = document.getElementById('giliranType').value;
+            const amount = parseFloat(document.getElementById('giliranAmount').value);
+            const qty = type === 'Galon' ? parseInt(document.getElementById('giliranQty').value) : 1;
+
+            if (!amount) { showToast('Masukkan nominal', 'error'); return; }
+
+            try {
+                showToast('Menyimpan...', 'info');
+                await createExpense({ 
+                    amount: amount, 
+                    description: 'Isi ' + type, 
+                    category: type, 
+                    receipt_image: giliranFilePath, 
+                    splits: [],
+                    qty: qty
+                });
+                showToast('Tersimpan!', 'success');
+                setTimeout(() => window.location.href = 'dashboard.html', 800);
+            } catch (err) { showToast('Gagal menyimpan', 'error'); }
+        }
+
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
@@ -74,6 +136,12 @@
         }
         .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.85rem; color: var(--text-muted); }
         .summary-row.total { border-top: 1px dashed var(--border-color); margin-top: 12px; padding-top: 12px; font-weight: 700; color: var(--text-color); font-size: 1rem; }
+        
+        .main-tabs { display: flex; gap: 8px; margin-bottom: 24px; background: var(--bg-secondary); padding: 4px; border-radius: var(--radius-md); }
+        .main-tab { flex: 1; text-align: center; padding: 10px; font-weight: 600; font-size: 0.9rem; color: var(--text-muted); border-radius: var(--radius-sm); cursor: pointer; transition: 0.2s; }
+        .main-tab.active { background: var(--bg-card); color: var(--primary); box-shadow: var(--shadow-sm); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: pageFadeIn 0.2s ease; }
     </style>
 </head>
 <body>
@@ -89,6 +157,13 @@
 
         <!-- STATE 0: MAIN PAGE -->
         <div id="stepMain" class="wizard-step active">
+            <div class="main-tabs">
+                <div class="main-tab active" onclick="switchMainTab('biasa')">Pengeluaran Biasa</div>
+                <div class="main-tab" onclick="switchMainTab('giliran')">Giliran</div>
+            </div>
+
+            <!-- TAB PENGELUARAN BIASA -->
+            <div id="tabBiasa" class="tab-content active">
             <div class="form-group">
                 <label class="form-label">Nama Pengeluaran</label>
                 <input type="text" class="form-control" id="description" placeholder="Contoh: Belanja Bulanan" required>
@@ -98,7 +173,6 @@
                 <label class="form-label">Kategori</label>
                 <select class="form-control" id="category" required>
                     <option value="">Pilih kategori</option>
-                    <option value="Listrik">Listrik</option>
                     <option value="Air">Air</option>
                     <option value="Keamanan & Kebersihan">Keamanan & Kebersihan</option>
                     <option value="Titip Makanan">Titip Makanan</option>
@@ -169,6 +243,43 @@
             </div>
 
             <button id="btnSubmitMain" class="btn btn-primary btn-full btn-lg" onclick="submitManual()">Simpan</button>
+            </div> <!-- End Tab Biasa -->
+
+            <!-- TAB GILIRAN -->
+            <div id="tabGiliran" class="tab-content">
+                <div class="form-group">
+                    <label class="form-label">Jenis Giliran</label>
+                    <select class="form-control" id="giliranType" onchange="toggleGiliranType()">
+                        <option value="Listrik">Listrik</option>
+                        <option value="Galon">Galon</option>
+                    </select>
+                </div>
+                
+                <div class="form-group" id="giliranQtyGroup" style="display:none;">
+                    <label class="form-label">Jumlah Galon</label>
+                    <input type="number" class="form-control" id="giliranQty" placeholder="1" min="1" value="1" inputmode="numeric">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Nominal Total (Rp)</label>
+                    <input type="number" class="form-control" id="giliranAmount" placeholder="0" min="1" inputmode="numeric">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Bukti (Opsional)</label>
+                    <div class="upload-area" id="giliranUploadArea">
+                        <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; stroke: var(--text-muted); stroke-width: 1.5; fill: none; margin-bottom: 8px;">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
+                        </svg>
+                        <div>Tap untuk upload</div>
+                        <input type="file" id="giliranReceiptInput" accept="image/*" hidden>
+                        <img id="giliranReceiptPreview" class="upload-preview hidden">
+                    </div>
+                </div>
+
+                <button class="btn btn-primary btn-full btn-lg" onclick="submitGiliran()">Simpan Giliran</button>
+            </div>
+            <!-- End Tab Giliran -->
         </div>
 
         <!-- STATE 2: AI UPLOAD (Hanya muncul jika belum upload bukti di page utama) -->

@@ -16,6 +16,7 @@ module.exports = async function handler(req, res) {
 
   // Route /api/listrik → listrik stats handler
   if ((req.url || '').includes('/listrik')) return listrikStats(req, res, user);
+  if ((req.url || '').includes('/galon')) return galonStats(req, res, user);
 
   if (req.method === 'GET')    return listExpenses(req, res, user);
   if (req.method === 'POST' && (req.query.action === 'ocr' || (req.url || '').includes('action=ocr'))) return ocrReceipt(req, res, user);
@@ -78,7 +79,7 @@ async function createExpense(req, res, user) {
     return jsonResponse(res, { error: 'amount, description, category harus diisi' }, 400);
   }
 
-  if (category !== 'Listrik' && splits.length === 0) {
+  if (category !== 'Listrik' && category !== 'Galon' && splits.length === 0) {
     return jsonResponse(res, { error: "Field 'splits' is required" }, 400);
   }
 
@@ -87,41 +88,47 @@ async function createExpense(req, res, user) {
   }
 
   const db = getDB();
+  // Ensure qty column exists
+  try { await db.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS qty INT DEFAULT 1'); } catch(e){}
+  
   const client = await db.connect();
 
   try {
     await client.query('BEGIN');
 
     // Insert expense
+    const qty = input.qty ? parseInt(input.qty) : 1;
     const expResult = await client.query(
-      'INSERT INTO expenses (paid_by, amount, description, category, receipt_image) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-      [user.user_id, parseFloat(amount), description, category, receipt_image]
+      'INSERT INTO expenses (paid_by, amount, description, category, receipt_image, qty) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
+      [user.user_id, parseFloat(amount), description, category, receipt_image, qty]
     );
     const expenseId = expResult.rows[0].id;
 
     // Insert splits & notifications
-    for (const split of splits) {
-      const splitUserId = parseInt(split.user_id);
-      const splitAmount = parseFloat(split.amount);
+    if (category !== 'Listrik' && category !== 'Galon') {
+      for (const split of splits) {
+        const splitUserId = parseInt(split.user_id);
+        const splitAmount = parseFloat(split.amount);
 
-      await client.query(
-        'INSERT INTO expense_splits (expense_id, user_id, amount) VALUES ($1, $2, $3)',
-        [expenseId, splitUserId, splitAmount]
-      );
-
-      // Notifikasi ke user lain (bukan payer)
-      if (splitUserId !== user.user_id) {
-        const amountFormatted = new Intl.NumberFormat('id-ID').format(splitAmount);
         await client.query(
-          `INSERT INTO notifications (user_id, title, message, type, related_id)
-           VALUES ($1, $2, $3, 'expense', $4)`,
-          [
-            splitUserId,
-            'Pengeluaran Baru',
-            `${user.display_name} nalangin ${category}: ${description} sebesar Rp ${amountFormatted}`,
-            expenseId,
-          ]
+          'INSERT INTO expense_splits (expense_id, user_id, amount) VALUES ($1, $2, $3)',
+          [expenseId, splitUserId, splitAmount]
         );
+
+        // Notifikasi ke user lain (bukan payer)
+        if (splitUserId !== user.user_id) {
+          const amountFormatted = new Intl.NumberFormat('id-ID').format(splitAmount);
+          await client.query(
+            `INSERT INTO notifications (user_id, title, message, type, related_id)
+             VALUES ($1, $2, $3, 'expense', $4)`,
+            [
+              splitUserId,
+              'Pengeluaran Baru',
+              `${user.display_name} nalangin ${category}: ${description} sebesar Rp ${amountFormatted}`,
+              expenseId,
+            ]
+          );
+        }
       }
     }
 
@@ -165,10 +172,32 @@ async function listrikStats(req, res, user) {
            MAX(e.created_at) as last_payment
     FROM users u
     LEFT JOIN expenses e ON e.paid_by = u.id AND e.category = 'Listrik'
+    WHERE u.role != 'admin'
     GROUP BY u.id, u.display_name
     ORDER BY payment_count ASC, last_payment ASC NULLS FIRST
   `);
   return jsonResponse(res, { stats: result.rows, next_payer: result.rows[0] || null });
+}
+
+
+// Galon rotation stats
+async function galonStats(req, res, user) {
+  const db = require('../lib/db').getDB();
+  // Ensure qty exists
+  try { await db.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS qty INT DEFAULT 1'); } catch(e){}
+  
+  const result = await db.query(`
+    SELECT u.id as user_id, u.display_name,
+           COALESCE(SUM(e.qty), 0) as payment_count,
+           COALESCE(SUM(e.amount), 0) as total_amount,
+           MAX(e.created_at) as last_payment
+    FROM users u
+    LEFT JOIN expenses e ON e.paid_by = u.id AND e.category = 'Galon'
+    WHERE u.role != 'admin'
+    GROUP BY u.id, u.display_name
+    ORDER BY payment_count ASC, last_payment ASC NULLS FIRST
+  `);
+  return require('../lib/db').jsonResponse(res, { stats: result.rows, next_payer: result.rows[0] || null });
 }
 
 // ==================== OCR Receipt (Gemini AI) ====================
