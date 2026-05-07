@@ -994,27 +994,29 @@ _Pesan otomatis dari Catatan Kontrakan_`;
                 const otherUserId = parseInt(document.getElementById('confirmFromUser').value);
                 const amount = parseFloat(document.getElementById('confirmAmount').value);
 
-                // Use FormData to include receipt file
-                const formData = new FormData();
-                formData.append('amount', amount);
-
+                // 1. Upload receipt ke Cloudinary jika ada
+                let receiptUrl = null;
                 if (receiptFile) {
-                    formData.append('receipt_image', receiptFile);
+                    btn.textContent = 'Mengupload bukti...';
+                    const uploaded = await uploadReceipt(receiptFile);
+                    receiptUrl = uploaded.url || uploaded.path || null;
                 }
 
+                // 2. Build JSON payload
+                const payload = { amount };
+                if (receiptUrl) payload.receipt_image = receiptUrl;
+
                 if (confirmMode === 'debtor') {
-                    // I (debtor) am recording that I paid someone (creditor)
-                    formData.append('to_user', otherUserId);
+                    payload.to_user = otherUserId;
                 } else {
-                    // I (creditor) am confirming that someone (debtor) paid me
-                    formData.append('from_user', otherUserId);
-                    formData.append('to_user', state.user.id);
+                    payload.from_user = otherUserId;
+                    payload.to_user = state.user.id;
                 }
 
                 const res = await fetch(`${API_BASE}/settlements`, {
                     method: 'POST',
-                    credentials: 'include',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
 
                 const data = await res.json();
