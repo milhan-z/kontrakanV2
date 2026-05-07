@@ -83,16 +83,17 @@
                 <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12" /><polyline points="12 19 5 12 12 5" /></svg>
                 Kembali
             </button>
-            <div id="headerTitle" style="font-weight:600; position:absolute; left:50%; transform:translateX(-50%);">Split Bill</div>
+            <div id="headerTitle" style="font-weight:600; position:absolute; left:50%; transform:translateX(-50%);">Catat Pengeluaran</div>
             <button class="icon-btn" onclick="toggleTheme()"><span class="theme-toggle-icon"></span></button>
         </div>
 
-        <!-- STATE 0: INIT (Pilih Metode & Info Dasar) -->
-        <div id="stepInit" class="wizard-step active">
+        <!-- STATE 0: MAIN PAGE -->
+        <div id="stepMain" class="wizard-step active">
             <div class="form-group">
                 <label class="form-label">Nama Pengeluaran</label>
                 <input type="text" class="form-control" id="description" placeholder="Contoh: Belanja Bulanan" required>
             </div>
+            
             <div class="form-group">
                 <label class="form-label">Kategori</label>
                 <select class="form-control" id="category" required>
@@ -105,38 +106,11 @@
                 </select>
             </div>
 
-            <div style="margin-top: 32px; margin-bottom: 16px; font-weight: 600; font-size: 0.9rem;">Pilih cara split bill</div>
-
-            <div class="method-card" onclick="goToStep('stepAiUpload')">
-                <div class="method-icon">
-                    <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                </div>
-                <div style="flex:1;">
-                    <div class="method-title">Hitung otomatis pake struk</div>
-                    <div class="method-desc">Foto struk biar nanti AI kami bantu itungin otomatis.</div>
-                </div>
-                <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:var(--text-muted);stroke-width:2;"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </div>
-
-            <div class="method-card" onclick="goToStep('stepManual')">
-                <div class="method-icon">
-                    <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                </div>
-                <div style="flex:1;">
-                    <div class="method-title">Atur jumlahnya sendiri</div>
-                    <div class="method-desc">Lebih cepat buat bagi rata atau masukin nominal manual.</div>
-                </div>
-                <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:var(--text-muted);stroke-width:2;"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </div>
-        </div>
-
-        <!-- STATE 1: MANUAL MODE -->
-        <div id="stepManual" class="wizard-step">
             <div class="form-group">
                 <label class="form-label">Nominal Total (Rp)</label>
                 <input type="number" class="form-control" id="manualAmount" placeholder="0" min="1" inputmode="numeric">
             </div>
-            
+
             <div class="form-group">
                 <label class="form-label">Bukti (Opsional)</label>
                 <div class="upload-area" id="manualUploadArea">
@@ -157,22 +131,47 @@
                 </div>
             </div>
 
-            <div class="form-group">
+            <!-- Opsi untuk Nominal Beda (Hidden by default) -->
+            <div id="customMethodOptions" class="hidden" style="margin-bottom: 24px;">
+                <div class="method-card" onclick="startAiFlow()">
+                    <div class="method-icon">
+                        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    </div>
+                    <div style="flex:1;">
+                        <div class="method-title">Hitung otomatis pake struk</div>
+                        <div class="method-desc">Foto struk biar nanti AI kami bantu itungin otomatis.</div>
+                    </div>
+                    <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:var(--text-muted);stroke-width:2;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </div>
+
+                <div class="method-card" onclick="showManualCustomGrid()">
+                    <div class="method-icon">
+                        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                    </div>
+                    <div style="flex:1;">
+                        <div class="method-title">Atur jumlahnya sendiri</div>
+                        <div class="method-desc">Lebih cepat buat bagi rata atau masukin nominal manual.</div>
+                    </div>
+                    <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:none;stroke:var(--text-muted);stroke-width:2;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </div>
+            </div>
+
+            <div id="userGridGroup" class="form-group">
                 <label class="form-label">Siapa yang ikut?</label>
                 <div class="user-grid" id="manualUserGrid"></div>
             </div>
 
-            <div class="section" style="margin-bottom: var(--space-lg);">
+            <div id="perPersonGroup" class="section" style="margin-bottom: var(--space-lg);">
                 <div style="display: flex; justify-content: space-between;">
                     <span class="text-muted">Per orang:</span>
                     <span style="font-weight: 600;" id="manualPerPerson">Rp 0</span>
                 </div>
             </div>
 
-            <button class="btn btn-primary btn-full btn-lg" onclick="submitManual()">Simpan</button>
+            <button id="btnSubmitMain" class="btn btn-primary btn-full btn-lg" onclick="submitManual()">Simpan</button>
         </div>
 
-        <!-- STATE 2: AI UPLOAD -->
+        <!-- STATE 2: AI UPLOAD (Hanya muncul jika belum upload bukti di page utama) -->
         <div id="stepAiUpload" class="wizard-step">
             <h2 style="font-size:1.2rem; margin-bottom:16px;">Upload Struk</h2>
             <div class="upload-area" id="aiUploadArea" style="height: 300px; display:flex; flex-direction:column; justify-content:center;">
@@ -235,7 +234,7 @@
     <script src="js/config.js"></script>
     <script src="js/app.js"></script>
     <script>
-        let currentStep = 'stepInit';
+        let currentStep = 'stepMain';
         let manualSplitMode = 'equal';
         let uploadedFilePath = null;
         
@@ -252,10 +251,13 @@
         })();
 
         function goBack() {
-            if (currentStep === 'stepInit') { window.location.href = 'dashboard.html'; return; }
-            if (currentStep === 'stepManual' || currentStep === 'stepAiUpload') goToStep('stepInit');
-            else if (currentStep === 'stepAiScanning') goToStep('stepAiUpload');
-            else if (currentStep === 'stepAiConfirm') goToStep('stepAiUpload');
+            if (currentStep === 'stepMain') { window.location.href = 'dashboard.html'; return; }
+            if (currentStep === 'stepAiUpload') goToStep('stepMain');
+            else if (currentStep === 'stepAiScanning') goToStep('stepMain');
+            else if (currentStep === 'stepAiConfirm') {
+                if (uploadedFilePath) goToStep('stepMain'); // If they came from main page with image already uploaded
+                else goToStep('stepAiUpload');
+            }
             else if (currentStep === 'stepAiMembers') goToStep('stepAiConfirm');
             else if (currentStep === 'stepAiAssign') goToStep('stepAiMembers');
         }
@@ -267,24 +269,60 @@
 
             // Update header text based on step
             const titles = {
-                'stepInit': 'Split Bill',
-                'stepManual': 'Atur Manual',
+                'stepMain': 'Catat Pengeluaran',
                 'stepAiUpload': 'Foto Struk',
                 'stepAiScanning': 'Membaca...',
                 'stepAiConfirm': 'Rincian',
                 'stepAiMembers': 'Pilih Anggota',
                 'stepAiAssign': 'Atur Pembagian'
             };
-            document.getElementById('headerTitle').textContent = titles[stepId] || 'Split Bill';
+            document.getElementById('headerTitle').textContent = titles[stepId] || 'Catat Pengeluaran';
         }
 
-        // --- MANUAL MODE LOGIC ---
+        // --- MAIN UI LOGIC ---
         function setManualSplitMode(mode) {
             manualSplitMode = mode;
             document.getElementById('btnSplitEqual').classList.toggle('active', mode === 'equal');
             document.getElementById('btnSplitCustom').classList.toggle('active', mode === 'custom');
-            document.querySelectorAll('#manualUserGrid .user-amount').forEach(el => el.classList.toggle('hidden', mode === 'equal'));
+            
+            if (mode === 'custom') {
+                // Sembunyikan Grid, Munculkan 2 Opsi
+                document.getElementById('userGridGroup').classList.add('hidden');
+                document.getElementById('perPersonGroup').classList.add('hidden');
+                document.getElementById('btnSubmitMain').classList.add('hidden');
+                document.getElementById('customMethodOptions').classList.remove('hidden');
+            } else {
+                // Kembali ke Bagi Rata
+                document.getElementById('customMethodOptions').classList.add('hidden');
+                document.getElementById('userGridGroup').classList.remove('hidden');
+                document.getElementById('perPersonGroup').classList.remove('hidden');
+                document.getElementById('btnSubmitMain').classList.remove('hidden');
+                
+                // Hide inputs amount di userGrid
+                document.querySelectorAll('#manualUserGrid .user-amount').forEach(el => el.classList.add('hidden'));
+                updateManualSplit();
+            }
+        }
+
+        function showManualCustomGrid() {
+            document.getElementById('customMethodOptions').classList.add('hidden');
+            document.getElementById('userGridGroup').classList.remove('hidden');
+            document.getElementById('perPersonGroup').classList.remove('hidden');
+            document.getElementById('btnSubmitMain').classList.remove('hidden');
+            
+            // Tampilkan inputs amount di userGrid
+            document.querySelectorAll('#manualUserGrid .user-amount').forEach(el => el.classList.remove('hidden'));
             updateManualSplit();
+        }
+
+        function startAiFlow() {
+            if (uploadedFilePath) {
+                // Langsung scan kalau udah upload di halaman depan
+                startAiScan();
+            } else {
+                // Minta foto dulu
+                goToStep('stepAiUpload');
+            }
         }
 
         function renderManualUserGrid() {
@@ -295,7 +333,7 @@
                     <label class="user-checkbox ${isMe ? 'selected' : ''}" data-user-id="${u.id}">
                         <input type="checkbox" value="${u.id}" ${isMe ? 'checked' : ''}>
                         <span class="user-name">${u.display_name}${isMe ? ' (kamu)' : ''}</span>
-                        <div class="user-amount ${manualSplitMode === 'custom' ? '' : 'hidden'}">
+                        <div class="user-amount hidden">
                             <input type="number" placeholder="0" min="0" inputmode="numeric" onchange="updateManualSplit()" onclick="event.stopPropagation()">
                         </div>
                     </label>
@@ -335,7 +373,7 @@
             else el.textContent = formatCurrencyPlain(selected.reduce((s, u) => s + u.amount, 0));
         }
 
-        // Manual upload logic
+        // Manual upload logic (Page Depan)
         document.getElementById('manualUploadArea').addEventListener('click', () => document.getElementById('manualReceiptInput').click());
         document.getElementById('manualReceiptInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -350,7 +388,7 @@
             try {
                 const res = await uploadReceipt(file);
                 uploadedFilePath = res.path;
-                showToast('Struk terupload', 'success');
+                showToast('Bukti terupload', 'success');
             } catch { showToast('Gagal upload', 'error'); }
         });
 
@@ -358,11 +396,11 @@
             const desc = document.getElementById('description').value.trim();
             const cat = document.getElementById('category').value;
             const total = parseFloat(document.getElementById('manualAmount').value);
-            if (!desc || !cat) { showToast('Isi deskripsi & kategori dulu di halaman pertama', 'error'); goToStep('stepInit'); return; }
+            if (!desc || !cat) { showToast('Isi nama & kategori pengeluaran', 'error'); return; }
             if (!total) { showToast('Masukkan nominal', 'error'); return; }
 
             const selected = getManualSelected();
-            if (selected.length === 0) { showToast('Pilih orang', 'error'); return; }
+            if (selected.length === 0) { showToast('Pilih anggota', 'error'); return; }
 
             let splits;
             if (manualSplitMode === 'equal') {
@@ -371,11 +409,17 @@
             } else splits = selected;
 
             try {
-                showToast('Menyimpan...', 'info');
+                const btn = document.getElementById('btnSubmitMain');
+                btn.disabled = true;
+                btn.textContent = 'Menyimpan...';
                 await createExpense({ amount: total, description: desc, category: cat, receipt_image: uploadedFilePath, splits });
                 showToast('Tersimpan!', 'success');
                 setTimeout(() => window.location.href = 'dashboard.html', 800);
-            } catch (err) { showToast('Gagal menyimpan', 'error'); }
+            } catch (err) { 
+                showToast('Gagal menyimpan', 'error'); 
+                document.getElementById('btnSubmitMain').disabled = false;
+                document.getElementById('btnSubmitMain').textContent = 'Simpan';
+            }
         }
 
 
@@ -413,11 +457,11 @@
                     goToStep('stepAiConfirm');
                 } else {
                     showToast('Struk tidak terbaca', 'error');
-                    goToStep('stepAiUpload');
+                    goToStep('stepMain');
                 }
             } catch (err) {
                 showToast('Gagal memproses struk dengan AI', 'error');
-                goToStep('stepAiUpload');
+                goToStep('stepMain');
             }
         }
 
@@ -531,7 +575,7 @@
             renderAiAssign();
         }
 
-        let finalAiSplits = []; // format: {user_id, amount}
+        let finalAiSplits = [];
         let finalAiGrandTotal = 0;
 
         function calcAiTotals() {
@@ -591,7 +635,7 @@
         async function submitAi() {
             const desc = document.getElementById('description').value.trim();
             const cat = document.getElementById('category').value;
-            if (!desc || !cat) { showToast('Isi deskripsi & kategori dulu di halaman pertama', 'error'); goToStep('stepInit'); return; }
+            if (!desc || !cat) { showToast('Isi nama & kategori pengeluaran', 'error'); goToStep('stepMain'); return; }
 
             const btn = document.getElementById('btnSubmitAi');
             btn.disabled = true;
