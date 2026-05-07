@@ -329,13 +329,11 @@
             if (!name || !account) { showToast('Isi nama bank dan no rekening', 'error'); return; }
 
             try {
-                const formData = new FormData();
-                formData.append('action', 'add');
-                formData.append('type', 'bank');
-                formData.append('name', name);
-                formData.append('account', account);
-
-                await fetch(`${API_BASE}/payment_info`, { method: 'POST', credentials: 'include', body: formData });
+                await fetch(`${API_BASE}/payment_info`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'add', type: 'bank', name, account })
+                });
                 showToast('Bank ditambahkan', 'success');
                 hideAddBankForm();
                 await loadPaymentMethods();
@@ -345,11 +343,11 @@
         async function removeBank(index) {
             if (!confirm('Hapus rekening ini?')) return;
             try {
-                const formData = new FormData();
-                formData.append('action', 'remove');
-                formData.append('type', 'bank');
-                formData.append('index', index);
-                await fetch(`${API_BASE}/payment_info`, { method: 'POST', credentials: 'include', body: formData });
+                await fetch(`${API_BASE}/payment_info`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'remove', type: 'bank', index })
+                });
                 showToast('Dihapus', 'success');
                 await loadPaymentMethods();
             } catch { showToast('Gagal', 'error'); }
@@ -365,13 +363,11 @@
             if (!type || !number) { showToast('Isi jenis dan nomor e-wallet', 'error'); return; }
 
             try {
-                const formData = new FormData();
-                formData.append('action', 'add');
-                formData.append('type', 'ewallet');
-                formData.append('ewallet_type', type);
-                formData.append('number', number);
-
-                await fetch(`${API_BASE}/payment_info`, { method: 'POST', credentials: 'include', body: formData });
+                await fetch(`${API_BASE}/payment_info`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'add', type: 'ewallet', ewallet_type: type, number })
+                });
                 showToast('E-Wallet ditambahkan', 'success');
                 hideAddEwalletForm();
                 await loadPaymentMethods();
@@ -381,11 +377,11 @@
         async function removeEwallet(index) {
             if (!confirm('Hapus e-wallet ini?')) return;
             try {
-                const formData = new FormData();
-                formData.append('action', 'remove');
-                formData.append('type', 'ewallet');
-                formData.append('index', index);
-                await fetch(`${API_BASE}/payment_info`, { method: 'POST', credentials: 'include', body: formData });
+                await fetch(`${API_BASE}/payment_info`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'remove', type: 'ewallet', index })
+                });
                 showToast('Dihapus', 'success');
                 await loadPaymentMethods();
             } catch { showToast('Gagal', 'error'); }
@@ -397,12 +393,15 @@
             if (!file) return;
 
             try {
-                const formData = new FormData();
-                formData.append('action', 'add');
-                formData.append('type', 'qris');
-                formData.append('qris_image', file);
-
-                await fetch(`${API_BASE}/payment_info`, { method: 'POST', credentials: 'include', body: formData });
+                showToast('Mengupload QRIS...', 'success');
+                const uploaded = await uploadReceipt(file);
+                const qrisUrl = uploaded.url || uploaded.path || null;
+                if (!qrisUrl) throw new Error('Upload gagal');
+                await fetch(`${API_BASE}/payment_info`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'add', type: 'qris', qris_url: qrisUrl })
+                });
                 showToast('QRIS ditambahkan', 'success');
                 input.value = '';
                 await loadPaymentMethods();
@@ -412,11 +411,11 @@
         async function removeQris(index) {
             if (!confirm('Hapus QRIS ini?')) return;
             try {
-                const formData = new FormData();
-                formData.append('action', 'remove');
-                formData.append('type', 'qris');
-                formData.append('index', index);
-                await fetch(`${API_BASE}/payment_info`, { method: 'POST', credentials: 'include', body: formData });
+                await fetch(`${API_BASE}/payment_info`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'remove', type: 'qris', index })
+                });
                 showToast('Dihapus', 'success');
                 await loadPaymentMethods();
             } catch { showToast('Gagal', 'error'); }
