@@ -187,7 +187,7 @@ async function ocrReceipt(req, res, user) {
     const base64Data = Buffer.from(arrayBuffer).toString('base64');
     const mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
 
-    const promptText = "Kamu adalah asisten split bill. Ekstrak daftar barang/makanan dan harganya dari gambar struk ini. Abaikan subtotal, pajak, diskon umum, service charge, dan total keseluruhan. HANYA ambil item baris yang dibeli. Format output WAJIB berupa JSON array of objects dengan property 'item' (string nama barang) dan 'price' (number harga barang asli tanpa titik/koma desimal ribu). JANGAN sertakan markdown atau teks apapun, murni JSON saja.";
+    const promptText = "Kamu adalah asisten OCR struk belanja (seperti GoPay Split Bill). Ekstrak data struk dengan format JSON object murni. Property yang wajib ada: 1. 'items': array of objects, tiap object punya 'name' (string nama barang), 'qty' (number jumlah barang), dan 'price' (number total harga item tsb). 2. 'subtotal': number (jumlah harga semua barang sebelum pajak/diskon). 3. 'tax': number (pajak/PPN). 4. 'service': number (biaya layanan). 5. 'discount': number (total SEMUA diskon/potongan/hemat, HARUS bernilai negatif). 6. 'grand_total': number (total akhir yang ditagihkan/dibayarkan). JANGAN sertakan markdown atau teks apapun, murni JSON saja.";
 
     const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method: 'POST',
@@ -217,16 +217,32 @@ async function ocrReceipt(req, res, user) {
       return jsonResponse(res, { error: 'Gagal memproses struk dengan AI: ' + JSON.stringify(geminiData) }, 500);
     }
 
-    const textRes = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
-    let items = [];
+    const textRes = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    let resultObj = { items: [], subtotal: 0, tax: 0, service: 0, discount: 0, grand_total: 0 };
     try {
-      items = JSON.parse(textRes);
+      const parsed = JSON.parse(textRes);
+      if (Array.isArray(parsed)) {
+        resultObj.items = parsed;
+        resultObj.grand_total = parsed.reduce((s, i) => s + (i.price || 0), 0);
+        resultObj.subtotal = resultObj.grand_total;
+      } else {
+        resultObj = { ...resultObj, ...parsed };
+      }
+      
+      // Ensure all numbers are safe
+      resultObj.subtotal = Number(resultObj.subtotal) || 0;
+      resultObj.tax = Number(resultObj.tax) || 0;
+      resultObj.service = Number(resultObj.service) || 0;
+      resultObj.discount = Number(resultObj.discount) || 0;
+      if (resultObj.discount > 0) resultObj.discount = -resultObj.discount; // pastikan negatif
+      resultObj.grand_total = Number(resultObj.grand_total) || 0;
+      
     } catch (e) {
       console.error('Parse JSON failed:', textRes);
       return jsonResponse(res, { error: 'Format AI tidak valid' }, 500);
     }
 
-    return jsonResponse(res, { items });
+    return jsonResponse(res, resultObj);
   } catch (err) {
     console.error('OCR Error:', err);
     return jsonResponse(res, { error: 'Terjadi kesalahan OCR: ' + err.message }, 500);

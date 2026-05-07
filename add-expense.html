@@ -241,6 +241,7 @@
         // AI State
         let aiItems = [];
         let aiGrandTotal = 0;
+        let aiDetails = { subtotal: 0, tax: 0, service: 0, discount: 0, lainnya: 0 };
         let aiSelectedMemberIds = [];
 
         (async () => {
@@ -451,8 +452,20 @@
                 const res = await apiPost('expenses?action=ocr', { url: absoluteUrl });
                 
                 if (res && res.items && res.items.length > 0) {
-                    aiItems = res.items.map(i => ({ ...i, assignedTo: [] }));
-                    aiGrandTotal = res.grand_total || aiItems.reduce((s,i) => s + i.price, 0);
+                    aiItems = res.items.map(i => ({ ...i, item: i.name || i.item, qty: i.qty || 1, assignedTo: [] }));
+                    
+                    const sumItems = aiItems.reduce((s,i) => s + i.price, 0);
+                    aiDetails.subtotal = res.subtotal || sumItems;
+                    aiDetails.tax = res.tax || 0;
+                    aiDetails.service = res.service || 0;
+                    aiDetails.discount = res.discount || 0;
+                    
+                    aiGrandTotal = res.grand_total || sumItems;
+                    
+                    // Hitung 'Lainnya' sbg penyeimbang (selisih)
+                    const calculatedTotal = aiDetails.subtotal + aiDetails.tax + aiDetails.service + aiDetails.discount;
+                    aiDetails.lainnya = aiGrandTotal - calculatedTotal;
+
                     renderAiConfirm();
                     goToStep('stepAiConfirm');
                 } else {
@@ -466,36 +479,63 @@
         }
 
         function renderAiConfirm() {
-            const sumItems = aiItems.reduce((s,i)=>s+i.price, 0);
-            const selisih = aiGrandTotal - sumItems;
-            
             let html = aiItems.map(i => `
-                <div class="summary-row">
-                    <span>${i.item}</span>
-                    <span>${i.price.toLocaleString('id-ID')}</span>
+                <div class="summary-row" style="margin-bottom: 12px; align-items: flex-start;">
+                    <div style="flex:1; padding-right:12px; font-weight:600; line-height:1.4;">${i.item.toUpperCase()}</div>
+                    <div style="width: 30px; color: var(--text-muted); font-size: 0.8rem; text-align: center;">x${i.qty}</div>
+                    <div style="width: 70px; text-align: right; font-weight: 600;">${i.price.toLocaleString('id-ID')}</div>
                 </div>
             `).join('');
 
+            html += '<div style="height: 1px; background: var(--border-color); margin: 16px 0;"></div>';
+
             html += `
-                <div class="summary-row total" style="border-top: 1px solid var(--border-color); margin-top:12px; padding-top:12px;">
-                    <span style="font-weight:400;">Subtotal</span>
-                    <span style="font-weight:400;">${sumItems.toLocaleString('id-ID')}</span>
+                <div class="summary-row">
+                    <span style="color: var(--text-muted);">Subtotal</span>
+                    <span style="font-weight: 500;">${aiDetails.subtotal.toLocaleString('id-ID')}</span>
                 </div>
             `;
 
-            if (selisih !== 0) {
+            if (aiDetails.tax !== 0) {
                 html += `
                 <div class="summary-row">
-                    <span style="color: ${selisih < 0 ? 'var(--red)' : 'var(--text-color)'}">Pajak / Diskon</span>
-                    <span style="color: ${selisih < 0 ? 'var(--red)' : 'var(--text-color)'}">${selisih > 0 ? '+' : ''}${selisih.toLocaleString('id-ID')}</span>
+                    <span style="color: var(--text-muted);">Pajak</span>
+                    <span style="font-weight: 500;">${aiDetails.tax.toLocaleString('id-ID')}</span>
+                </div>
+                `;
+            }
+
+            if (aiDetails.service !== 0) {
+                html += `
+                <div class="summary-row">
+                    <span style="color: var(--text-muted);">Servis</span>
+                    <span style="font-weight: 500;">${aiDetails.service.toLocaleString('id-ID')}</span>
+                </div>
+                `;
+            }
+
+            if (aiDetails.discount !== 0) {
+                html += `
+                <div class="summary-row">
+                    <span style="color: var(--text-muted);">Diskon</span>
+                    <span style="font-weight: 500; color: var(--red);">${aiDetails.discount.toLocaleString('id-ID')}</span>
+                </div>
+                `;
+            }
+
+            if (aiDetails.lainnya !== 0) {
+                html += `
+                <div class="summary-row" style="background: rgba(var(--primary-rgb), 0.1); padding: 8px; border-radius: var(--radius-sm); margin: 8px -8px;">
+                    <span style="color: var(--primary); font-weight: 600;">Lainnya <i style="font-size: 0.7rem; font-weight: normal;">(Koreksi/Pembulatan)</i></span>
+                    <span style="font-weight: 600; color: var(--primary);">${aiDetails.lainnya > 0 ? '+' : ''}${aiDetails.lainnya.toLocaleString('id-ID')}</span>
                 </div>
                 `;
             }
 
             html += `
-                <div class="summary-row total" style="color: var(--primary);">
-                    <span>Jumlah Total</span>
-                    <span>Rp ${aiGrandTotal.toLocaleString('id-ID')}</span>
+                <div class="summary-row total" style="color: var(--text-color); font-size: 1.1rem; border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 8px;">
+                    <span>Jumlah total</span>
+                    <span>${aiGrandTotal.toLocaleString('id-ID')}</span>
                 </div>
             `;
             document.getElementById('aiConfirmList').innerHTML = html;
@@ -541,7 +581,8 @@
             document.getElementById('aiAssignList').innerHTML = aiItems.map((item, index) => `
                 <div class="ai-item-card">
                     <div style="display:flex; justify-content:space-between; margin-bottom:12px; align-items:flex-start;">
-                        <div style="font-weight:600; line-height:1.3; padding-right:12px;">${item.item}</div>
+                        <div style="font-weight:600; line-height:1.3; padding-right:12px; flex:1;">${item.item.toUpperCase()}</div>
+                        <div style="color: var(--text-muted); font-size: 0.8rem; padding: 0 12px;">x${item.qty || 1}</div>
                         <div style="font-weight:700; white-space:nowrap;">Rp ${item.price.toLocaleString('id-ID')}</div>
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border-color);">
