@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#fafafa">
+    <title>Catat Pengeluaran - Catatan Kontrakan</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/icon-512.png">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="page-header">
+            <a href="dashboard.html" class="back-btn">
+                <svg viewBox="0 0 24 24">
+                    <line x1="19" y1="12" x2="5" y2="12" />
+                    <polyline points="12 19 5 12 12 5" />
+                </svg>
+                Kembali
+            </a>
+            <button class="icon-btn" onclick="toggleTheme()"><span class="theme-toggle-icon"></span></button>
+        </div>
+
+        <h1 style="margin-bottom: var(--space-xl);">Catat Pengeluaran</h1>
+
+        <form id="expenseForm">
+            <div class="form-group">
+                <label class="form-label">Nominal (Rp)</label>
+                <input type="number" class="form-control" id="amount" placeholder="0" required min="1"
+                    inputmode="numeric">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Deskripsi</label>
+                <input type="text" class="form-control" id="description" placeholder="Contoh: Listrik Desember"
+                    required>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Kategori</label>
+                <select class="form-control" id="category" required>
+                    <option value="">Pilih kategori</option>
+                    <option value="Listrik">Listrik</option>
+                    <option value="Air">Air</option>
+                    <option value="Keamanan & Kebersihan">Keamanan & Kebersihan</option>
+                    <option value="Titip Makanan">Titip Makanan</option>
+                    <option value="Lainnya">Lainnya</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Bukti (Opsional)</label>
+                <div class="upload-area" id="uploadArea">
+                    <svg viewBox="0 0 24 24"
+                        style="width: 24px; height: 24px; stroke: var(--text-muted); stroke-width: 1.5; fill: none; margin-bottom: 8px;">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                        <circle cx="12" cy="13" r="4" />
+                    </svg>
+                    <div>Tap untuk upload</div>
+                    <input type="file" id="receiptInput" accept="image/*" hidden>
+                    <img id="receiptPreview" class="upload-preview hidden">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Pembagian</label>
+                <div class="split-toggle">
+                    <button type="button" id="btnSplitEqual" class="active">Bagi Rata</button>
+                    <button type="button" id="btnSplitCustom">Nominal Beda</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Siapa yang ikut?</label>
+                <div class="user-grid" id="userGrid"></div>
+            </div>
+
+            <div class="section" style="margin-bottom: var(--space-lg);">
+                <div style="display: flex; justify-content: space-between;">
+                    <span class="text-muted">Per orang:</span>
+                    <span style="font-weight: 600;" id="perPersonAmount">Rp 0</span>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full btn-lg" id="submitBtn">Simpan</button>
+        </form>
+    </div>
+
+    <script src="js/icons.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let uploadedFilePath = null;
+        let splitMode = 'equal';
+
+        (async () => {
+            if (!await checkAuth()) { window.location.href = 'login.html'; return; }
+            await loadUsers();
+            renderUserGrid();
+        })();
+
+        function renderUserGrid() {
+            const container = document.getElementById('userGrid');
+            container.innerHTML = state.users.map(u => {
+                const isMe = u.id == state.user.id;
+                return `
+                    <label class="user-checkbox ${isMe ? 'selected' : ''}" data-user-id="${u.id}">
+                        <input type="checkbox" value="${u.id}" ${isMe ? 'checked' : ''}>
+                        <span class="user-name">${u.display_name}${isMe ? ' (kamu)' : ''}</span>
+                        <div class="user-amount ${splitMode === 'custom' ? '' : 'hidden'}">
+                            <input type="number" placeholder="0" min="0" inputmode="numeric" onchange="updateSplit()" onclick="event.stopPropagation()">
+                        </div>
+                    </label>
+                `;
+            }).join('');
+
+            container.querySelectorAll('.user-checkbox').forEach(cb => {
+                cb.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'INPUT' && e.target.type === 'number') return;
+                    const input = cb.querySelector('input[type="checkbox"]');
+                    input.checked = !input.checked;
+                    cb.classList.toggle('selected', input.checked);
+                    updateSplit();
+                });
+            });
+        }
+
+        document.getElementById('btnSplitEqual').addEventListener('click', () => {
+            splitMode = 'equal';
+            document.getElementById('btnSplitEqual').classList.add('active');
+            document.getElementById('btnSplitCustom').classList.remove('active');
+            document.querySelectorAll('.user-amount').forEach(el => el.classList.add('hidden'));
+            updateSplit();
+        });
+
+        document.getElementById('btnSplitCustom').addEventListener('click', () => {
+            splitMode = 'custom';
+            document.getElementById('btnSplitCustom').classList.add('active');
+            document.getElementById('btnSplitEqual').classList.remove('active');
+            document.querySelectorAll('.user-amount').forEach(el => el.classList.remove('hidden'));
+            updateSplit();
+        });
+
+        function getSelected() {
+            const users = [];
+            document.querySelectorAll('.user-checkbox').forEach(cb => {
+                const input = cb.querySelector('input[type="checkbox"]');
+                if (input.checked) {
+                    const amt = splitMode === 'custom' ? (parseFloat(cb.querySelector('.user-amount input').value) || 0) : 0;
+                    users.push({ user_id: parseInt(cb.dataset.userId), amount: amt });
+                }
+            });
+            return users;
+        }
+
+        function updateSplit() {
+            const total = parseFloat(document.getElementById('amount').value) || 0;
+            const selected = getSelected();
+            const el = document.getElementById('perPersonAmount');
+
+            if (selected.length === 0) { el.textContent = 'Rp 0'; return; }
+
+            if (splitMode === 'equal') {
+                el.textContent = formatCurrencyPlain(Math.ceil(total / selected.length));
+            } else {
+                el.textContent = formatCurrencyPlain(selected.reduce((s, u) => s + u.amount, 0));
+            }
+        }
+
+        document.getElementById('amount').addEventListener('input', updateSplit);
+
+        const uploadArea = document.getElementById('uploadArea');
+        const receiptInput = document.getElementById('receiptInput');
+        const receiptPreview = document.getElementById('receiptPreview');
+
+        uploadArea.addEventListener('click', () => receiptInput.click());
+
+        receiptInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                receiptPreview.src = e.target.result;
+                receiptPreview.classList.remove('hidden');
+                uploadArea.classList.add('has-file');
+            };
+            reader.readAsDataURL(file);
+
+            try {
+                const result = await uploadReceipt(file);
+                uploadedFilePath = result.path;
+                showToast('Uploaded', 'success');
+            } catch (err) { showToast('Gagal upload', 'error'); }
+        });
+
+        document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const total = parseFloat(document.getElementById('amount').value);
+            const desc = document.getElementById('description').value.trim();
+            const cat = document.getElementById('category').value;
+            const selected = getSelected();
+
+            if (selected.length === 0) { showToast('Pilih orang', 'error'); return; }
+
+            let splits;
+            if (splitMode === 'equal') {
+                const perPerson = Math.ceil(total / selected.length);
+                splits = selected.map(u => ({ user_id: u.user_id, amount: perPerson }));
+            } else {
+                splits = selected.map(u => ({ user_id: u.user_id, amount: u.amount }));
+            }
+
+            const btn = document.getElementById('submitBtn');
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
+
+            try {
+                await createExpense({ amount: total, description: desc, category: cat, receipt_image: uploadedFilePath, splits });
+                showToast('Tersimpan!', 'success');
+                setTimeout(() => window.location.href = 'dashboard.html', 800);
+            } catch (err) {
+                showToast('Gagal', 'error');
+                btn.disabled = false;
+                btn.textContent = 'Simpan';
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#0f0f0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Kontrakan">
+    <title>Catatan Kontrakan</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-512.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="apple-touch-icon-precomposed" href="apple-touch-icon.png">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="home-header">
+            <div class="greeting">
+                <h1>Halo, <span id="userName">-</span>!</h1>
+                <div class="subtitle">Kontrakan</div>
+            </div>
+            <div class="header-icon" onclick="toggleTheme()">
+                <svg viewBox="0 0 24 24" class="theme-toggle-icon"></svg>
+            </div>
+        </div>
+
+        <!-- Balance Cards -->
+        <div class="balance-cards">
+            <div class="balance-card hutang" onclick="openDebtModal('hutang')">
+                <div class="label">Catatan Hutang</div>
+                <div class="amount" id="hutangAmount">Rp. 0</div>
+                <div class="desc">Total hutang kamu ke teman-teman</div>
+                <button class="card-btn">Bayar</button>
+            </div>
+            <div class="balance-card piutang" onclick="openDebtModal('piutang')">
+                <div class="label">Catatan Piutang</div>
+                <div class="amount" id="piutangAmount">Rp. 0</div>
+                <div class="desc">Total hutang teman-teman ke kamu</div>
+                <button class="card-btn">Tagih !</button>
+            </div>
+        </div>
+
+
+        <!-- Info Section -->
+        <div class="section">
+            <div class="section-header">
+                <span class="icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                </span>
+                <span class="section-title">Info Terbaru Kontrakan</span>
+                <a href="#" class="section-link" onclick="openAddInfoModal(); return false;">Tambah Info</a>
+            </div>
+            <div id="infoList">
+                <div class="empty-state">
+                    <div class="spinner" style="margin: 0 auto;"></div>
+                </div>
+            </div>
+            <div class="section-footer">
+                <a href="info.html" class="btn-pill">Semua Info</a>
+            </div>
+        </div>
+
+        <!-- Transactions Section -->
+        <div class="section">
+            <div class="section-header">
+                <span class="icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                    </svg>
+                </span>
+                <span class="section-title">Riwayat Transaksi</span>
+            </div>
+            <div id="transactionList">
+                <div class="empty-state">
+                    <div class="spinner" style="margin: 0 auto;"></div>
+                </div>
+            </div>
+            <div class="section-footer">
+                <a href="history.html" class="btn-pill">Lihat Semua</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- FAB -->
+    <button class="fab" onclick="openAddModal()">
+        <svg viewBox="0 0 24 24">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+    </button>
+
+    <!-- Add Type Modal -->
+    <div class="modal-overlay" id="addTypeModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Tambah Transaksi</h3>
+            <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
+                <a href="add-expense.html" class="btn btn-primary btn-lg btn-full" style="text-decoration: none;">
+                    <svg viewBox="0 0 24 24"
+                        style="width: 20px; height: 20px; stroke: currentColor; stroke-width: 2; fill: none; margin-right: 8px;">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    Pengeluaran Biasa
+                </a>
+                <button class="btn btn-lg btn-full" onclick="closeModal('addTypeModal'); openAddListrikModal();"
+                    style="background: linear-gradient(145deg, #fff3cd, #ffeeba); border: none; color: #856404;">
+                    <svg viewBox="0 0 24 24"
+                        style="width: 20px; height: 20px; stroke: #856404; stroke-width: 2; fill: none; margin-right: 8px;">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                    </svg>
+                    Listrik (Giliran)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Listrik Modal -->
+    <div class="modal-overlay" id="addListrikModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">⚡ Bayar Listrik</h3>
+            <form id="addListrikForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label class="form-label">Nominal (Rp)</label>
+                    <input type="number" class="form-control" id="listrikAmount" value="100000" required min="1"
+                        inputmode="numeric" pattern="[0-9]*">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Bukti Token</label>
+                    <div class="upload-area" id="listrikUploadArea">
+                        <svg viewBox="0 0 24 24"
+                            style="width: 32px; height: 32px; stroke: var(--text-muted); stroke-width: 1.5; fill: none;">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                        </svg>
+                        <div style="margin-top: 8px;">Tap untuk upload</div>
+                        <input type="file" id="listrikImageInput" accept="image/*" hidden>
+                        <img id="listrikImagePreview" class="upload-preview hidden">
+                    </div>
+                </div>
+                <div style="display: flex; gap: var(--space-sm);">
+                    <button type="button" class="btn btn-full" onclick="closeModal('addListrikModal')">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-full" id="submitListrikBtn">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transaction Detail Modal -->
+    <div class="modal-overlay" id="transactionDetailModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <div id="transactionDetailContent"></div>
+        </div>
+    </div>
+
+    <!-- Debt Detail Modal -->
+    <div class="modal-overlay" id="debtModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title" id="debtModalTitle">Detail</h3>
+            <div id="debtModalContent"></div>
+        </div>
+    </div>
+
+    <!-- Info Detail Modal -->
+    <div class="modal-overlay" id="infoDetailModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <div id="infoDetailContent"></div>
+        </div>
+    </div>
+
+    <!-- Add Info Modal -->
+    <div class="modal-overlay" id="addInfoModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Tambah Info</h3>
+            <form id="addInfoForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label class="form-label">Judul</label>
+                    <input type="text" class="form-control" id="infoTitle" placeholder="Judul info..." required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Deskripsi</label>
+                    <textarea class="form-control" id="infoContent" rows="3" placeholder="Detail..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Gambar (Opsional)</label>
+                    <div class="upload-area" id="uploadArea">
+                        <svg viewBox="0 0 24 24"
+                            style="width: 24px; height: 24px; stroke: var(--text-muted); stroke-width: 1.5; fill: none;">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                        </svg>
+                        <div style="margin-top: 8px;">Tap untuk upload</div>
+                        <input type="file" id="infoImageInput" accept="image/*" hidden>
+                        <img id="infoImagePreview" class="upload-preview hidden">
+                    </div>
+                </div>
+                <div style="display: flex; gap: var(--space-sm);">
+                    <button type="button" class="btn btn-full" onclick="closeModal('addInfoModal')">Batal</button>
+                    <button type="submit" class="btn btn-primary btn-full">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Settle Modal -->
+    <div class="modal-overlay" id="settleModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Catat Pembayaran</h3>
+            <form id="settleForm">
+                <input type="hidden" id="settleToUser">
+                <p style="margin-bottom: var(--space-md);">Bayar ke: <strong id="settleToName">-</strong></p>
+                <div class="form-group">
+                    <label class="form-label">Jumlah (Rp)</label>
+                    <input type="number" class="form-control" id="settleAmount" required min="1" inputmode="numeric"
+                        pattern="[0-9]*">
+                </div>
+                <div style="display: flex; gap: var(--space-sm);">
+                    <button type="button" class="btn btn-full" onclick="closeModal('settleModal')">Batal</button>
+                    <button type="submit" class="btn btn-success btn-full">Sudah TF</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="dashboard.html" class="nav-item active">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                </svg></span>
+            <span>Home</span>
+        </a>
+        <a href="history.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M12 8v4l3 3" />
+                    <circle cx="12" cy="12" r="10" />
+                </svg></span>
+            <span>Riwayat</span>
+        </a>
+        <a href="settle.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                    <line x1="1" y1="10" x2="23" y2="10" />
+                </svg></span>
+            <span>Bayar</span>
+        </a>
+        <a href="notifications.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg></span>
+            <span>Notif</span>
+            <span class="nav-badge hidden">0</span>
+        </a>
+        <a href="profile.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg></span>
+            <span>Profil</span>
+        </a>
+    </nav>
+
+    <script src="js/icons.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let balanceData = null;
+        let expensesData = null;
+
+        function formatDateShort(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        }
+
+        function formatDateFull(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        (async () => {
+            if (!await checkAuth()) { window.location.href = 'login.html'; return; }
+
+            document.getElementById('userName').textContent = state.user.display_name;
+            await Promise.all([loadUsers(), loadNotifications()]);
+
+            // Balance
+            try {
+                balanceData = await loadBalance();
+
+                // Calculate hutang/piutang from settlement suggestions (direct debts)
+                const suggestions = balanceData.settlement_suggestions || [];
+                let myHutang = 0; // What I owe to others
+                let myPiutang = 0; // What others owe to me
+
+                suggestions.forEach(s => {
+                    if (s.from_user_id == state.user.id) {
+                        myHutang += s.amount; // I owe this person
+                    }
+                    if (s.to_user_id == state.user.id) {
+                        myPiutang += s.amount; // This person owes me
+                    }
+                });
+
+                document.getElementById('hutangAmount').textContent = 'Rp. ' + myHutang.toLocaleString('id-ID');
+                document.getElementById('piutangAmount').textContent = 'Rp. ' + myPiutang.toLocaleString('id-ID');
+            } catch (err) { console.error(err); }
+
+
+            // Info
+            try {
+                const res = await fetch(`${API_BASE}/info.php?limit=2`, { credentials: 'include' });
+                const data = await res.json();
+                const infoList = document.getElementById('infoList');
+
+                if (!data.info || data.info.length === 0) {
+                    infoList.innerHTML = '<div class="empty-state">Belum ada info</div>';
+                } else {
+                    infoList.innerHTML = data.info.map(i => `
+                        <div class="info-item" onclick="showInfoDetail(${JSON.stringify(i).replace(/"/g, '&quot;')})">
+                            <div class="info-bullet"></div>
+                            <div class="info-content">
+                                <div class="info-header">
+                                    <div class="info-title">${i.author_name} - ${i.title}</div>
+                                    <div class="info-date">${formatDateShort(i.created_at)}</div>
+                                </div>
+                                <div class="info-desc">${i.content || ''}</div>
+                            </div>
+                            ${i.image_path ? `<img src="${imageUrl(i.image_path)}" class="info-image" alt="">` : ''}
+                        </div>
+                    `).join('');
+                }
+            } catch {
+                document.getElementById('infoList').innerHTML = '<div class="empty-state">Belum ada info</div>';
+            }
+
+            // Transactions
+            try {
+                expensesData = await loadExpenses();
+                const expenses = expensesData.expenses || [];
+                const listEl = document.getElementById('transactionList');
+
+                if (expenses.length === 0) {
+                    listEl.innerHTML = '<div class="empty-state">Belum ada transaksi</div>';
+                } else {
+                    listEl.innerHTML = expenses.slice(0, 5).map(e => {
+                        const isPayer = e.paid_by == state.user.id;
+                        const isSplit = e.splits.some(s => s.user_id == state.user.id);
+                        let tagClass = '', tagText = e.category;
+
+                        // For Listrik, show as just "Listrik" without hutang/piutang
+                        if (e.category === 'Listrik') {
+                            tagClass = '';
+                            tagText = 'Listrik';
+                        } else if (isPayer) {
+                            tagClass = 'piutang';
+                            tagText = 'Piutang';
+                        } else if (isSplit) {
+                            tagClass = 'hutang';
+                            tagText = 'Hutang';
+                        }
+
+                        return `
+                            <div class="transaction-item" onclick="showTransactionDetail(${JSON.stringify(e).replace(/"/g, '&quot;')})" style="cursor: pointer;">
+                                <div class="transaction-info">
+                                    <div class="transaction-title">${e.description}</div>
+                                    <div class="transaction-meta">
+                                        <span class="transaction-tag ${tagClass}">${tagText}</span>
+                                        <span class="transaction-tag">${formatDateShort(e.created_at)}</span>
+                                    </div>
+                                </div>
+                                <div class="transaction-amount ${tagClass}">Rp. ${parseFloat(e.amount).toLocaleString('id-ID')}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (err) { console.error(err); }
+        })();
+
+        function showTransactionDetail(tx) {
+            const content = document.getElementById('transactionDetailContent');
+            const isPayer = tx.paid_by == state.user.id;
+            const canDelete = isPayer || state.user.role === 'admin';
+
+            let splitInfo = '';
+            if (tx.category === 'Listrik') {
+                splitInfo = `<div class="text-muted" style="font-size: 0.875rem;">Sistem rotasi - tidak dibagi</div>`;
+            } else if (tx.splits && tx.splits.length > 0) {
+                splitInfo = `
+                    <div style="margin-top: var(--space-md);">
+                        <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">DIBAGI KE:</div>
+                        ${tx.splits.map(s => {
+                    const userName = state.users.find(u => u.id == s.user_id)?.display_name || 'Unknown';
+                    return `
+                                <div style="display: flex; justify-content: space-between; padding: var(--space-sm) 0; border-bottom: 1px solid var(--border-color);">
+                                    <span>${userName}</span>
+                                    <span style="font-weight: 600;">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</span>
+                                </div>
+                            `;
+                }).join('')}
+                    </div>
+                `;
+            }
+
+            content.innerHTML = `
+                ${tx.receipt_image ? `<img src="${imageUrl(tx.receipt_image)}" class="info-detail-image" alt="Bukti">` : ''}
+                <h2 style="margin-bottom: var(--space-sm);">${tx.description}</h2>
+                <div style="font-size: 1.5rem; font-weight: 700; color: ${tx.category === 'Listrik' ? 'var(--text-primary)' : (isPayer ? 'var(--green)' : 'var(--red)')}; margin-bottom: var(--space-md);">
+                    Rp ${parseFloat(tx.amount).toLocaleString('id-ID')}
+                </div>
+                <div class="info-detail-meta">
+                    <div><strong>Kategori:</strong> ${tx.category}</div>
+                    <div><strong>Dibayar oleh:</strong> ${tx.paid_by_name}</div>
+                    <div><strong>Tanggal:</strong> ${formatDateFull(tx.created_at)}</div>
+                </div>
+                ${splitInfo}
+                ${canDelete ? `
+                    <button class="btn btn-danger btn-full mt-md" onclick="deleteTransaction(${tx.id})">Hapus Transaksi</button>
+                ` : ''}
+            `;
+            openModal('transactionDetailModal');
+        }
+
+        async function deleteTransaction(id) {
+            if (!confirm('Hapus transaksi ini?')) return;
+            try {
+                await deleteExpense(id);
+                showToast('Dihapus', 'success');
+                closeModal('transactionDetailModal');
+                location.reload();
+            } catch { showToast('Gagal', 'error'); }
+        }
+
+        function showInfoDetail(info) {
+            const content = document.getElementById('infoDetailContent');
+            content.innerHTML = `
+                ${info.image_path ? `<img src="${imageUrl(info.image_path)}" class="info-detail-image" alt="">` : ''}
+                <h2 style="margin-bottom: var(--space-sm);">${info.title}</h2>
+                <div class="info-detail-meta">${info.author_name} · ${formatDateShort(info.created_at)}</div>
+                <div class="info-detail-content">${info.content || 'Tidak ada deskripsi'}</div>
+            `;
+            openModal('infoDetailModal');
+        }
+
+        function openDebtModal(type) {
+            const title = document.getElementById('debtModalTitle');
+            const content = document.getElementById('debtModalContent');
+
+            title.textContent = type === 'hutang' ? 'Detail Hutang' : 'Detail Piutang';
+            title.style.color = type === 'hutang' ? 'var(--red)' : 'var(--green)';
+
+            const suggestions = balanceData?.settlement_suggestions || [];
+            const myDebts = suggestions.filter(s =>
+                type === 'hutang' ? s.from_user_id == state.user.id : s.to_user_id == state.user.id
+            );
+
+            if (myDebts.length === 0) {
+                content.innerHTML = `<div class="empty-state">Tidak ada ${type}</div>`;
+            } else {
+                content.innerHTML = myDebts.map(s => {
+                    const person = type === 'hutang' ? s.to_name : s.from_name;
+                    const personId = type === 'hutang' ? s.to_user_id : s.from_user_id;
+
+                    return `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: var(--space-md); background: var(--bg-primary); border-radius: var(--radius-md); margin-bottom: var(--space-sm); box-shadow: var(--shadow-sm);">
+                            <div>
+                                <div style="font-weight: 600;">${person}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">${type === 'hutang' ? 'Kamu bayar' : 'Kamu terima'}</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-weight: 700; color: var(--${type === 'hutang' ? 'red' : 'green'});">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
+                                ${type === 'hutang' ? `<button class="btn btn-success mt-sm" style="font-size: 0.75rem;" onclick="openSettleFromDebt(${personId}, '${person}', ${s.amount})">Sudah TF</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            openModal('debtModal');
+        }
+
+        function openSettleFromDebt(toUserId, toName, amount) {
+            closeModal('debtModal');
+            document.getElementById('settleToUser').value = toUserId;
+            document.getElementById('settleToName').textContent = toName;
+            document.getElementById('settleAmount').value = amount;
+            openModal('settleModal');
+        }
+
+        function openAddInfoModal() { openModal('addInfoModal'); }
+
+        // Image upload
+        const uploadArea = document.getElementById('uploadArea');
+        const imageInput = document.getElementById('infoImageInput');
+        const imagePreview = document.getElementById('infoImagePreview');
+
+        uploadArea.addEventListener('click', () => imageInput.click());
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                imagePreview.classList.remove('hidden');
+                uploadArea.classList.add('has-file');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('settleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                await createSettlement(parseInt(document.getElementById('settleToUser').value), parseFloat(document.getElementById('settleAmount').value));
+                showToast('Pembayaran dicatat!', 'success');
+                closeModal('settleModal');
+                location.reload();
+            } catch (err) { showToast('Gagal: ' + err.message, 'error'); }
+        });
+
+        document.getElementById('addInfoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const formData = new FormData();
+            formData.append('title', document.getElementById('infoTitle').value.trim());
+            formData.append('content', document.getElementById('infoContent').value.trim());
+
+            if (imageInput.files[0]) {
+                formData.append('image', imageInput.files[0]);
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/info.php`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                showToast('Info ditambahkan', 'success');
+                closeModal('addInfoModal');
+                location.reload();
+            } catch (err) {
+                showToast('Gagal: ' + err.message, 'error');
+            }
+        });
+
+        function openAddModal() { openModal('addTypeModal'); }
+        function openAddListrikModal() { openModal('addListrikModal'); }
+
+        // Listrik image upload
+        const listrikUploadArea = document.getElementById('listrikUploadArea');
+        const listrikImageInput = document.getElementById('listrikImageInput');
+        const listrikImagePreview = document.getElementById('listrikImagePreview');
+
+        listrikUploadArea.addEventListener('click', () => listrikImageInput.click());
+
+        listrikImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                listrikImagePreview.src = e.target.result;
+                listrikImagePreview.classList.remove('hidden');
+                listrikUploadArea.classList.add('has-file');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('addListrikForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('listrikAmount').value);
+            const btn = document.getElementById('submitListrikBtn');
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
+
+            try {
+                let receiptPath = null;
+                if (listrikImageInput.files[0]) {
+                    const uploadResult = await uploadReceipt(listrikImageInput.files[0]);
+                    receiptPath = uploadResult.path;
+                }
+
+                await createExpense({
+                    amount: amount,
+                    description: 'Token Listrik',
+                    category: 'Listrik',
+                    receipt_image: receiptPath,
+                    splits: []
+                });
+
+                showToast('Listrik dicatat!', 'success');
+                closeModal('addListrikModal');
+                location.reload();
+            } catch (err) {
+                showToast('Gagal: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Simpan';
+            }
+        });
+
+        ['transactionDetailModal', 'debtModal', 'infoDetailModal', 'addInfoModal', 'settleModal', 'addTypeModal', 'addListrikModal'].forEach(id => {
+            document.getElementById(id).addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal-overlay')) closeModal(id);
+            });
+        });
+    </script>
+</body>
+
+</html>

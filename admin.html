@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#fafafa">
+    <title>Admin Panel - Catatan Kontrakan</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/icon-512.png">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .admin-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-md) 0;
+            margin-bottom: var(--space-md);
+        }
+
+        .admin-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .admin-title span {
+            color: var(--red);
+        }
+
+        .btn-logout {
+            background: var(--red);
+            color: #fff;
+            border: none;
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .admin-tabs {
+            display: flex;
+            gap: var(--space-xs);
+            overflow-x: auto;
+            padding-bottom: var(--space-sm);
+            margin-bottom: var(--space-lg);
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .tab-btn {
+            flex-shrink: 0;
+            padding: var(--space-sm) var(--space-md);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            color: var(--text-secondary);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--text-primary);
+            border-color: var(--text-primary);
+            color: var(--bg-primary);
+        }
+
+        .tab-btn:hover:not(.active) {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-md);
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: var(--space-md);
+            border-radius: var(--radius-lg);
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .stat-value {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .stat-label {
+            font-size: 0.6875rem;
+            color: var(--text-muted);
+            margin-top: var(--space-xs);
+        }
+
+        .data-list {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .data-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-md);
+            border-bottom: 1px solid var(--border-light);
+            gap: var(--space-sm);
+        }
+
+        .data-item:last-child {
+            border-bottom: none;
+        }
+
+        .data-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .data-title {
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .data-meta {
+            display: flex;
+            gap: var(--space-xs);
+            flex-wrap: wrap;
+        }
+
+        .data-tag {
+            font-size: 0.625rem;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: var(--radius-full);
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+        }
+
+        .data-tag.admin {
+            background: var(--red-medium);
+            color: var(--red);
+        }
+
+        .data-tag.category {
+            background: var(--green-medium);
+            color: var(--green);
+        }
+
+        .data-amount {
+            font-weight: 700;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 0.6875rem;
+            border-radius: var(--radius-full);
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-reset {
+            background: var(--yellow);
+            color: #000;
+        }
+
+        .btn-delete {
+            background: var(--red);
+            color: #fff;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-md);
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 100px;
+            padding: var(--space-sm) var(--space-md);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            color: var(--text-primary);
+            font-size: 0.8125rem;
+            font-family: inherit;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--text-primary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--space-xl);
+            color: var(--text-muted);
+        }
+
+        .section-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-md);
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .section-title svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--text-primary);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .section-gap {
+            margin-bottom: var(--space-lg);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="admin-header">
+            <div class="admin-title">🔐 <span>Admin</span> Panel</div>
+            <button class="btn-logout" onclick="logout()">Logout</button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="admin-tabs">
+            <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
+            <button class="tab-btn" data-tab="users">👥 Users</button>
+            <button class="tab-btn" data-tab="transactions">📋 Transaksi</button>
+            <button class="tab-btn" data-tab="payments">💸 Pembayaran</button>
+            <button class="tab-btn" data-tab="info">📢 Info</button>
+            <button class="tab-btn" data-tab="reset">⚠️ Reset</button>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div class="tab-content active" id="tab-dashboard">
+            <div class="stats-grid section-gap">
+                <div class="stat-card">
+                    <div class="stat-value" id="statUsers">0</div>
+                    <div class="stat-label">Total Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statTransactions">0</div>
+                    <div class="stat-label">Total Transaksi</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statExpenses">Rp 0</div>
+                    <div class="stat-label">Total Pengeluaran</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="statSettlements">Rp 0</div>
+                    <div class="stat-label">Total Pelunasan</div>
+                </div>
+            </div>
+
+            <div class="section-title">
+                <svg viewBox="0 0 24 24">
+                    <line x1="8" y1="6" x2="21" y2="6" />
+                    <line x1="8" y1="12" x2="21" y2="12" />
+                    <line x1="8" y1="18" x2="21" y2="18" />
+                    <line x1="3" y1="6" x2="3.01" y2="6" />
+                    <line x1="3" y1="12" x2="3.01" y2="12" />
+                    <line x1="3" y1="18" x2="3.01" y2="18" />
+                </svg>
+                Per Kategori
+            </div>
+            <div class="data-list" id="categoryStats">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Users Tab -->
+        <div class="tab-content" id="tab-users">
+            <div class="section-title" style="justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: var(--space-sm);">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    Kelola User
+                </div>
+                <button class="btn-sm" style="background: var(--green); color: #fff;"
+                    onclick="openModal('addUserModal')">➕ Tambah</button>
+            </div>
+            <div class="data-list" id="userList">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Transactions Tab -->
+        <div class="tab-content" id="tab-transactions">
+            <div class="section-title">
+                <svg viewBox="0 0 24 24">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                </svg>
+                Semua Transaksi
+            </div>
+            <div class="search-bar">
+                <input type="text" class="search-input" id="txSearch" placeholder="Cari transaksi...">
+                <input type="date" class="search-input" id="txFromDate" style="max-width: 130px;">
+                <input type="date" class="search-input" id="txToDate" style="max-width: 130px;">
+            </div>
+            <div class="data-list" id="txList">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Payments Tab -->
+        <div class="tab-content" id="tab-payments">
+            <div class="section-title">
+                <svg viewBox="0 0 24 24">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                    <line x1="1" y1="10" x2="23" y2="10" />
+                </svg>
+                Semua Pembayaran
+            </div>
+            <div class="search-bar">
+                <input type="date" class="search-input" id="payFromDate">
+                <input type="date" class="search-input" id="payToDate">
+            </div>
+            <div class="data-list" id="payList">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Info Tab -->
+        <div class="tab-content" id="tab-info">
+            <div class="section-title">
+                <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                Semua Info
+            </div>
+            <div class="data-list" id="infoList">
+                <div class="empty-state">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Reset Tab -->
+        <div class="tab-content" id="tab-reset">
+            <div class="section-title" style="color: var(--red);">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                Reset Data - HATI-HATI!
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: var(--space-lg); font-size: 0.875rem;">
+                ⚠️ Tindakan ini <strong>TIDAK BISA DIBATALKAN</strong>. Data yang dihapus tidak bisa dikembalikan.
+            </p>
+
+            <div class="card section-gap">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
+                    <div>
+                        <strong>Reset Transaksi</strong>
+                        <p style="font-size: 0.75rem; color: var(--text-muted);">Hapus semua expenses & splits</p>
+                    </div>
+                    <button class="btn btn-danger" onclick="confirmReset('transaksi', 'Semua transaksi')">Reset</button>
+                </div>
+            </div>
+
+            <div class="card section-gap">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
+                    <div>
+                        <strong>Reset Info</strong>
+                        <p style="font-size: 0.75rem; color: var(--text-muted);">Hapus semua info kontrakan</p>
+                    </div>
+                    <button class="btn btn-danger" onclick="confirmReset('info', 'Semua info')">Reset</button>
+                </div>
+            </div>
+
+            <div class="card section-gap">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
+                    <div>
+                        <strong>Reset Riwayat Pembayaran</strong>
+                        <p style="font-size: 0.75rem; color: var(--text-muted);">Hapus semua settlements</p>
+                    </div>
+                    <button class="btn btn-danger"
+                        onclick="confirmReset('settlements', 'Semua riwayat pembayaran')">Reset</button>
+                </div>
+            </div>
+
+            <div class="card section-gap">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
+                    <div>
+                        <strong>Reset Notifikasi</strong>
+                        <p style="font-size: 0.75rem; color: var(--text-muted);">Hapus semua notifikasi</p>
+                    </div>
+                    <button class="btn btn-danger"
+                        onclick="confirmReset('notifications', 'Semua notifikasi')">Reset</button>
+                </div>
+            </div>
+
+            <div class="card" style="border: 2px solid var(--red); background: var(--red-light);">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
+                    <div>
+                        <strong style="color: var(--red);">🔥 Reset SEMUA SISTEM</strong>
+                        <p style="font-size: 0.75rem; color: var(--text-muted);">Hapus transaksi, info, payments,
+                            notifikasi (users tetap)</p>
+                    </div>
+                    <button class="btn btn-danger" onclick="confirmReset('all', 'SEMUA DATA SISTEM')">RESET!</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Password Modal -->
+    <div class="modal-overlay" id="resetModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Reset Password</h3>
+            <p style="margin-bottom: var(--space-md);">Reset password <strong id="resetUserName">-</strong> ke:
+                <code>kontrakan123</code>
+            </p>
+            <input type="hidden" id="resetUserId">
+            <div style="display: flex; gap: var(--space-sm);">
+                <button class="btn btn-full" onclick="closeModal('resetModal')">Batal</button>
+                <button class="btn btn-danger btn-full" id="confirmResetBtn">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transaction Detail Modal -->
+    <div class="modal-overlay" id="txDetailModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title" id="txDetailTitle">Detail Transaksi</h3>
+            <div id="txDetailContent"></div>
+            <button class="btn btn-full" style="margin-top: var(--space-lg);"
+                onclick="closeModal('txDetailModal')">Tutup</button>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div class="modal-overlay" id="addUserModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Tambah Member Baru</h3>
+            <div style="display: flex; flex-direction: column; gap: var(--space-md);">
+                <input type="text" class="search-input" id="newUsername" placeholder="Username (untuk login)"
+                    style="width: 100%;">
+                <input type="text" class="search-input" id="newDisplayName" placeholder="Nama Tampilan"
+                    style="width: 100%;">
+                <input type="password" class="search-input" id="newPassword" placeholder="Password"
+                    style="width: 100%;">
+            </div>
+            <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-lg);">
+                <button class="btn btn-full" onclick="closeModal('addUserModal')">Batal</button>
+                <button class="btn btn-full" style="background: var(--green); color: #fff;"
+                    onclick="addNewMember()">Tambah</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete User Confirmation Modal -->
+    <div class="modal-overlay" id="deleteUserModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Hapus Member</h3>
+            <p style="margin-bottom: var(--space-md);">Yakin hapus <strong id="deleteUserName">-</strong>?</p>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: var(--space-md);">⚠️ User tidak bisa
+                dihapus jika masih punya transaksi atau hutang.</p>
+            <input type="hidden" id="deleteUserId">
+            <div style="display: flex; gap: var(--space-sm);">
+                <button class="btn btn-full" onclick="closeModal('deleteUserModal')">Batal</button>
+                <button class="btn btn-danger btn-full" onclick="confirmDeleteMember()">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/icons.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let allExpenses = [];
+        let allSettlements = [];
+        let allInfo = [];
+
+        // Init
+        (async () => {
+            if (!await checkAuth()) { window.location.href = 'login.html'; return; }
+            if (state.user.role !== 'admin') { window.location.href = 'dashboard.html'; return; }
+
+            await loadUsers();
+            await loadAllData();
+            renderDashboard();
+            renderUsers();
+            renderTransactions();
+            renderPayments();
+            renderInfo();
+        })();
+
+        // Tab switching
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Load all data
+        async function loadAllData() {
+            try {
+                const [expData, setData, infoData] = await Promise.all([
+                    fetch(`${API_BASE}/expenses.php?limit=500`, { credentials: 'include' }).then(r => r.json()),
+                    fetch(`${API_BASE}/settlements.php?limit=500`, { credentials: 'include' }).then(r => r.json()),
+                    fetch(`${API_BASE}/info.php?limit=100`, { credentials: 'include' }).then(r => r.json())
+                ]);
+                allExpenses = expData.expenses || [];
+                allSettlements = setData.settlements || [];
+                allInfo = infoData.info || [];
+            } catch (err) { console.error(err); }
+        }
+
+        // Render Dashboard
+        function renderDashboard() {
+            document.getElementById('statUsers').textContent = state.users.length;
+            document.getElementById('statTransactions').textContent = allExpenses.length;
+
+            const totalExp = allExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+            document.getElementById('statExpenses').textContent = formatCurrencyShort(totalExp);
+
+            const totalSet = allSettlements.reduce((sum, s) => sum + parseFloat(s.amount), 0);
+            document.getElementById('statSettlements').textContent = formatCurrencyShort(totalSet);
+
+            // Category stats
+            const categories = {};
+            allExpenses.forEach(e => {
+                if (!categories[e.category]) categories[e.category] = { count: 0, total: 0 };
+                categories[e.category].count++;
+                categories[e.category].total += parseFloat(e.amount);
+            });
+
+            const catHtml = Object.entries(categories).map(([cat, data]) => `
+                <div class="data-item">
+                    <div class="data-info">
+                        <div class="data-title">${cat}</div>
+                        <div class="data-meta">
+                            <span class="data-tag">${data.count} transaksi</span>
+                        </div>
+                    </div>
+                    <div class="data-amount">Rp ${data.total.toLocaleString('id-ID')}</div>
+                </div>
+            `).join('');
+
+            document.getElementById('categoryStats').innerHTML = catHtml || '<div class="empty-state">Belum ada data</div>';
+        }
+
+        // Render Users
+        function renderUsers() {
+            const container = document.getElementById('userList');
+            if (state.users.length === 0) {
+                container.innerHTML = '<div class="empty-state">Tidak ada user</div>';
+                return;
+            }
+
+            container.innerHTML = state.users.map(u => `
+                <div class="data-item">
+                    <div class="data-info">
+                        <div class="data-title">${u.display_name}</div>
+                        <div class="data-meta">
+                            <span class="data-tag">@${u.username}</span>
+                            <span class="data-tag ${u.role === 'admin' ? 'admin' : ''}">${u.role}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                        ${u.role !== 'admin' ? `<button class="btn-sm btn-reset" onclick="openResetModal(${u.id}, '${u.display_name}')">Reset PW</button>` : ''}
+                        ${u.role !== 'admin' ? `<button class="btn-sm btn-delete" onclick="openDeleteUserModal(${u.id}, '${u.display_name}')">Hapus</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Transactions
+        function renderTransactions() {
+            const container = document.getElementById('txList');
+            const search = document.getElementById('txSearch').value.toLowerCase();
+            const fromDate = document.getElementById('txFromDate').value;
+            const toDate = document.getElementById('txToDate').value;
+
+            let filtered = allExpenses.filter(e => {
+                if (search && !e.description.toLowerCase().includes(search) && !e.paid_by_name.toLowerCase().includes(search)) return false;
+                if (fromDate && new Date(e.created_at) < new Date(fromDate)) return false;
+                if (toDate) {
+                    const to = new Date(toDate);
+                    to.setHours(23, 59, 59);
+                    if (new Date(e.created_at) > to) return false;
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state">Tidak ada transaksi</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(e => `
+                <div class="data-item" style="cursor: pointer;" onclick="showTransactionDetail(${e.id})">
+                    <div class="data-info">
+                        <div class="data-title">${e.description}</div>
+                        <div class="data-meta">
+                            <span class="data-tag category">${e.category}</span>
+                            <span class="data-tag">${e.paid_by_name}</span>
+                            <span class="data-tag">${formatDateShort(e.created_at)}</span>
+                            <span class="data-tag" style="background: var(--text-secondary); color: var(--bg-card);">${e.splits ? e.splits.length : 0} orang</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="data-amount">Rp ${parseFloat(e.amount).toLocaleString('id-ID')}</div>
+                        <button class="btn-sm btn-delete" style="margin-top: 4px;" onclick="event.stopPropagation(); deleteExpense(${e.id})">Hapus</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Payments
+        function renderPayments() {
+            const container = document.getElementById('payList');
+            const fromDate = document.getElementById('payFromDate').value;
+            const toDate = document.getElementById('payToDate').value;
+
+            let filtered = allSettlements.filter(s => {
+                if (fromDate && new Date(s.created_at) < new Date(fromDate)) return false;
+                if (toDate) {
+                    const to = new Date(toDate);
+                    to.setHours(23, 59, 59);
+                    if (new Date(s.created_at) > to) return false;
+                }
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state">Tidak ada pembayaran</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(s => `
+                <div class="data-item">
+                    <div class="data-info">
+                        <div class="data-title">${s.from_name} → ${s.to_name}</div>
+                        <div class="data-meta">
+                            <span class="data-tag">${formatDateShort(s.created_at)}</span>
+                        </div>
+                    </div>
+                    <div class="data-amount" style="color: var(--green);">+Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
+                </div>
+            `).join('');
+        }
+
+        // Render Info
+        function renderInfo() {
+            const container = document.getElementById('infoList');
+
+            if (allInfo.length === 0) {
+                container.innerHTML = '<div class="empty-state">Tidak ada info</div>';
+                return;
+            }
+
+            container.innerHTML = allInfo.map(i => `
+                <div class="data-item">
+                    <div class="data-info">
+                        <div class="data-title">${i.title}</div>
+                        <div class="data-meta">
+                            <span class="data-tag">${i.author_name}</span>
+                            <span class="data-tag">${formatDateShort(i.created_at)}</span>
+                        </div>
+                    </div>
+                    <button class="btn-sm btn-delete" onclick="deleteInfo(${i.id})">Hapus</button>
+                </div>
+            `).join('');
+        }
+
+        // Date format
+        function formatDateShort(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
+        }
+
+        // Delete expense
+        async function deleteExpense(id) {
+            if (!confirm('Hapus transaksi ini?')) return;
+            try {
+                await apiDelete('expenses.php?id=' + id);
+                showToast('Transaksi dihapus', 'success');
+                await loadAllData();
+                renderDashboard();
+                renderTransactions();
+            } catch { showToast('Gagal menghapus', 'error'); }
+        }
+
+        // Delete info
+        async function deleteInfo(id) {
+            if (!confirm('Hapus info ini?')) return;
+            try {
+                await apiDelete('info.php?id=' + id);
+                showToast('Info dihapus', 'success');
+                await loadAllData();
+                renderInfo();
+            } catch { showToast('Gagal menghapus', 'error'); }
+        }
+
+        // Reset password modal
+        function openResetModal(userId, userName) {
+            document.getElementById('resetUserId').value = userId;
+            document.getElementById('resetUserName').textContent = userName;
+            openModal('resetModal');
+        }
+
+        document.getElementById('confirmResetBtn').addEventListener('click', async () => {
+            try {
+                await apiPut('admin.php?action=reset-password', { user_id: parseInt(document.getElementById('resetUserId').value) });
+                showToast('Password direset ke kontrakan123', 'success');
+                closeModal('resetModal');
+            } catch { showToast('Gagal reset password', 'error'); }
+        });
+
+        // Show transaction detail modal
+        function showTransactionDetail(expenseId) {
+            const expense = allExpenses.find(e => e.id == expenseId);
+            if (!expense) return;
+
+            document.getElementById('txDetailTitle').textContent = expense.description;
+
+            let splitsHtml = '';
+            if (expense.splits && expense.splits.length > 0) {
+                splitsHtml = `
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: var(--space-sm);">Dibagi ke:</div>
+                    <div class="data-list">
+                        ${expense.splits.map(s => `
+                            <div class="data-item">
+                                <div class="data-info">
+                                    <div class="data-title">${s.display_name}</div>
+                                </div>
+                                <div class="data-amount">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                splitsHtml = '<p style="font-size: 0.875rem; color: var(--text-muted);">Tidak ada pembagian (Listrik)</p>';
+            }
+
+            document.getElementById('txDetailContent').innerHTML = `
+                <div style="text-align: center; margin-bottom: var(--space-lg);">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--green);">Rp ${parseFloat(expense.amount).toLocaleString('id-ID')}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: var(--space-xs);">
+                        <span class="data-tag category">${expense.category}</span>
+                        <span class="data-tag">${expense.paid_by_name}</span>
+                        <span class="data-tag">${formatDateShort(expense.created_at)}</span>
+                    </div>
+                </div>
+                ${splitsHtml}
+            `;
+
+            openModal('txDetailModal');
+        }
+
+        // Open delete user modal
+        function openDeleteUserModal(userId, userName) {
+            document.getElementById('deleteUserId').value = userId;
+            document.getElementById('deleteUserName').textContent = userName;
+            openModal('deleteUserModal');
+        }
+
+        // Add new member
+        async function addNewMember() {
+            const username = document.getElementById('newUsername').value.trim();
+            const displayName = document.getElementById('newDisplayName').value.trim();
+            const password = document.getElementById('newPassword').value;
+
+            if (!username || !displayName || !password) {
+                showToast('Semua field harus diisi', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/admin.php?action=add-user`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, display_name: displayName, password })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    showToast('Member berhasil ditambahkan', 'success');
+                    closeModal('addUserModal');
+                    document.getElementById('newUsername').value = '';
+                    document.getElementById('newDisplayName').value = '';
+                    document.getElementById('newPassword').value = '';
+                    await loadUsers();
+                    renderUsers();
+                } else {
+                    showToast(data.error || 'Gagal menambah member', 'error');
+                }
+            } catch (err) {
+                showToast('Gagal menambah member', 'error');
+            }
+        }
+
+        // Confirm delete member
+        async function confirmDeleteMember() {
+            const userId = document.getElementById('deleteUserId').value;
+
+            try {
+                const res = await fetch(`${API_BASE}/admin.php?action=delete-user&id=${userId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    showToast('Member berhasil dihapus', 'success');
+                    closeModal('deleteUserModal');
+                    await loadUsers();
+                    renderUsers();
+                } else {
+                    showToast(data.error || 'Gagal menghapus member', 'error');
+                }
+            } catch (err) {
+                showToast('Gagal menghapus member', 'error');
+            }
+        }
+
+        // Logout
+        async function logout() {
+            try {
+                await fetch(`${API_BASE}/auth.php?action=logout`, { credentials: 'include' });
+            } catch { }
+            window.location.href = 'login.html';
+        }
+
+        // Reset data confirmation and execution
+        let pendingResetType = null;
+        let pendingResetLabel = null;
+
+        function confirmReset(type, label) {
+            pendingResetType = type;
+            pendingResetLabel = label;
+            const confirmed = confirm(`⚠️ PERINGATAN!\n\nAnda akan menghapus: ${label}\n\nTindakan ini TIDAK BISA DIBATALKAN!\n\nLanjutkan?`);
+            if (confirmed) {
+                const doubleConfirm = confirm(`🔥 KONFIRMASI TERAKHIR!\n\nYakin hapus ${label}?\n\nKetik OK untuk melanjutkan.`);
+                if (doubleConfirm) {
+                    executeReset(type, label);
+                }
+            }
+        }
+
+        async function executeReset(type, label) {
+            try {
+                showLoading();
+                const res = await fetch(`${API_BASE}/reset.php`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type })
+                });
+                const data = await res.json();
+                hideLoading();
+
+                if (res.ok) {
+                    showToast(data.message || `${label} berhasil dihapus!`, 'success');
+                    // Reload data
+                    await loadAllData();
+                    renderDashboard();
+                    renderTransactions();
+                    renderPayments();
+                    renderInfo();
+                } else {
+                    showToast(data.error || 'Reset gagal', 'error');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('Reset gagal: ' + err.message, 'error');
+            }
+        }
+
+        // Show transaction detail with splits
+        function showTransactionDetail(expenseId) {
+            const expense = allExpenses.find(e => e.id == expenseId);
+            if (!expense) return;
+
+            document.getElementById('txDetailTitle').textContent = expense.description;
+
+            let splitsHtml = '';
+            if (expense.splits && expense.splits.length > 0) {
+                splitsHtml = `
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: var(--space-sm);">Dibagi ke:</div>
+                    <div class="data-list">
+                        ${expense.splits.map(s => `
+                            <div class="data-item">
+                                <div class="data-info">
+                                    <div class="data-title">${s.display_name}</div>
+                                </div>
+                                <div class="data-amount">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                splitsHtml = '<p style="font-size: 0.875rem; color: var(--text-muted);">Tidak ada pembagian (Listrik)</p>';
+            }
+
+            document.getElementById('txDetailContent').innerHTML = `
+                <div style="text-align: center; margin-bottom: var(--space-lg);">
+                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--green);">Rp ${parseFloat(expense.amount).toLocaleString('id-ID')}</div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: var(--space-xs);">
+                        <span class="data-tag category">${expense.category}</span>
+                        <span class="data-tag">${expense.paid_by_name}</span>
+                        <span class="data-tag">${formatDateShort(expense.created_at)}</span>
+                    </div>
+                </div>
+                ${splitsHtml}
+            `;
+
+            openModal('txDetailModal');
+        }
+
+        // Open delete user modal
+        function openDeleteUserModal(userId, displayName) {
+            document.getElementById('deleteUserId').value = userId;
+            document.getElementById('deleteUserName').textContent = displayName;
+            openModal('deleteUserModal');
+        }
+
+        // Confirm delete member
+        async function confirmDeleteMember() {
+            const userId = document.getElementById('deleteUserId').value;
+            try {
+                showLoading();
+                const res = await fetch(`${API_BASE}/admin.php?action=delete-user&id=${userId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                const data = await res.json();
+                hideLoading();
+
+                if (res.ok) {
+                    showToast(data.message || 'Member berhasil dihapus', 'success');
+                    closeModal('deleteUserModal');
+                    await loadUsers();
+                    renderUsers();
+                } else {
+                    showToast(data.error || 'Gagal menghapus member', 'error');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('Error: ' + err.message, 'error');
+            }
+        }
+
+        // Add new member
+        async function addNewMember() {
+            const username = document.getElementById('newUsername').value.trim();
+            const displayName = document.getElementById('newDisplayName').value.trim();
+            const password = document.getElementById('newPassword').value;
+
+            if (!username || !displayName || !password) {
+                showToast('Semua field harus diisi', 'error');
+                return;
+            }
+
+            try {
+                showLoading();
+                const res = await fetch(`${API_BASE}/admin.php?action=add-user`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, display_name: displayName, password })
+                });
+                const data = await res.json();
+                hideLoading();
+
+                if (res.ok) {
+                    showToast(data.message || 'Member berhasil ditambahkan', 'success');
+                    closeModal('addUserModal');
+                    // Clear form
+                    document.getElementById('newUsername').value = '';
+                    document.getElementById('newDisplayName').value = '';
+                    document.getElementById('newPassword').value = '';
+                    // Reload users
+                    await loadUsers();
+                    renderUsers();
+                } else {
+                    showToast(data.error || 'Gagal menambahkan member', 'error');
+                }
+            } catch (err) {
+                hideLoading();
+                showToast('Error: ' + err.message, 'error');
+            }
+        }
+
+
+        // Search/filter event listeners
+        document.getElementById('txSearch').addEventListener('input', renderTransactions);
+        document.getElementById('txFromDate').addEventListener('change', renderTransactions);
+        document.getElementById('txToDate').addEventListener('change', renderTransactions);
+        document.getElementById('payFromDate').addEventListener('change', renderPayments);
+        document.getElementById('payToDate').addEventListener('change', renderPayments);
+
+        // Modal close
+        document.getElementById('resetModal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) closeModal('resetModal');
+        });
+        document.getElementById('txDetailModal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) closeModal('txDetailModal');
+        });
+        document.getElementById('addUserModal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) closeModal('addUserModal');
+        });
+        document.getElementById('deleteUserModal').addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal-overlay')) closeModal('deleteUserModal');
+        });
+    </script>
+</body>
+
+</html>

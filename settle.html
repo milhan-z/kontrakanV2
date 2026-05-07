@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#fafafa">
+    <title>Bayar Hutang - Catatan Kontrakan</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/icon-512.png">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .copy-btn {
+            background: var(--accent-light);
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: var(--border-color);
+        }
+
+        .payment-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-sm) 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .payment-row:last-child {
+            border-bottom: none;
+        }
+
+        .payment-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .payment-value {
+            font-weight: 600;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .qris-img {
+            max-width: 200px;
+            border-radius: var(--radius-md);
+            margin-top: var(--space-md);
+        }
+
+        .expense-item {
+            padding: var(--space-sm) 0;
+            border-bottom: 1px solid var(--border-light);
+            font-size: 0.8125rem;
+        }
+
+        .expense-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Modal Button Group */
+        .modal-btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-sm);
+            margin-top: var(--space-md);
+        }
+
+        .modal-btn-row {
+            display: flex;
+            gap: var(--space-sm);
+        }
+
+        /* WhatsApp Button - Same as Lunas but with WA icon */
+        .btn-wa {
+            background: var(--green);
+            color: white;
+            border: none;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s ease;
+        }
+
+        .btn-wa:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-wa svg {
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        [data-theme="dark"] .btn-wa {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.15);
+        }
+
+        [data-theme="dark"] .btn-wa:hover {
+            box-shadow: 0 0 25px rgba(34, 197, 94, 0.4), 0 0 50px rgba(34, 197, 94, 0.2);
+        }
+
+        /* Lunas Button Glow for Dark Mode */
+        [data-theme="dark"] .btn-lunas {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.15);
+        }
+
+        [data-theme="dark"] .btn-lunas:hover {
+            box-shadow: 0 0 25px rgba(34, 197, 94, 0.4), 0 0 50px rgba(34, 197, 94, 0.2);
+        }
+
+        /* Detail Card in Modal */
+        .detail-card {
+            background: var(--bg-primary);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            margin-bottom: var(--space-md);
+            border: 1px solid var(--border-light);
+        }
+
+        [data-theme="dark"] .detail-card {
+            background: var(--bg-hover);
+            border-color: var(--border-color);
+        }
+
+        /* Summary Row */
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: var(--space-xs) 0;
+            font-size: 0.8125rem;
+        }
+
+        .summary-row.total {
+            font-weight: 700;
+            font-size: 0.9375rem;
+            padding-top: var(--space-sm);
+            margin-top: var(--space-sm);
+            border-top: 1px solid var(--border-color);
+        }
+
+        /* Amount Header */
+        .amount-header {
+            text-align: center;
+            padding: var(--space-lg);
+            margin: calc(-1 * var(--space-lg));
+            margin-bottom: var(--space-lg);
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        }
+
+        .amount-header.piutang {
+            background: linear-gradient(180deg, var(--green-light) 0%, transparent 100%);
+        }
+
+        .amount-header.hutang {
+            background: linear-gradient(180deg, var(--red-light) 0%, transparent 100%);
+        }
+
+        .amount-value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .amount-label {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">Bayar Hutang</h1>
+            <button class="icon-btn" onclick="toggleTheme()"><span class="theme-toggle-icon"></span></button>
+        </div>
+
+        <!-- My Balance Summary -->
+        <div class="balance-cards">
+            <div class="balance-card hutang">
+                <div class="label">Total Hutang</div>
+                <div class="amount" id="hutangAmount">Rp 0</div>
+                <div class="desc">Yang perlu kamu bayar</div>
+            </div>
+            <div class="balance-card piutang">
+                <div class="label">Total Piutang</div>
+                <div class="amount" id="piutangAmount">Rp 0</div>
+                <div class="desc">Yang akan kamu terima</div>
+            </div>
+        </div>
+
+        <!-- My Debts Section -->
+        <div class="section" id="myDebtsSection" style="display: none;">
+            <div class="section-header">
+                <span class="icon"><svg viewBox="0 0 24 24">
+                        <path d="M12 19l-7-7 7-7" />
+                        <path d="M19 12H5" />
+                    </svg></span>
+                <span class="section-title">Yang Perlu Kamu Bayar</span>
+            </div>
+            <div id="myDebtsList"></div>
+        </div>
+
+        <!-- My Credits Section -->
+        <div class="section" id="myCreditsSection" style="display: none;">
+            <div class="section-header">
+                <span class="icon"><svg viewBox="0 0 24 24">
+                        <path d="M12 5l7 7-7 7" />
+                        <path d="M5 12h14" />
+                    </svg></span>
+                <span class="section-title">Yang Kamu Akan Terima</span>
+            </div>
+            <div id="myCreditsList"></div>
+        </div>
+
+        <!-- Info Box -->
+        <div class="section" style="background: var(--green-light); border-color: var(--green-medium);">
+            <p style="font-size: 0.8125rem; color: var(--green); text-align: center;">
+                💡 Klik nama untuk lihat detail & info pembayaran
+            </p>
+        </div>
+
+        <!-- Settlement History -->
+        <div class="section">
+            <div class="section-header">
+                <span class="icon"><svg viewBox="0 0 24 24">
+                        <path d="M12 8v4l3 3" />
+                        <circle cx="12" cy="12" r="10" />
+                    </svg></span>
+                <span class="section-title">Riwayat Pembayaran</span>
+            </div>
+            <div id="settlementHistory">
+                <div class="empty-state">
+                    <div class="spinner" style="margin: 0 auto;"></div>
+                </div>
+            </div>
+            <div class="section-footer">
+                <a href="payment-history.html" class="btn-pill">Lihat Semua</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debt Detail Modal (for debtor - to pay) -->
+    <div class="modal-overlay" id="debtDetailModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title" style="color: var(--red);">Detail Hutang</h3>
+            <div id="debtDetailContent"></div>
+        </div>
+    </div>
+
+    <!-- Credit Detail Modal (for creditor - to collect) -->
+    <div class="modal-overlay" id="creditDetailModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title" style="color: var(--green);">Detail Piutang</h3>
+            <div id="creditDetailContent"></div>
+        </div>
+    </div>
+
+    <!-- Confirm Payment Modal -->
+    <div class="modal-overlay" id="confirmPaymentModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Konfirmasi Pembayaran</h3>
+            <form id="confirmPaymentForm">
+                <input type="hidden" id="confirmFromUser">
+                <div style="text-align: center; margin-bottom: var(--space-lg);">
+                    <div class="text-muted" style="font-size: 0.75rem;">Pembayaran dari</div>
+                    <div style="font-size: 1.25rem; font-weight: 700;" id="confirmFromName">-</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Jumlah yang dibayar (Rp)</label>
+                    <input type="number" class="form-control" id="confirmAmount" required min="1" inputmode="numeric"
+                        pattern="[0-9]*" style="font-size: 1.25rem; font-weight: 600; text-align: center;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Bukti Transfer (opsional)</label>
+                    <div class="upload-area" id="receiptUploadArea" style="padding: var(--space-md); cursor: pointer;">
+                        <svg viewBox="0 0 24 24"
+                            style="width: 24px; height: 24px; stroke: var(--text-muted); stroke-width: 1.5; fill: none; margin-bottom: 4px;">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
+                        </svg>
+                        <div style="font-size: 0.75rem;">Tap untuk upload bukti TF</div>
+                        <input type="file" id="receiptInput" accept="image/*" hidden>
+                    </div>
+                    <img id="receiptPreview" class="hidden"
+                        style="max-width: 100%; max-height: 150px; margin-top: var(--space-sm); border-radius: var(--radius-md);">
+                </div>
+                <div style="display: flex; gap: var(--space-sm);">
+                    <button type="button" class="btn btn-full"
+                        onclick="closeModal('confirmPaymentModal')">Batal</button>
+                    <button type="submit" class="btn btn-success btn-full">✓ Konfirmasi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Receipt View Modal -->
+    <div class="modal-overlay" id="receiptModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Bukti Transfer</h3>
+            <div style="text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: 700; color: var(--green); margin-bottom: var(--space-sm);"
+                    id="receiptAmount">Rp 0</div>
+                <img id="receiptImage" style="max-width: 100%; max-height: 60vh; border-radius: var(--radius-md);">
+                <div class="text-muted" style="font-size: 0.75rem; margin-top: var(--space-sm);" id="receiptDate">-
+                </div>
+            </div>
+            <button class="btn btn-full" style="margin-top: var(--space-lg);"
+                onclick="closeModal('receiptModal')">Tutup</button>
+        </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+        <a href="dashboard.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                </svg></span>
+            <span>Home</span>
+        </a>
+        <a href="history.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M12 8v4l3 3" />
+                    <circle cx="12" cy="12" r="10" />
+                </svg></span>
+            <span>Riwayat</span>
+        </a>
+        <a href="settle.html" class="nav-item active">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                    <line x1="1" y1="10" x2="23" y2="10" />
+                </svg></span>
+            <span>Bayar</span>
+        </a>
+        <a href="notifications.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg></span>
+            <span>Notif</span>
+            <span class="nav-badge hidden">0</span>
+        </a>
+        <a href="profile.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg></span>
+            <span>Profil</span>
+        </a>
+    </nav>
+
+    <script src="js/icons.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let balanceData = null;
+
+        (async () => {
+            if (!await checkAuth()) { window.location.href = 'login.html'; return; }
+            await Promise.all([loadUsers(), loadNotifications()]);
+            await renderData();
+        })();
+
+        async function renderData() {
+            try {
+                balanceData = await loadBalance();
+
+                const suggestions = balanceData.settlement_suggestions || [];
+                const myDebts = suggestions.filter(s => s.from_user_id == state.user.id);
+                const myCredits = suggestions.filter(s => s.to_user_id == state.user.id);
+
+                // Calculate totals
+                const myHutang = myDebts.reduce((sum, d) => sum + d.amount, 0);
+                const myPiutang = myCredits.reduce((sum, d) => sum + d.amount, 0);
+
+                document.getElementById('hutangAmount').textContent = 'Rp ' + myHutang.toLocaleString('id-ID');
+                document.getElementById('piutangAmount').textContent = 'Rp ' + myPiutang.toLocaleString('id-ID');
+
+                // My Debts
+                const debtsSection = document.getElementById('myDebtsSection');
+                const debtsList = document.getElementById('myDebtsList');
+                if (myDebts.length > 0) {
+                    debtsSection.style.display = 'block';
+                    debtsList.innerHTML = myDebts.map(s => `
+                        <div class="transaction-item" onclick="showDebtDetail(${s.to_user_id}, '${s.to_name}', ${s.amount})" style="cursor: pointer;">
+                            <div class="transaction-info">
+                                <div class="transaction-title">${s.to_name}</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">Tap untuk lihat detail & bayar</div>
+                            </div>
+                            <div class="transaction-amount hutang">Rp ${s.amount.toLocaleString('id-ID')}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    debtsSection.style.display = 'none';
+                }
+
+                // My Credits
+                const creditsSection = document.getElementById('myCreditsSection');
+                const creditsList = document.getElementById('myCreditsList');
+                if (myCredits.length > 0) {
+                    creditsSection.style.display = 'block';
+                    creditsList.innerHTML = myCredits.map(s => `
+                        <div class="transaction-item" onclick="showCreditDetail(${s.from_user_id}, '${s.from_name}', ${s.amount})" style="cursor: pointer;">
+                            <div class="transaction-info">
+                                <div class="transaction-title">${s.from_name}</div>
+                                <div class="text-muted" style="font-size: 0.75rem;">Tap untuk konfirmasi pembayaran</div>
+                            </div>
+                            <div class="transaction-amount piutang">Rp ${s.amount.toLocaleString('id-ID')}</div>
+                        </div>
+                    `).join('');
+                } else {
+                    creditsSection.style.display = 'none';
+                }
+
+                // Settlement History
+                const settlementsData = await loadSettlements();
+                const allSettlements = settlementsData.settlements || [];
+                const historyEl = document.getElementById('settlementHistory');
+
+                // Filter to only show settlements involving current user
+                const currentUserId = parseInt(state.user.id);
+                const mySettlements = allSettlements.filter(s => {
+                    const fromUser = parseInt(s.from_user);
+                    const toUser = parseInt(s.to_user);
+                    return fromUser === currentUserId || toUser === currentUserId;
+                });
+
+                if (mySettlements.length === 0) {
+                    historyEl.innerHTML = '<div class="empty-state">Belum ada riwayat</div>';
+                } else {
+                    historyEl.innerHTML = mySettlements.slice(0, 5).map(s => {
+                        const isFromMe = parseInt(s.from_user) === currentUserId;
+                        const isToMe = parseInt(s.to_user) === currentUserId;
+                        const direction = `${s.from_name} → ${s.to_name}`;
+                        const receiptIcon = s.receipt_image ? '<span style="font-size: 0.7rem; color: var(--green); margin-left: 4px;">📎</span>' : '';
+                        return `
+                            <div class="transaction-item" style="cursor: pointer;" 
+                                onclick="showPaymentDetailInSettle('${direction}', ${s.amount}, '${s.created_at}', '${s.receipt_image || ''}', ${isFromMe})">
+                                <div class="transaction-info">
+                                    <div class="transaction-title">${direction}${receiptIcon}</div>
+                                    <div class="transaction-meta">
+                                        <span class="transaction-tag">${formatDate(s.created_at)}</span>
+                                        ${isFromMe ? '<span class="transaction-tag hutang">Kamu bayar</span>' : ''}
+                                        ${isToMe ? '<span class="transaction-tag piutang">Kamu terima</span>' : ''}
+                                    </div>
+                                </div>
+                                <div class="transaction-amount">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
+                            </div>
+                        `;
+                    }).join('');
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        // Show debt detail modal (for debtor to pay)
+        // amount parameter is the NET amount from balance API - this is authoritative
+        async function showDebtDetail(creditorId, creditorName, amount) {
+            const content = document.getElementById('debtDetailContent');
+            content.innerHTML = '<div class="empty-state"><div class="spinner" style="margin: 0 auto;"></div></div>';
+            openModal('debtDetailModal');
+
+            try {
+                // Get expense details
+                const detailRes = await fetch(`${API_BASE}/debt_details.php?creditor_id=${creditorId}&debtor_id=${state.user.id}`, { credentials: 'include' });
+                const detailData = await detailRes.json();
+
+                // Get payment info
+                const paymentRes = await fetch(`${API_BASE}/payment_info.php?user_id=${creditorId}`, { credentials: 'include' });
+                const paymentData = await paymentRes.json();
+                const payInfo = paymentData.payment_info || {};
+
+                // Build expense list (what you owe - red) - only active/unsettled
+                let expenseList = '';
+                const expenses = detailData.expenses || [];
+                const settlements = detailData.settlements || [];
+
+                if (expenses.length > 0) {
+                    expenseList += `
+                        <div style="margin-bottom: var(--space-md);">
+                            <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">YANG HARUS DIBAYAR:</div>
+                            ${expenses.slice(0, 5).map(e => `
+                                <div class="expense-item">
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <span>${e.description}</span>
+                                        <span style="color: var(--red);">-Rp ${parseFloat(e.remaining_amount || e.split_amount).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.6875rem;">${e.category} · ${formatDate(e.created_at)}</div>
+                                </div>
+                            `).join('')}
+                            ${expenses.length > 5 ? `<div class="text-muted" style="font-size: 0.75rem; text-align: center;">+${expenses.length - 5} lainnya</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    expenseList += '<div class="empty-state" style="padding: var(--space-md); color: var(--green);">✓ Semua lunas!</div>';
+                }
+
+                // Build settlements list (what you've paid - green)
+                if (settlements.length > 0) {
+                    expenseList += `
+                        <div style="margin-bottom: var(--space-md);">
+                            <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">SUDAH DIBAYAR:</div>
+                            ${settlements.slice(0, 5).map(s => `
+                                <div class="expense-item" style="cursor: ${s.receipt_image ? 'pointer' : 'default'};" 
+                                    ${s.receipt_image ? `onclick="showSettlementReceipt('${s.receipt_image}', ${s.amount}, '${s.created_at}')"` : ''}>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span>Pembayaran ${s.receipt_image ? '<span style="font-size: 0.7rem; color: var(--green);">📎</span>' : ''}</span>
+                                        <span style="color: var(--green);">+Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.6875rem;">${formatDate(s.created_at)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                // Summary
+                const totalExpenses = detailData.total_expenses || 0;
+                const totalSettled = detailData.total_settled || 0;
+                expenseList += `
+                    <div style="border-top: 1px solid var(--border-color); padding-top: var(--space-sm); margin-bottom: var(--space-md);">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                            <span>Total Pengeluaran</span>
+                            <span style="color: var(--red);">Rp ${totalExpenses.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                            <span>Sudah Dibayar</span>
+                            <span style="color: var(--green);">Rp ${totalSettled.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-weight: 700; margin-top: var(--space-xs);">
+                            <span>Sisa Hutang</span>
+                            <span style="color: var(--red);">Rp ${amount.toLocaleString('id-ID')}</span>
+                        </div>
+                    </div>
+                `;
+
+                // Build payment info - support multiple payment methods
+                let paymentInfo = '<div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">INFO PEMBAYARAN:</div>';
+                let hasPaymentInfo = false;
+
+                // Parse payment methods
+                const methods = payInfo.payment_methods_parsed || {
+                    banks: payInfo.bank_name ? [{ name: payInfo.bank_name, account: payInfo.bank_account }] : [],
+                    ewallets: payInfo.ewallet_type ? [{ type: payInfo.ewallet_type, number: payInfo.ewallet_number }] : [],
+                    qris: payInfo.qris_image ? [payInfo.qris_image] : []
+                };
+
+                // Show all banks
+                if (methods.banks && methods.banks.length > 0) {
+                    hasPaymentInfo = true;
+                    methods.banks.forEach(b => {
+                        paymentInfo += `
+                            <div class="payment-row">
+                                <div>
+                                    <div class="payment-label">${b.name}</div>
+                                    <div class="payment-value">${b.account}</div>
+                                </div>
+                                <button class="copy-btn" onclick="copyText('${b.account}')">📋 Copy</button>
+                            </div>
+                        `;
+                    });
+                }
+
+                // Show all e-wallets
+                if (methods.ewallets && methods.ewallets.length > 0) {
+                    hasPaymentInfo = true;
+                    methods.ewallets.forEach(e => {
+                        paymentInfo += `
+                            <div class="payment-row">
+                                <div>
+                                    <div class="payment-label">${e.type}</div>
+                                    <div class="payment-value">${e.number}</div>
+                                </div>
+                                <button class="copy-btn" onclick="copyText('${e.number}')">📋 Copy</button>
+                            </div>
+                        `;
+                    });
+                }
+
+                // Show WhatsApp
+                if (payInfo.phone_wa) {
+                    hasPaymentInfo = true;
+                    paymentInfo += `
+                        <div class="payment-row">
+                            <div>
+                                <div class="payment-label">WhatsApp</div>
+                                <div class="payment-value">${payInfo.phone_wa}</div>
+                            </div>
+                            <button class="copy-btn" onclick="copyText('${payInfo.phone_wa}')">📋 Copy</button>
+                        </div>
+                    `;
+                }
+
+                // Show all QRIS images
+                if (methods.qris && methods.qris.length > 0) {
+                    hasPaymentInfo = true;
+                    paymentInfo += '<div style="display: flex; flex-wrap: wrap; gap: var(--space-sm); justify-content: center; margin-top: var(--space-md);">';
+                    methods.qris.forEach(q => {
+                        paymentInfo += `
+                            <div style="text-align: center;">
+                                <div class="payment-label" style="font-size: 0.7rem;">QRIS</div>
+                                <img src="${imageUrl(q)}" class="qris-img" alt="QRIS" style="max-width: 120px;">
+                            </div>
+                        `;
+                    });
+                    paymentInfo += '</div>';
+                }
+
+                if (!hasPaymentInfo) {
+                    paymentInfo += '<div class="empty-state" style="padding: var(--space-md);">Belum ada info pembayaran</div>';
+                }
+
+                content.innerHTML = `
+                    <div style="text-align: center; margin-bottom: var(--space-lg);">
+                        <div style="font-size: 2rem; font-weight: 700; color: var(--red);">Rp ${amount.toLocaleString('id-ID')}</div>
+                        <div class="text-muted">ke ${creditorName}</div>
+                    </div>
+                    ${expenseList}
+                    <div class="section" style="margin: 0; padding: var(--space-md);">
+                        ${paymentInfo}
+                    </div>
+                    <button class="btn btn-success btn-full btn-lg mt-md" onclick="markAsPaid(${creditorId}, '${creditorName}', ${amount})">
+                        ✓ Sudah Transfer
+                    </button>
+                `;
+            } catch (err) {
+                console.error(err);
+                content.innerHTML = '<div class="empty-state">Gagal memuat</div>';
+            }
+        }
+
+        // Show credit detail modal (for creditor to confirm)
+        // amount parameter is the NET amount from balance API
+        async function showCreditDetail(debtorId, debtorName, amount) {
+            const content = document.getElementById('creditDetailContent');
+            content.innerHTML = '<div class="empty-state"><div class="spinner" style="margin: 0 auto;"></div></div>';
+            openModal('creditDetailModal');
+
+            try {
+                // Get expense details
+                const detailRes = await fetch(`${API_BASE}/debt_details.php?creditor_id=${state.user.id}&debtor_id=${debtorId}`, { credentials: 'include' });
+                const detailData = await detailRes.json();
+
+                // Get debtor's payment info (for phone number)
+                const paymentRes = await fetch(`${API_BASE}/payment_info.php?user_id=${debtorId}`, { credentials: 'include' });
+                const paymentData = await paymentRes.json();
+                const debtorPhone = paymentData.payment_info?.phone_wa || null;
+
+                // Get creditor's (my) payment info for the WA message
+                const myPaymentRes = await fetch(`${API_BASE}/payment_info.php?user_id=${state.user.id}`, { credentials: 'include' });
+                const myPaymentData = await myPaymentRes.json();
+                const myPaymentInfo = myPaymentData.payment_info || {};
+
+                // Build expense list - only active/unsettled
+                let expenseList = '';
+                const expenses = detailData.expenses || [];
+                const settlements = detailData.settlements || [];
+
+                // Build expense details for WhatsApp message
+                let waExpenseDetails = '';
+                if (expenses.length > 0) {
+                    waExpenseDetails = expenses.slice(0, 5).map(e =>
+                        `• ${e.description}: Rp ${parseFloat(e.remaining_amount || e.split_amount).toLocaleString('id-ID')}`
+                    ).join('\n');
+                    if (expenses.length > 5) {
+                        waExpenseDetails += `\n• +${expenses.length - 5} lainnya`;
+                    }
+                }
+
+                if (expenses.length > 0) {
+                    expenseList += `
+                        <div style="margin-bottom: var(--space-md);">
+                            <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">YANG KAMU TALANGIN:</div>
+                            ${expenses.slice(0, 5).map(e => `
+                                <div class="expense-item">
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <span>${e.description}</span>
+                                        <span style="color: var(--green);">+Rp ${parseFloat(e.remaining_amount || e.split_amount).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.6875rem;">${e.category} · ${formatDate(e.created_at)}</div>
+                                </div>
+                            `).join('')}
+                            ${expenses.length > 5 ? `<div class="text-muted" style="font-size: 0.75rem; text-align: center;">+${expenses.length - 5} lainnya</div>` : ''}
+                        </div>
+                    `;
+                } else {
+                    expenseList += '<div class="empty-state" style="padding: var(--space-md); color: var(--green);">✓ Semua lunas!</div>';
+                }
+
+                if (settlements.length > 0) {
+                    expenseList += `
+                        <div style="margin-bottom: var(--space-md);">
+                            <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">SUDAH DITERIMA:</div>
+                            ${settlements.slice(0, 5).map(s => `
+                                <div class="expense-item">
+                                    <div style="display: flex; justify-content: space-between;">
+                                        <span>Pembayaran</span>
+                                        <span style="color: var(--red);">-Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.6875rem;">${formatDate(s.created_at)}</div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                }
+
+                // Summary
+                const totalExpenses = detailData.total_expenses || 0;
+                const totalSettled = detailData.total_settled || 0;
+                expenseList += `
+                    <div style="border-top: 1px solid var(--border-color); padding-top: var(--space-sm); margin-bottom: var(--space-md);">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                            <span>Total Ditalangin</span>
+                            <span style="color: var(--green);">Rp ${totalExpenses.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                            <span>Sudah Diterima</span>
+                            <span style="color: var(--red);">Rp ${totalSettled.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-weight: 700; margin-top: var(--space-xs);">
+                            <span>Sisa Piutang</span>
+                            <span style="color: var(--green);">Rp ${amount.toLocaleString('id-ID')}</span>
+                        </div>
+                    </div>
+                `;
+
+                // Store data for tagih function
+                window.currentTagihData = {
+                    debtorName,
+                    debtorPhone,
+                    amount,
+                    expenseDetails: waExpenseDetails,
+                    creditorName: state.user.display_name,
+                    paymentInfo: myPaymentInfo
+                };
+
+                // Tagih button (only show if phone available)
+                const waIcon = `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>`;
+
+                const tagihButton = debtorPhone ? `
+                    <button class="btn btn-wa btn-full btn-lg" onclick="sendTagihWA()">
+                        ${waIcon} Tagih via WA
+                    </button>
+                ` : `
+                    <button class="btn btn-full btn-lg" disabled style="opacity: 0.5;">
+                        ${waIcon} Tagih (No HP belum ada)
+                    </button>
+                `;
+
+                content.innerHTML = `
+                    <div class="amount-header piutang">
+                        <div class="amount-value" style="color: var(--green);">Rp ${amount.toLocaleString('id-ID')}</div>
+                        <div class="amount-label">dari ${debtorName}</div>
+                    </div>
+                    <div class="detail-card">
+                        ${expenseList}
+                    </div>
+                    <div class="modal-btn-group">
+                        ${tagihButton}
+                        <div class="modal-btn-row">
+                            <button class="btn btn-full btn-lg" onclick="openConfirmPayment(${debtorId}, '${debtorName}', ${amount})">
+                                Konfirmasi Sebagian
+                            </button>
+                            <button class="btn btn-success btn-lunas btn-full btn-lg" onclick="resetAndClear(${debtorId}, '${debtorName}', ${amount})">
+                                ✓ Lunas
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } catch (err) {
+                console.error(err);
+                content.innerHTML = '<div class="empty-state">Gagal memuat</div>';
+            }
+        }
+
+        // Send tagih message via WhatsApp
+        function sendTagihWA() {
+            const data = window.currentTagihData;
+            if (!data || !data.debtorPhone) {
+                showToast('Nomor HP tidak tersedia', 'error');
+                return;
+            }
+
+            // Format phone number to 62xxx
+            let phone = data.debtorPhone.replace(/\D/g, ''); // Remove non-digits
+            if (phone.startsWith('0')) {
+                phone = '62' + phone.substring(1);
+            } else if (!phone.startsWith('62')) {
+                phone = '62' + phone;
+            }
+
+            // Get current date
+            const today = new Date().toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+
+            // Build payment info section - support multiple methods
+            let paymentSection = '';
+            if (data.paymentInfo) {
+                const pi = data.paymentInfo;
+                let paymentMethods = [];
+
+                // Parse multiple payment methods
+                const methods = pi.payment_methods_parsed || {
+                    banks: pi.bank_name ? [{ name: pi.bank_name, account: pi.bank_account }] : [],
+                    ewallets: pi.ewallet_type ? [{ type: pi.ewallet_type, number: pi.ewallet_number }] : []
+                };
+
+                // Add all banks
+                if (methods.banks && methods.banks.length > 0) {
+                    methods.banks.forEach(b => {
+                        paymentMethods.push(`🏦 ${b.name}: ${b.account}`);
+                    });
+                }
+
+                // Add all e-wallets
+                if (methods.ewallets && methods.ewallets.length > 0) {
+                    methods.ewallets.forEach(e => {
+                        paymentMethods.push(`📱 ${e.type}: ${e.number}`);
+                    });
+                }
+
+                // Add WhatsApp if available
+                if (pi.phone_wa) {
+                    paymentMethods.push(`📞 WA: ${pi.phone_wa}`);
+                }
+
+                if (paymentMethods.length > 0) {
+                    paymentSection = `
+
+💳 *Bayar ke:*
+${paymentMethods.join('\n')}`;
+                }
+            }
+
+            // Build WhatsApp message - professional app-like format
+            const message = `📋 *CATATAN KONTRAKAN*
+━━━━━━━━━━━━━━━━━━
+
+Halo ${data.debtorName}! 👋
+
+Ada tagihan yang belum terbayar nih:
+
+📝 *Detail Pengeluaran:*
+${data.expenseDetails}
+
+💰 *Total: Rp ${data.amount.toLocaleString('id-ID')}*${paymentSection}
+
+📅 Per tanggal: ${today}
+
+━━━━━━━━━━━━━━━━━━
+Kalau sudah dibayar, tolong update di app ya biar tercatat. Makasih! 🙏
+
+_Pesan otomatis dari Catatan Kontrakan_`;
+
+            // Open WhatsApp
+            const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+            window.open(waUrl, '_blank');
+        }
+
+        function markAsPaid(toUserId, toName, amount) {
+            closeModal('debtDetailModal');
+            confirmMode = 'debtor'; // I'm the debtor paying
+            document.getElementById('confirmFromUser').value = toUserId;
+            document.getElementById('confirmFromName').textContent = toName;
+            document.getElementById('confirmAmount').value = amount;
+
+            // Change modal title for debtor
+            document.querySelector('#confirmPaymentModal .modal-title').textContent = 'Catat Pembayaran';
+            document.querySelector('#confirmPaymentModal .modal-title').style.color = 'var(--red)';
+            document.querySelector('#confirmPaymentForm [type="submit"]').textContent = '✓ Sudah TF';
+
+            openModal('confirmPaymentModal');
+        }
+
+        function openConfirmPayment(fromUserId, fromName, maxAmount) {
+            closeModal('creditDetailModal');
+            confirmMode = 'creditor'; // I'm the creditor confirming
+            document.getElementById('confirmFromUser').value = fromUserId;
+            document.getElementById('confirmFromName').textContent = fromName;
+            document.getElementById('confirmAmount').value = '';
+            document.getElementById('confirmAmount').max = maxAmount;
+
+            // Change modal for creditor confirmation
+            document.querySelector('#confirmPaymentModal .modal-title').textContent = 'Konfirmasi Pembayaran';
+            document.querySelector('#confirmPaymentModal .modal-title').style.color = 'var(--green)';
+            document.querySelector('#confirmPaymentForm [type="submit"]').textContent = '✓ Konfirmasi';
+
+            openModal('confirmPaymentModal');
+        }
+
+        async function confirmFullPayment(fromUserId, fromName, amount) {
+            if (!confirm(`Konfirmasi ${fromName} sudah bayar Rp ${amount.toLocaleString('id-ID')}?`)) return;
+
+            try {
+                // Creditor confirming payment FROM debtor TO themselves
+                const res = await fetch(`${API_BASE}/settlements.php`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        from_user: fromUserId,  // The debtor
+                        to_user: state.user.id, // The creditor (me)
+                        amount: amount
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed');
+
+                showToast('Pembayaran dikonfirmasi!', 'success');
+                closeModal('creditDetailModal');
+                await renderData();
+            } catch (err) {
+                showToast('Gagal: ' + err.message, 'error');
+            }
+        }
+
+        function copyText(text) {
+            navigator.clipboard.writeText(text);
+            showToast('Disalin!', 'success');
+        }
+
+        // Lunas - Creates settlement for remaining amount
+        async function resetAndClear(debtorId, debtorName, amount) {
+            if (!confirm(`Konfirmasi ${debtorName} sudah lunas Rp ${amount.toLocaleString('id-ID')}?`)) return;
+
+            try {
+                // Create settlement for the full remaining amount
+                const res = await fetch(`${API_BASE}/settlements.php`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        from_user: debtorId,
+                        to_user: state.user.id,
+                        amount: amount
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed');
+
+                showToast('✓ Reset & Lunas berhasil! Semua detail di-clear.', 'success');
+                closeModal('creditDetailModal');
+                await renderData();
+            } catch (err) {
+                showToast('Gagal: ' + err.message, 'error');
+            }
+        }
+
+        // Track mode: 'debtor' = I'm paying someone, 'creditor' = I'm confirming someone paid me
+        let confirmMode = 'debtor';
+        let receiptFile = null;
+
+        // Receipt upload preview
+        document.getElementById('receiptUploadArea').addEventListener('click', () => {
+            document.getElementById('receiptInput').click();
+        });
+
+        document.getElementById('receiptInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            receiptFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('receiptPreview').src = e.target.result;
+                document.getElementById('receiptPreview').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('confirmPaymentForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type="submit"]');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Menyimpan...';
+
+            try {
+                const otherUserId = parseInt(document.getElementById('confirmFromUser').value);
+                const amount = parseFloat(document.getElementById('confirmAmount').value);
+
+                // Use FormData to include receipt file
+                const formData = new FormData();
+                formData.append('amount', amount);
+
+                if (receiptFile) {
+                    formData.append('receipt_image', receiptFile);
+                }
+
+                if (confirmMode === 'debtor') {
+                    // I (debtor) am recording that I paid someone (creditor)
+                    formData.append('to_user', otherUserId);
+                } else {
+                    // I (creditor) am confirming that someone (debtor) paid me
+                    formData.append('from_user', otherUserId);
+                    formData.append('to_user', state.user.id);
+                }
+
+                const res = await fetch(`${API_BASE}/settlements.php`, {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Failed');
+
+                showToast('Pembayaran dicatat!', 'success');
+                closeModal('confirmPaymentModal');
+
+                // Reset receipt
+                receiptFile = null;
+                document.getElementById('receiptPreview').classList.add('hidden');
+                document.getElementById('receiptInput').value = '';
+
+                await renderData();
+            } catch (err) {
+                showToast('Gagal: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
+        });
+
+        // Show receipt from settlement
+        function showSettlementReceipt(imagePath, amount, createdAt) {
+            document.getElementById('receiptImage').src = imageUrl(imagePath);
+            document.getElementById('receiptAmount').textContent = 'Rp ' + parseFloat(amount).toLocaleString('id-ID');
+            document.getElementById('receiptDate').textContent = formatDate(createdAt);
+            openModal('receiptModal');
+        }
+
+        // Show payment detail from settlement history
+        function showPaymentDetailInSettle(direction, amount, createdAt, imagePath, isFromMe) {
+            const amountColor = isFromMe ? 'var(--red)' : 'var(--green)';
+            const prefix = isFromMe ? '-' : '+';
+
+            document.getElementById('receiptAmount').style.color = amountColor;
+            document.getElementById('receiptAmount').textContent = prefix + 'Rp ' + parseFloat(amount).toLocaleString('id-ID');
+            document.getElementById('receiptDate').textContent = formatDate(createdAt);
+
+            // Handle receipt image
+            const img = document.getElementById('receiptImage');
+            if (imagePath && imagePath !== 'null' && imagePath !== '') {
+                img.src = imageUrl(imagePath);
+                img.style.display = 'block';
+            } else {
+                img.style.display = 'none';
+            }
+
+            openModal('receiptModal');
+        }
+
+        ['debtDetailModal', 'creditDetailModal', 'confirmPaymentModal', 'receiptModal'].forEach(id => {
+            document.getElementById(id).addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal-overlay')) closeModal(id);
+            });
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#fafafa">
+    <title>Riwayat Pembayaran - Catatan Kontrakan</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/icon-512.png">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .filter-scroll {
+            display: flex;
+            gap: var(--space-sm);
+            overflow-x: auto;
+            padding-bottom: var(--space-sm);
+            margin-bottom: var(--space-md);
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .filter-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-btn {
+            flex-shrink: 0;
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-full);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        .payment-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: var(--space-md);
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-sm);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-xs);
+            transition: all 0.2s;
+        }
+
+        [data-theme="dark"] .payment-item {
+            box-shadow: none;
+        }
+
+        .payment-info {
+            flex: 1;
+        }
+
+        .payment-users {
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-bottom: var(--space-xs);
+        }
+
+        .payment-date {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .payment-amount {
+            font-weight: 700;
+            font-size: 0.9375rem;
+            color: var(--green);
+        }
+
+        .payment-amount.out {
+            color: var(--red);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: var(--space-2xl);
+            color: var(--text-muted);
+        }
+
+        .date-filter {
+            display: flex;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-md);
+            flex-wrap: wrap;
+        }
+
+        .date-input {
+            flex: 1;
+            min-width: 120px;
+            padding: var(--space-sm) var(--space-md);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.8125rem;
+            font-family: inherit;
+        }
+
+        .date-input:focus {
+            outline: none;
+            border-color: var(--text-primary);
+        }
+
+        .btn-clear-date {
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+        }
+
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg-primary);
+            padding-top: var(--space-md);
+            padding-bottom: var(--space-sm);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Sticky Header -->
+        <div class="sticky-header">
+            <div class="page-header">
+                <h1 class="page-title">Riwayat Pembayaran</h1>
+                <button class="icon-btn" onclick="toggleTheme()"><span class="theme-toggle-icon"></span></button>
+            </div>
+
+            <!-- User Filter Buttons -->
+            <div class="filter-scroll" id="userFilters">
+                <button class="btn filter-btn active" data-user="all">Semua</button>
+                <!-- User buttons will be added dynamically -->
+            </div>
+
+            <!-- Date Filter -->
+            <div class="date-filter">
+                <input type="date" class="date-input" id="fromDate">
+                <input type="date" class="date-input" id="toDate">
+                <button class="btn btn-clear-date" onclick="clearDateFilter()">Reset</button>
+            </div>
+        </div>
+        <div id="paymentList">
+            <div class="empty-state">
+                <div class="spinner" style="margin: 0 auto;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Detail Modal -->
+    <div class="modal-overlay" id="receiptModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title" id="receiptModalTitle">Detail Pembayaran</h3>
+            <div id="receiptContent" style="text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: 700; margin-bottom: var(--space-sm);" id="receiptAmount">Rp
+                    0</div>
+                <div class="text-muted" style="margin-bottom: var(--space-md);" id="receiptDirection">-</div>
+                <div id="receiptImageContainer">
+                    <img id="receiptImage" style="max-width: 100%; max-height: 50vh; border-radius: var(--radius-md);">
+                </div>
+                <div class="text-muted" style="font-size: 0.75rem; margin-top: var(--space-sm);" id="receiptDate">-
+                </div>
+            </div>
+            <button class="btn btn-full" style="margin-top: var(--space-lg);"
+                onclick="closeModal('receiptModal')">Tutup</button>
+        </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+        <a href="dashboard.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                </svg></span>
+            <span>Home</span>
+        </a>
+        <a href="history.html" class="nav-item active">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M12 8v4l3 3" />
+                    <circle cx="12" cy="12" r="10" />
+                </svg></span>
+            <span>Riwayat</span>
+        </a>
+        <a href="settle.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                    <line x1="1" y1="10" x2="23" y2="10" />
+                </svg></span>
+            <span>Bayar</span>
+        </a>
+        <a href="notifications.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg></span>
+            <span>Notif</span>
+            <span class="nav-badge hidden">0</span>
+        </a>
+        <a href="profile.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg></span>
+            <span>Profil</span>
+        </a>
+    </nav>
+
+    <script src="js/icons.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let allSettlements = [];
+        let currentUserId = null;
+        let allUsers = [];
+
+        function formatDateFull(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        function formatDateRelative(dateStr) {
+            const d = new Date(dateStr);
+            const now = new Date();
+            const diff = now - d;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+            if (days === 0) return 'Hari ini';
+            if (days === 1) return 'Kemarin';
+            if (days < 7) return `${days} hari lalu`;
+            return formatDateFull(dateStr);
+        }
+
+        (async () => {
+            if (!await checkAuth()) { window.location.href = 'login.html'; return; }
+            currentUserId = parseInt(state.user.id);
+            await loadUsers();
+            await loadSettlements();
+            buildUserFilters(); // Build after settlements loaded so we know who has transactions with us
+            await loadNotifications();
+        })();
+
+        function buildUserFilters() {
+            const container = document.getElementById('userFilters');
+
+            // Only show users that have settlements involving current user
+            const usersWithTransactions = new Set();
+            allSettlements.forEach(s => {
+                const fromUser = parseInt(s.from_user);
+                const toUser = parseInt(s.to_user);
+                // Only count if current user is involved
+                if (fromUser === currentUserId) {
+                    usersWithTransactions.add(toUser);
+                } else if (toUser === currentUserId) {
+                    usersWithTransactions.add(fromUser);
+                }
+            });
+
+            // Filter users to only those with transactions
+            allUsers = state.users
+                .filter(u => parseInt(u.id) !== currentUserId && usersWithTransactions.has(parseInt(u.id)))
+                .map(u => ({ id: parseInt(u.id), name: u.display_name }));
+
+            allUsers.forEach(user => {
+                const btn = document.createElement('button');
+                btn.className = 'btn filter-btn';
+                btn.dataset.user = user.id;
+                btn.textContent = user.name;
+                btn.addEventListener('click', () => selectUserFilter(user.id));
+                container.appendChild(btn);
+            });
+
+            // Add click handler for "Semua"
+            container.querySelector('[data-user="all"]').addEventListener('click', () => selectUserFilter('all'));
+        }
+
+        function selectUserFilter(userId) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-user="${userId}"]`).classList.add('active');
+            renderPayments(userId);
+        }
+
+        async function loadSettlements() {
+            try {
+                const res = await fetch(`${API_BASE}/settlements.php?limit=100`, { credentials: 'include' });
+                const data = await res.json();
+                allSettlements = data.settlements || [];
+                renderPayments('all');
+            } catch (err) {
+                console.error('Error loading settlements:', err);
+                document.getElementById('paymentList').innerHTML = '<div class="empty-state">Gagal memuat data</div>';
+            }
+        }
+
+        function renderPayments(userFilter = 'all') {
+            const container = document.getElementById('paymentList');
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+
+            let filtered = allSettlements.filter(s => {
+                const fromUser = parseInt(s.from_user);
+                const toUser = parseInt(s.to_user);
+
+                // ALWAYS filter to only show transactions involving current user
+                const involvesMe = (fromUser === currentUserId || toUser === currentUserId);
+                if (!involvesMe) return false;
+
+                // Additional filter by selected user
+                if (userFilter !== 'all') {
+                    const userId = parseInt(userFilter);
+                    if (fromUser !== userId && toUser !== userId) return false;
+                }
+
+                // Filter by date
+                if (fromDate) {
+                    const d = new Date(s.created_at);
+                    const from = new Date(fromDate);
+                    if (d < from) return false;
+                }
+                if (toDate) {
+                    const d = new Date(s.created_at);
+                    const to = new Date(toDate);
+                    to.setHours(23, 59, 59);
+                    if (d > to) return false;
+                }
+
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state">Belum ada pembayaran</div>';
+                return;
+            }
+
+            container.innerHTML = filtered.map(s => {
+                const isOutgoing = s.from_user === currentUserId;
+                const otherName = isOutgoing ? s.to_name : s.from_name;
+                const direction = isOutgoing ? `Kamu → ${otherName}` : `${s.from_name} → Kamu`;
+                const amountClass = isOutgoing ? 'out' : '';
+                const prefix = isOutgoing ? '-' : '+';
+                const receiptIcon = s.receipt_image ? `<span style="font-size: 0.7rem; color: var(--green); margin-left: 4px;">📎</span>` : '';
+
+                return `
+                    <div class="payment-item" style="cursor: pointer;" 
+                        onclick="showPaymentDetail('${direction}', ${s.amount}, '${s.created_at}', '${s.receipt_image || ''}', ${isOutgoing})">
+                        <div class="payment-info">
+                            <div class="payment-users">${direction}${receiptIcon}</div>
+                            <div class="payment-date">${formatDateRelative(s.created_at)} · ${formatDateFull(s.created_at)}</div>
+                        </div>
+                        <div class="payment-amount ${amountClass}">${prefix}Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function clearDateFilter() {
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            const activeUser = document.querySelector('.filter-btn.active').dataset.user;
+            renderPayments(activeUser);
+        }
+
+        // Date filter change handlers
+        document.getElementById('fromDate').addEventListener('change', () => {
+            const activeUser = document.querySelector('.filter-btn.active').dataset.user;
+            renderPayments(activeUser);
+        });
+        document.getElementById('toDate').addEventListener('change', () => {
+            const activeUser = document.querySelector('.filter-btn.active').dataset.user;
+            renderPayments(activeUser);
+        });
+
+        // Show payment detail modal
+        function showPaymentDetail(direction, amount, createdAt, imagePath, isOutgoing) {
+            const amountColor = isOutgoing ? 'var(--red)' : 'var(--green)';
+            const prefix = isOutgoing ? '-' : '+';
+
+            document.getElementById('receiptModalTitle').textContent = 'Detail Pembayaran';
+            document.getElementById('receiptAmount').style.color = amountColor;
+            document.getElementById('receiptAmount').textContent = prefix + 'Rp ' + parseFloat(amount).toLocaleString('id-ID');
+            document.getElementById('receiptDirection').textContent = direction;
+            document.getElementById('receiptDate').textContent = formatDateFull(createdAt);
+
+            // Handle receipt image
+            const imgContainer = document.getElementById('receiptImageContainer');
+            const img = document.getElementById('receiptImage');
+            if (imagePath && imagePath !== 'null' && imagePath !== '') {
+                img.src = imageUrl(imagePath);
+                imgContainer.classList.remove('hidden');
+                document.getElementById('receiptModalTitle').textContent = 'Detail Pembayaran + Bukti TF';
+            } else {
+                imgContainer.classList.add('hidden');
+            }
+
+            openModal('receiptModal');
+        }
+    </script>
+</body>
+
+</html>

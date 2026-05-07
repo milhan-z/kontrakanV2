@@ -1,0 +1,117 @@
+/**
+ * api/settlements.js — Settlements API (Pengganti settlements.php)
+ * GET  → List settlements
+ * POST → Create settlement + notification
+ */
+
+const { getDB, setCors, jsonResponse, requireAuth, getBody, handleOptions } = require('../lib/db');
+
+module.exports = async function handler(req, res) {
+  setCors(res);
+  if (handleOptions(req, res)) return;
+
+  const user = requireAuth(req, res);
+  if (!user) return;
+
+  if (req.method === 'GET')  return listSettlements(req, res, user);
+  if (req.method === 'POST') return createSettlement(req, res, user);
+
+  return jsonResponse(res, { error: 'Method not allowed' }, 405);
+};
+
+async function listSettlements(req, res, user) {
+  const db = getDB();
+  const limit = parseInt(req.query.limit || '50');
+  const userId = req.query.user_id ? parseInt(req.query.user_id) : null;
+
+  let sql = `
+    SELECT s.*,
+           fu.display_name as from_name,
+           tu.display_name as to_name
+    FROM settlements s
+    JOIN users fu ON s.from_user = fu.id
+    JOIN users tu ON s.to_user = tu.id
+  `;
+  const params = [];
+
+  if (userId) {
+    params.push(userId, userId);
+    sql += ` WHERE (s.from_user = $1 OR s.to_user = $2)`;
+  }
+
+  params.push(limit);
+  sql += ` ORDER BY s.created_at DESC LIMIT $${params.length}`;
+
+  const result = await db.query(sql, params);
+  return jsonResponse(res, { settlements: result.rows });
+}
+
+async function createSettlement(req, res, user) {
+  const input = await getBody(req);
+
+  const fromUser = parseInt(input.from_user || user.user_id);
+  const toUser   = parseInt(input.to_user || 0);
+  const amount   = parseFloat(input.amount || 0);
+  const receiptImage = input.receipt_image || null; // Cloudinary URL dari frontend
+
+  if (!toUser || amount <= 0) {
+    return jsonResponse(res, { error: 'Invalid to_user or amount' }, 400);
+  }
+  if (toUser === fromUser) {
+    return jsonResponse(res, { error: 'Cannot settle to yourself' }, 400);
+  }
+  if (user.user_id !== fromUser && user.user_id !== toUser) {
+    return jsonResponse(res, { error: 'Not authorized to record this settlement' }, 403);
+  }
+
+  const db = getDB();
+
+  // Verify both users exist
+  const usersResult = await db.query(
+    'SELECT id, display_name FROM users WHERE id = ANY($1)',
+    [[fromUser, toUser]]
+  );
+  if (usersResult.rows.length < 2) {
+    return jsonResponse(res, { error: 'User not found' }, 404);
+  }
+  const userMap = {};
+  usersResult.rows.forEach(u => { userMap[u.id] = u.display_name; });
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const settlResult = await client.query(
+      'INSERT INTO settlements (from_user, to_user, amount, receipt_image) VALUES ($1, $2, $3, $4) RETURNING id',
+      [fromUser, toUser, amount, receiptImage]
+    );
+    const settlementId = settlResult.rows[0].id;
+
+    const amountFormatted = new Intl.NumberFormat('id-ID').format(amount);
+
+    if (user.user_id === fromUser) {
+      // Debtor recorded → notify creditor
+      await client.query(
+        `INSERT INTO notifications (user_id, title, message, type, related_id)
+         VALUES ($1, 'Pembayaran Diterima', $2, 'settlement', $3)`,
+        [toUser, `${userMap[fromUser]} sudah membayar Rp ${amountFormatted} ke kamu`, settlementId]
+      );
+    } else {
+      // Creditor confirmed → notify debtor
+      await client.query(
+        `INSERT INTO notifications (user_id, title, message, type, related_id)
+         VALUES ($1, 'Pembayaran Dikonfirmasi', $2, 'settlement', $3)`,
+        [fromUser, `${userMap[toUser]} mengkonfirmasi pembayaran Rp ${amountFormatted} dari kamu`, settlementId]
+      );
+    }
+
+    await client.query('COMMIT');
+    return jsonResponse(res, { success: true, message: 'Settlement recorded', settlement_id: settlementId }, 201);
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    return jsonResponse(res, { error: 'Failed to create settlement: ' + err.message }, 500);
+  } finally {
+    client.release();
+  }
+}

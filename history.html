@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#f5f5f7">
+    <title>Riwayat - Catatan Kontrakan</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/icon-512.png">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .sticky-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: var(--bg-primary);
+            padding-top: var(--space-md);
+            padding-bottom: var(--space-sm);
+        }
+
+        .search-filter {
+            display: flex;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-md);
+        }
+
+        .search-input {
+            flex: 1;
+            padding: var(--space-sm) var(--space-md);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            font-family: inherit;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--text-primary);
+        }
+
+        .date-filter {
+            display: flex;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-sm);
+            flex-wrap: wrap;
+        }
+
+        .date-input {
+            flex: 1;
+            min-width: 100px;
+            padding: var(--space-sm) var(--space-md);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 0.8125rem;
+            font-family: inherit;
+        }
+
+        .date-input:focus {
+            outline: none;
+            border-color: var(--text-primary);
+        }
+
+        .btn-clear {
+            padding: var(--space-sm) var(--space-md);
+            border-radius: var(--radius-full);
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Sticky Header -->
+        <div class="sticky-header">
+            <div class="page-header">
+                <h1 class="page-title">Riwayat</h1>
+                <button class="icon-btn" onclick="toggleTheme()"><span class="theme-toggle-icon"></span></button>
+            </div>
+
+            <!-- Filter -->
+            <div class="filter-scroll"
+                style="display: flex; gap: var(--space-sm); margin-bottom: var(--space-sm); overflow-x: auto; padding-bottom: var(--space-xs); -webkit-overflow-scrolling: touch;">
+                <button class="btn filter-btn active" data-category=""
+                    style="border-radius: var(--radius-full);">Semua</button>
+                <button class="btn filter-btn" data-category="Listrik"
+                    style="border-radius: var(--radius-full);">Listrik</button>
+                <button class="btn filter-btn" data-category="Air"
+                    style="border-radius: var(--radius-full);">Air</button>
+                <button class="btn filter-btn" data-category="Keamanan & Kebersihan"
+                    style="border-radius: var(--radius-full);">Keamanan</button>
+                <button class="btn filter-btn" data-category="Titip Makanan"
+                    style="border-radius: var(--radius-full);">Makanan</button>
+            </div>
+
+            <!-- Search -->
+            <div class="search-filter">
+                <input type="text" class="search-input" id="searchInput" placeholder="Cari transaksi...">
+            </div>
+
+            <!-- Date Filter -->
+            <div class="date-filter">
+                <input type="date" class="date-input" id="fromDate">
+                <input type="date" class="date-input" id="toDate">
+                <button class="btn btn-clear" onclick="clearFilters()">Reset</button>
+            </div>
+        </div>
+
+        <!-- Listrik Stats Section (shows when Listrik filter active) -->
+        <div class="section listrik-stats" id="listrikStatsSection" style="display: none;">
+            <div style="text-align: center; margin-bottom: var(--space-md);">
+                <div style="font-size: 0.75rem; color: var(--yellow);">⚡ GILIRAN SELANJUTNYA</div>
+                <div style="font-size: 1.125rem; font-weight: 700; margin-top: var(--space-xs);" id="nextListrikPayers">
+                    -</div>
+            </div>
+            <div id="listrikStatsList"
+                style="margin-top: var(--space-md); padding-top: var(--space-md); border-top: 1px solid var(--border-color);">
+            </div>
+        </div>
+
+        <div class="section" id="transactionSection">
+            <div id="transactionList">
+                <div class="empty-state">
+                    <div class="spinner" style="margin: 0 auto;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Receipt Modal -->
+    <div class="modal-overlay" id="receiptModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <img id="modalReceiptImage" src="" style="width: 100%; border-radius: var(--radius-md);">
+        </div>
+    </div>
+
+    <!-- Transaction Detail Modal -->
+    <div class="modal-overlay" id="transactionDetailModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <div id="transactionDetailContent"></div>
+        </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <nav class="bottom-nav">
+        <a href="dashboard.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                </svg></span>
+            <span>Home</span>
+        </a>
+        <a href="history.html" class="nav-item active">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M12 8v4l3 3" />
+                    <circle cx="12" cy="12" r="10" />
+                </svg></span>
+            <span>Riwayat</span>
+        </a>
+        <a href="settle.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+                    <line x1="1" y1="10" x2="23" y2="10" />
+                </svg></span>
+            <span>Bayar</span>
+        </a>
+        <a href="notifications.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg></span>
+            <span>Notif</span>
+            <span class="nav-badge hidden">0</span>
+        </a>
+        <a href="profile.html" class="nav-item">
+            <span class="icon"><svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="3" />
+                    <path
+                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg></span>
+            <span>Profil</span>
+        </a>
+    </nav>
+
+    <script src="js/icons.js"></script>
+    <script src="js/app.js"></script>
+    <script>
+        let currentCategory = '';
+
+        function formatDateFull(dateStr) {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        (async () => {
+            if (!await checkAuth()) { window.location.href = 'login.html'; return; }
+            await Promise.all([loadUsers(), loadNotifications()]);
+            await renderTransactions();
+        })();
+
+        async function renderTransactions(category = '') {
+            const container = document.getElementById('transactionList');
+            container.innerHTML = '<div class="empty-state"><div class="spinner" style="margin: 0 auto;"></div></div>';
+
+            // Get filter values
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+
+            // Show/hide listrik stats
+            const listrikSection = document.getElementById('listrikStatsSection');
+            if (category === 'Listrik') {
+                listrikSection.style.display = 'block';
+                await loadListrikStats();
+            } else {
+                listrikSection.style.display = 'none';
+            }
+
+            try {
+                const data = await loadExpenses(category || null);
+                let expenses = data.expenses || [];
+
+                // Apply search filter
+                if (searchTerm) {
+                    expenses = expenses.filter(e =>
+                        e.description.toLowerCase().includes(searchTerm) ||
+                        e.paid_by_name.toLowerCase().includes(searchTerm)
+                    );
+                }
+
+                // Apply date filter
+                if (fromDate) {
+                    const from = new Date(fromDate);
+                    expenses = expenses.filter(e => new Date(e.created_at) >= from);
+                }
+                if (toDate) {
+                    const to = new Date(toDate);
+                    to.setHours(23, 59, 59);
+                    expenses = expenses.filter(e => new Date(e.created_at) <= to);
+                }
+
+                if (expenses.length === 0) {
+                    container.innerHTML = '<div class="empty-state">Tidak ada transaksi ditemukan</div>';
+                    return;
+                }
+
+                container.innerHTML = expenses.map(e => {
+                    const isPayer = e.paid_by == state.user.id;
+                    const isSplit = e.splits.some(s => s.user_id == state.user.id);
+                    let tagClass = '', tagText = e.category;
+
+                    // Listrik doesn't have hutang/piutang
+                    if (e.category === 'Listrik') {
+                        tagClass = '';
+                        tagText = 'Listrik';
+                    } else if (isPayer) {
+                        tagClass = 'piutang'; tagText = 'Piutang';
+                    } else if (isSplit) {
+                        tagClass = 'hutang'; tagText = 'Hutang';
+                    }
+
+                    return `
+                        <div class="transaction-item" onclick="showTransactionDetail(${JSON.stringify(e).replace(/"/g, '&quot;')})" style="cursor: pointer;">
+                            <div class="transaction-info">
+                                <div class="transaction-title">${e.description}</div>
+                                <div class="transaction-meta">
+                                    <span class="transaction-tag ${tagClass}">${tagText}</span>
+                                    <span class="transaction-tag">${e.paid_by_name}</span>
+                                    <span class="transaction-tag">${formatDate(e.created_at)}</span>
+                                </div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div class="transaction-amount ${tagClass}">Rp ${parseFloat(e.amount).toLocaleString('id-ID')}</div>
+                                ${(e.paid_by == state.user.id || state.user.role === 'admin') ? `<button class="btn btn-danger" style="font-size: 0.625rem; padding: 4px 8px; margin-top: 8px;" onclick="event.stopPropagation(); handleDelete(${e.id})">Hapus</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch { container.innerHTML = '<div class="empty-state">Gagal memuat</div>'; }
+        }
+
+        function clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            renderTransactions(currentCategory);
+        }
+
+        // Event handlers for search and date filters
+        document.getElementById('searchInput').addEventListener('input', () => renderTransactions(currentCategory));
+        document.getElementById('fromDate').addEventListener('change', () => renderTransactions(currentCategory));
+        document.getElementById('toDate').addEventListener('change', () => renderTransactions(currentCategory));
+
+        async function loadListrikStats() {
+            try {
+                const res = await fetch(`${API_BASE}/listrik.php`, { credentials: 'include' });
+                const data = await res.json();
+
+                // Find minimum
+                const minCount = Math.min(...data.stats.map(s => parseInt(s.payment_count)));
+                const candidates = data.stats.filter(s => parseInt(s.payment_count) === minCount);
+
+                // Display candidates
+                if (candidates.length === 1) {
+                    document.getElementById('nextListrikPayers').textContent = candidates[0].display_name;
+                } else {
+                    document.getElementById('nextListrikPayers').innerHTML = candidates.map(c =>
+                        `<span style="display: inline-block; background: var(--bg-primary); padding: 2px 10px; border-radius: 12px; margin: 2px; font-size: 0.875rem;">${c.display_name}</span>`
+                    ).join('');
+                }
+
+                // Stats list
+                document.getElementById('listrikStatsList').innerHTML = data.stats.map((s, i) => {
+                    const isCandidate = parseInt(s.payment_count) === minCount;
+                    return `
+                        <div style="display: flex; justify-content: space-between; padding: 8px 0; ${i < data.stats.length - 1 ? 'border-bottom: 1px solid rgba(0,0,0,0.1);' : ''}">
+                            <span style="${isCandidate ? 'font-weight: 600;' : ''}">${s.display_name}</span>
+                            <span style="font-weight: 600;">${s.payment_count}x</span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (err) { console.error(err); }
+        }
+
+        function showTransactionDetail(tx) {
+            const content = document.getElementById('transactionDetailContent');
+            const isPayer = tx.paid_by == state.user.id;
+            const canDelete = isPayer || state.user.role === 'admin';
+
+            let splitInfo = '';
+            if (tx.category === 'Listrik') {
+                splitInfo = `<div class="text-muted" style="font-size: 0.875rem;">Sistem rotasi - tidak dibagi</div>`;
+            } else if (tx.splits && tx.splits.length > 0) {
+                splitInfo = `
+                    <div style="margin-top: var(--space-md);">
+                        <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">DIBAGI KE:</div>
+                        ${tx.splits.map(s => {
+                    const userName = state.users.find(u => u.id == s.user_id)?.display_name || 'Unknown';
+                    return `
+                                <div style="display: flex; justify-content: space-between; padding: var(--space-sm) 0; border-bottom: 1px solid var(--border-color);">
+                                    <span>${userName}</span>
+                                    <span style="font-weight: 600;">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</span>
+                                </div>
+                            `;
+                }).join('')}
+                    </div>
+                `;
+            }
+
+            content.innerHTML = `
+                ${tx.receipt_image ? `<img src="${imageUrl(tx.receipt_image)}" class="info-detail-image" alt="Bukti">` : ''}
+                <h2 style="margin-bottom: var(--space-sm);">${tx.description}</h2>
+                <div style="font-size: 1.5rem; font-weight: 700; color: ${tx.category === 'Listrik' ? 'var(--text-primary)' : (isPayer ? 'var(--green)' : 'var(--red)')}; margin-bottom: var(--space-md);">
+                    Rp ${parseFloat(tx.amount).toLocaleString('id-ID')}
+                </div>
+                <div class="info-detail-meta">
+                    <div><strong>Kategori:</strong> ${tx.category}</div>
+                    <div><strong>Dibayar oleh:</strong> ${tx.paid_by_name}</div>
+                    <div><strong>Tanggal:</strong> ${formatDateFull(tx.created_at)}</div>
+                </div>
+                ${splitInfo}
+                ${canDelete ? `<button class="btn btn-danger btn-full mt-md" onclick="handleDelete(${tx.id}); closeModal('transactionDetailModal');">Hapus</button>` : ''}
+            `;
+            openModal('transactionDetailModal');
+        }
+
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentCategory = btn.dataset.category;
+                renderTransactions(currentCategory);
+            });
+        });
+
+        function showReceipt(path) {
+            document.getElementById('modalReceiptImage').src = imageUrl(path);
+            openModal('receiptModal');
+        }
+
+        async function handleDelete(id) {
+            if (!confirm('Hapus transaksi?')) return;
+            try {
+                await deleteExpense(id);
+                showToast('Dihapus', 'success');
+                renderTransactions(currentCategory);
+            } catch (err) { showToast('Gagal', 'error'); }
+        }
+
+        ['receiptModal', 'transactionDetailModal'].forEach(id => {
+            document.getElementById(id).addEventListener('click', (e) => {
+                if (e.target.classList.contains('modal-overlay')) closeModal(id);
+            });
+        });
+    </script>
+</body>
+
+</html>

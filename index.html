@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#0f0f0f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Kontrakan">
+    <meta name="description" content="Catatan Kontrakan - Aplikasi pencatatan keuangan bersama">
+    <title>Catatan Kontrakan</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-512.png">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+    <link rel="apple-touch-icon-precomposed" href="apple-touch-icon.png">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <script>
+        // Redirect to dashboard if logged in, login if not
+        (async () => {
+            try {
+                const apiBase = window.location.hostname === 'localhost' ? '/Kontrakan/api' : '/api';
+                const res = await fetch(apiBase + '/auth.php?action=me', { credentials: 'include' });
+                if (res.ok) {
+                    window.location.href = 'dashboard.html';
+                } else {
+                    window.location.href = 'login.html';
+                }
+            } catch {
+                window.location.href = 'login.html';
+            }
+        })();
+    </script>
+    <div class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+</body>
+
+</html>

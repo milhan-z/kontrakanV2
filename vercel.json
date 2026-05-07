@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/auth", "destination": "/api/auth.js" },
+    { "source": "/api/users", "destination": "/api/users.js" },
+    { "source": "/api/expenses", "destination": "/api/expenses.js" },
+    { "source": "/api/balance", "destination": "/api/balance.js" },
+    { "source": "/api/settlements", "destination": "/api/settlements.js" },
+    { "source": "/api/notifications", "destination": "/api/notifications.js" },
+    { "source": "/api/admin", "destination": "/api/admin.js" },
+    { "source": "/api/info", "destination": "/api/info.js" },
+    { "source": "/api/upload", "destination": "/api/upload.js" },
+    { "source": "/api/payment_info", "destination": "/api/payment_info.js" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
+      ]
+    }
+  ]
+}
