@@ -214,7 +214,7 @@ async function ocrReceipt(req, res, user) {
     const geminiData = await geminiRes.json();
     if (!geminiRes.ok) {
       console.error('Gemini error:', geminiData);
-      return jsonResponse(res, { error: 'Gagal memproses struk dengan AI' }, 500);
+      return jsonResponse(res, { error: 'Gagal memproses struk dengan AI: ' + JSON.stringify(geminiData) }, 500);
     }
 
     const textRes = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
@@ -232,3 +232,4 @@ async function ocrReceipt(req, res, user) {
     return jsonResponse(res, { error: 'Terjadi kesalahan OCR: ' + err.message }, 500);
   }
 }
+
