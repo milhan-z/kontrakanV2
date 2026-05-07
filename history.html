@@ -237,13 +237,20 @@
             const fromDate = document.getElementById('fromDate').value;
             const toDate = document.getElementById('toDate').value;
 
-            // Show/hide listrik stats
+            // Show/hide stats
             const listrikSection = document.getElementById('listrikStatsSection');
+            const galonSection = document.getElementById('galonStatsSection');
             if (category === 'Listrik') {
                 listrikSection.style.display = 'block';
+                if(galonSection) galonSection.style.display = 'none';
                 await loadListrikStats();
+            } else if (category === 'Galon') {
+                listrikSection.style.display = 'none';
+                if(galonSection) galonSection.style.display = 'block';
+                await loadGalonStats();
             } else {
                 listrikSection.style.display = 'none';
+                if(galonSection) galonSection.style.display = 'none';
             }
 
             try {
