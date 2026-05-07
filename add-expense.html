@@ -5,7 +5,127 @@
     <script>
         // Set theme ASAP to prevent white flash
         (function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);else if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');})();
-    </script>
+    
+        let aiItems = [];
+
+        async function scanReceiptWithAI() {
+            if (!uploadedFilePath) { showToast('Upload struk dulu', 'error'); return; }
+            
+            const btn = document.getElementById('btnAIOcr');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner" style="width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white;"></div> <span style="margin-left: 8px;">Membaca struk...</span>';
+
+            try {
+                // Ensure full URL for Cloudinary if it's relative
+                const imgUrl = imageUrl(uploadedFilePath);
+                const absoluteUrl = imgUrl.startsWith('http') ? imgUrl : window.location.origin + imgUrl;
+
+                const res = await apiPost('expenses?action=ocr', { url: absoluteUrl });
+                if (res && res.items && res.items.length > 0) {
+                    aiItems = res.items.map(i => ({ ...i, assignedTo: [] }));
+                    document.getElementById('aiItemsSection').classList.remove('hidden');
+                    renderAIItems();
+                    showToast('Struk berhasil dibaca!', 'success');
+                    
+                    // Hide split options because AI overrides it
+                    document.getElementById('btnSplitEqual').parentElement.parentElement.classList.add('hidden');
+                    document.getElementById('amount').readOnly = true;
+                    
+                    // Auto switch to custom mode
+                    splitMode = 'custom';
+                    document.querySelectorAll('.user-amount').forEach(el => el.classList.remove('hidden'));
+                } else {
+                    showToast('Tidak ada item terdeteksi di struk', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Gagal scan struk. Pastikan API key dikonfigurasi.', 'error');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function renderAIItems() {
+            const container = document.getElementById('aiItemsList');
+            container.innerHTML = aiItems.map((item, index) => `
+                <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; box-shadow: var(--shadow-sm);">
+                    <div style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 10px;">
+                        <span>${item.item}</span>
+                        <span>Rp ${item.price.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        ${state.users.map(u => {
+                            const isSelected = item.assignedTo.includes(u.id);
+                            return `<span onclick="toggleAIAssign(${index}, ${u.id})" 
+                                          style="font-size: 0.75rem; padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: all 0.2s;
+                                                 ${isSelected ? 'background: var(--primary); color: white; border: 1px solid var(--primary);' : 'background: transparent; color: var(--text-muted); border: 1px solid var(--border-color);'}">
+                                        ${u.display_name}
+                                    </span>`;
+                        }).join('')}
+                    </div>
+                </div>
+            `).join('');
+            calculateAITotals();
+        }
+
+        window.toggleAIAssign = function(itemIndex, userId) {
+            const item = aiItems[itemIndex];
+            if (item.assignedTo.includes(userId)) {
+                item.assignedTo = item.assignedTo.filter(id => id !== userId);
+            } else {
+                item.assignedTo.push(userId);
+            }
+            renderAIItems();
+        };
+
+        function calculateAITotals() {
+            let totals = {};
+            let grandTotal = 0;
+            
+            state.users.forEach(u => totals[u.id] = 0);
+
+            aiItems.forEach(item => {
+                if (item.assignedTo.length > 0) {
+                    const splitPrice = item.price / item.assignedTo.length;
+                    item.assignedTo.forEach(id => {
+                        totals[id] += splitPrice;
+                    });
+                    grandTotal += item.price;
+                }
+            });
+
+            // Update global amount
+            document.getElementById('amount').value = grandTotal;
+            
+            // Check checkboxes and set amounts
+            document.querySelectorAll('.user-checkbox').forEach(cb => {
+                const userId = parseInt(cb.dataset.userId);
+                const input = cb.querySelector('input[type="checkbox"]');
+                const amtInput = cb.querySelector('.user-amount input');
+                
+                if (totals[userId] > 0) {
+                    input.checked = true;
+                    cb.classList.add('selected');
+                    amtInput.value = Math.round(totals[userId]);
+                } else {
+                    input.checked = false;
+                    cb.classList.remove('selected');
+                    amtInput.value = '';
+                }
+            });
+
+            updateSplit();
+        }
+
+        // Make sure btnAIOcr has click listener
+        setTimeout(() => {
+            const btnAIOcr = document.getElementById('btnAIOcr');
+            if (btnAIOcr) btnAIOcr.addEventListener('click', scanReceiptWithAI);
+        }, 100);
+
+</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <meta name="theme-color" content="#fafafa">
@@ -94,7 +214,19 @@
             </div>
 
             <button type="submit" class="btn btn-primary btn-full btn-lg" id="submitBtn">Simpan</button>
-        </form>
+        
+            <div class="form-group" id="aiBtnGroup" style="display: none; margin-top: 8px;">
+                <button type="button" id="btnAIOcr" class="btn btn-wa btn-full" style="display: flex; justify-content: center; align-items: center; gap: 8px; font-weight: 600;">
+                    <span>✨</span> Auto Split Struk dengan AI
+                </button>
+            </div>
+
+            <div id="aiItemsSection" class="form-group hidden" style="margin-top: var(--space-md); border-top: 1px solid var(--border-color); padding-top: var(--space-md);">
+                <label class="form-label">Daftar Item (Tap nama untuk assign)</label>
+                <div id="aiItemsList" style="display: flex; flex-direction: column; gap: 10px;"></div>
+            </div>
+
+            </form>
     </div>
 
     <script src="js/icons.js"></script>
@@ -202,6 +334,8 @@
                 const result = await uploadReceipt(file);
                 uploadedFilePath = result.path;
                 showToast('Uploaded', 'success');
+                const aiBtnGroup = document.getElementById('aiBtnGroup');
+                if (aiBtnGroup) aiBtnGroup.style.display = 'block';
             } catch (err) { showToast('Gagal upload', 'error'); }
         });
 

@@ -18,6 +18,7 @@ module.exports = async function handler(req, res) {
   if ((req.url || '').includes('/listrik')) return listrikStats(req, res, user);
 
   if (req.method === 'GET')    return listExpenses(req, res, user);
+  if (req.method === 'POST' && (req.query.action === 'ocr' || (req.url || '').includes('action=ocr'))) return ocrReceipt(req, res, user);
   if (req.method === 'POST')   return createExpense(req, res, user);
   if (req.method === 'DELETE') return deleteExpense(req, res, user);
 
@@ -168,4 +169,66 @@ async function listrikStats(req, res, user) {
     ORDER BY payment_count ASC, last_payment ASC NULLS FIRST
   `);
   return jsonResponse(res, { stats: result.rows, next_payer: result.rows[0] || null });
+}
+
+// ==================== OCR Receipt (Gemini AI) ====================
+async function ocrReceipt(req, res, user) {
+  const input = await getBody(req);
+  const { url } = input;
+  if (!url) return jsonResponse(res, { error: 'Image URL required' }, 400);
+
+  if (!process.env.GEMINI_API_KEY) {
+    return jsonResponse(res, { error: 'GEMINI_API_KEY belum dikonfigurasi di Vercel.' }, 500);
+  }
+
+  try {
+    const imgRes = await fetch(url);
+    const arrayBuffer = await imgRes.arrayBuffer();
+    const base64Data = Buffer.from(arrayBuffer).toString('base64');
+    const mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
+
+    const promptText = "Kamu adalah asisten split bill. Ekstrak daftar barang/makanan dan harganya dari gambar struk ini. Abaikan subtotal, pajak, diskon umum, service charge, dan total keseluruhan. HANYA ambil item baris yang dibeli. Format output WAJIB berupa JSON array of objects dengan property 'item' (string nama barang) dan 'price' (number harga barang asli tanpa titik/koma desimal ribu). JANGAN sertakan markdown atau teks apapun, murni JSON saja.";
+
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: promptText },
+            {
+              inline_data: {
+                mime_type: mimeType,
+                data: base64Data
+              }
+            }
+          ]
+        }],
+        generationConfig: {
+            temperature: 0.1,
+            response_mime_type: "application/json"
+        }
+      })
+    });
+
+    const geminiData = await geminiRes.json();
+    if (!geminiRes.ok) {
+      console.error('Gemini error:', geminiData);
+      return jsonResponse(res, { error: 'Gagal memproses struk dengan AI' }, 500);
+    }
+
+    const textRes = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+    let items = [];
+    try {
+      items = JSON.parse(textRes);
+    } catch (e) {
+      console.error('Parse JSON failed:', textRes);
+      return jsonResponse(res, { error: 'Format AI tidak valid' }, 500);
+    }
+
+    return jsonResponse(res, { items });
+  } catch (err) {
+    console.error('OCR Error:', err);
+    return jsonResponse(res, { error: 'Terjadi kesalahan OCR: ' + err.message }, 500);
+  }
 }
