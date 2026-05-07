@@ -2,20 +2,18 @@
  * Catatan Kontrakan - Main JavaScript
  */
 
-// Auto-detect environment: local (XAMPP) vs production (Railway)
+// Auto-detect environment: local (XAMPP) vs production (Vercel)
 const API_BASE = window.location.hostname === 'localhost' ? '/Kontrakan/api' : '/api';
-const IMAGE_BASE = window.location.hostname === 'localhost' ? '/Kontrakan' : '';
+const IMAGE_BASE = '';
 
-// Helper to get image URL
+// Helper to get image URL (Cloudinary or local)
 function imageUrl(path) {
     if (!path) return '';
-    // Remove leading slash if present
+    // If already a full URL (Cloudinary), return as is
+    if (path.startsWith('http')) return path;
+    // Legacy local path fallback
     let cleanPath = path.startsWith('/') ? path.substring(1) : path;
-    // If path doesn't start with uploads, add it
-    if (!cleanPath.startsWith('uploads/') && !cleanPath.startsWith('http')) {
-        cleanPath = 'uploads/' + cleanPath;
-    }
-    return IMAGE_BASE + '/' + cleanPath;
+    return '/' + cleanPath;
 }
 
 // ==================== State ====================
@@ -59,20 +57,33 @@ function updateThemeIcons() {
 // ==================== API Helpers ====================
 async function api(endpoint, options = {}) {
     const url = `${API_BASE}/${endpoint}`;
+    // Attach JWT token from localStorage
+    const token = localStorage.getItem('kontrakan_token');
     const config = {
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         ...options
     };
 
     try {
         const response = await fetch(url, config);
-        const data = await response.json();
 
+        // Auto redirect to login if 401
+        if (response.status === 401) {
+            localStorage.removeItem('kontrakan_token');
+            localStorage.removeItem('kontrakan_user');
+            if (!window.location.pathname.includes('login')) {
+                window.location.href = 'login.html';
+            }
+            return null;
+        }
+
+        const data = await response.json();
         if (!response.ok) {
             throw new Error(data.error || 'Request failed');
         }
-
         return data;
     } catch (error) {
         console.error('API Error:', error);
@@ -99,9 +110,22 @@ async function apiDelete(endpoint) {
 // ==================== Auth ====================
 async function checkAuth() {
     try {
-        const data = await apiGet('auth.php?action=me');
-        state.user = data.user;
-        return true;
+        // Cek token di localStorage dulu
+        const token = localStorage.getItem('kontrakan_token');
+        const savedUser = localStorage.getItem('kontrakan_user');
+        if (!token) return false;
+        // Parse user dari localStorage
+        if (savedUser) {
+            state.user = JSON.parse(savedUser);
+            return true;
+        }
+        // Fallback: verifikasi ke server
+        const data = await apiGet('auth?action=me');
+        if (data && data.user) {
+            state.user = data.user;
+            return true;
+        }
+        return false;
     } catch {
         state.user = null;
         return false;
@@ -109,20 +133,30 @@ async function checkAuth() {
 }
 
 async function login(username, password) {
-    const data = await apiPost('auth.php?action=login', { username, password });
+    const response = await fetch(`${API_BASE}/auth?action=login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Login gagal');
+    // Simpan token & user ke localStorage
+    localStorage.setItem('kontrakan_token', data.token);
+    localStorage.setItem('kontrakan_user', JSON.stringify(data.user));
     state.user = data.user;
     return data;
 }
 
 async function logout() {
-    await apiPost('auth.php?action=logout', {});
+    localStorage.removeItem('kontrakan_token');
+    localStorage.removeItem('kontrakan_user');
     state.user = null;
     window.location.href = 'login.html';
 }
 
 // ==================== Users ====================
 async function loadUsers() {
-    const data = await apiGet('users.php');
+    const data = await apiGet('users');
     state.users = data.users;
     return data.users;
 }
@@ -137,7 +171,7 @@ function getUserInitials(name) {
 
 // ==================== Notifications ====================
 async function loadNotifications() {
-    const data = await apiGet('notifications.php');
+    const data = await apiGet('notifications');
     state.notifications = data.notifications;
     state.unreadCount = data.unread_count;
     updateNotificationBadge();
@@ -145,7 +179,7 @@ async function loadNotifications() {
 }
 
 async function markAllRead() {
-    await apiPut('notifications.php?action=read-all', {});
+    await apiPut('notifications?action=read-all', {});
     state.unreadCount = 0;
     updateNotificationBadge();
 }
@@ -163,7 +197,7 @@ function updateNotificationBadge() {
 
 // ==================== Balance ====================
 async function loadBalance() {
-    return await apiGet('balance.php');
+    return await apiGet('balance');
 }
 
 function getMyBalance(balances) {
@@ -173,43 +207,50 @@ function getMyBalance(balances) {
 
 // ==================== Expenses ====================
 async function loadExpenses(category = null) {
-    let endpoint = 'expenses.php';
+    let endpoint = 'expenses';
     if (category) endpoint += `?category=${encodeURIComponent(category)}`;
     return await apiGet(endpoint);
 }
 
 async function createExpense(data) {
-    return await apiPost('expenses.php', data);
+    return await apiPost('expenses', data);
 }
 
 async function deleteExpense(id) {
-    return await apiDelete(`expenses.php?id=${id}`);
+    return await apiDelete(`expenses?id=${id}`);
 }
 
 // ==================== Settlements ====================
 async function loadSettlements() {
-    return await apiGet('settlements.php');
+    return await apiGet('settlements');
 }
 
 async function createSettlement(toUser, amount) {
-    return await apiPost('settlements.php', { to_user: toUser, amount });
+    return await apiPost('settlements', { to_user: toUser, amount });
 }
 
 // ==================== Upload ====================
+// Upload ke Cloudinary langsung dari browser (unsigned preset)
 async function uploadReceipt(file) {
-    const formData = new FormData();
-    formData.append('receipt', file);
+    const cloudName = window.CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = window.CLOUDINARY_UPLOAD_PRESET;
 
-    const response = await fetch(`${API_BASE}/upload.php`, {
+    if (!cloudName) throw new Error('Cloudinary belum dikonfigurasi');
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+    formData.append('folder', 'kontrakan/receipts');
+
+    const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
-        credentials: 'include',
         body: formData
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Upload failed');
+    if (!response.ok) throw new Error(data.error?.message || 'Upload failed');
 
-    return data;
+    return { success: true, url: data.secure_url, path: data.secure_url };
 }
 
 // ==================== UI Helpers ====================
