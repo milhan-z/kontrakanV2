@@ -44,16 +44,24 @@ async function listExpenses(req, res, user) {
   const result = await db.query(sql, params);
   const expenses = result.rows;
 
-  // Get splits for each expense
-  for (const expense of expenses) {
-    const splits = await db.query(`
-      SELECT es.*, u.display_name
-      FROM expense_splits es
-      JOIN users u ON es.user_id = u.id
-      WHERE es.expense_id = $1
-    `, [expense.id]);
-    expense.splits = splits.rows;
+  if (expenses.length === 0) return jsonResponse(res, { expenses: [] });
+
+  // Get ALL splits in ONE query using JSON aggregation (no N+1)
+  const expenseIds = expenses.map(e => e.id);
+  const splitsResult = await db.query(`
+    SELECT es.expense_id, es.user_id, es.amount, u.display_name
+    FROM expense_splits es
+    JOIN users u ON es.user_id = u.id
+    WHERE es.expense_id = ANY($1::int[])
+  `, [expenseIds]);
+
+  // Group splits by expense_id
+  const splitsMap = {};
+  for (const s of splitsResult.rows) {
+    if (!splitsMap[s.expense_id]) splitsMap[s.expense_id] = [];
+    splitsMap[s.expense_id].push(s);
   }
+  expenses.forEach(e => { e.splits = splitsMap[e.id] || []; });
 
   return jsonResponse(res, { expenses });
 }
