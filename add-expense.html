@@ -27,17 +27,45 @@
                     aiItems = res.items.map(i => ({ ...i, assignedTo: [] }));
                     aiGrandTotal = res.grand_total || aiItems.reduce((s,i) => s + i.price, 0);
                     
+                    isAiMode = true;
                     document.getElementById('aiItemsSection').classList.remove('hidden');
-                    renderAIItems();
-                    showToast('Struk berhasil dibaca!', 'success');
                     
-                    // Hide split options because AI overrides it
+                    // Modify UI for GoPay Flow
+                    document.getElementById('amount').parentElement.classList.add('hidden');
                     document.getElementById('btnSplitEqual').parentElement.parentElement.classList.add('hidden');
-                    document.getElementById('amount').readOnly = true;
                     
-                    // Auto switch to custom mode
+                    // Change label of userGrid to instruct selection
+                    const userGridLabel = document.getElementById('userGrid').previousElementSibling;
+                    if (userGridLabel) userGridLabel.textContent = 'Pilih Anggota yang Ikut Split';
+                    
+                    // Move userGrid just above AI Items list
+                    const userGridGroup = document.getElementById('userGrid').parentElement;
+                    const aiItemsSection = document.getElementById('aiItemsSection');
+                    aiItemsSection.parentNode.insertBefore(userGridGroup, aiItemsSection);
+
+                    // Show AI Grand Total info
+                    let infoDiv = document.getElementById('aiSummaryInfo');
+                    if(!infoDiv) {
+                        infoDiv = document.createElement('div');
+                        infoDiv.id = 'aiSummaryInfo';
+                        infoDiv.style.cssText = 'background: rgba(var(--primary-rgb), 0.1); border: 1px solid var(--primary); padding: 12px; border-radius: var(--radius-md); margin-bottom: 16px; font-size: 0.85rem;';
+                        aiItemsSection.insertBefore(infoDiv, document.getElementById('aiItemsList'));
+                    }
+                    const sumItems = aiItems.reduce((s,i)=>s+i.price,0);
+                    const selisih = aiGrandTotal - sumItems;
+                    let textInfo = `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Total Item:</span> <b>Rp ${sumItems.toLocaleString('id-ID')}</b></div>`;
+                    if (selisih !== 0) {
+                        textInfo += `<div style="display:flex; justify-content:space-between; margin-bottom:4px; color: ${selisih < 0 ? 'var(--red)' : 'var(--text-color)'};"><span>Pajak/Diskon:</span> <b>${selisih > 0 ? '+' : ''}Rp ${selisih.toLocaleString('id-ID')}</b></div>`;
+                    }
+                    textInfo += `<div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:1px dashed var(--border-color); font-size:1rem; font-weight:700;"><span>Total Tagihan:</span> <span>Rp ${aiGrandTotal.toLocaleString('id-ID')}</span></div>`;
+                    infoDiv.innerHTML = textInfo;
+
+                    // Switch to custom
                     splitMode = 'custom';
                     document.querySelectorAll('.user-amount').forEach(el => el.classList.remove('hidden'));
+                    
+                    renderAIItems();
+                    showToast('Struk berhasil dibaca!', 'success');
                 } else {
                     showToast('Tidak ada item terdeteksi di struk', 'error');
                 }
@@ -52,20 +80,38 @@
 
         function renderAIItems() {
             const container = document.getElementById('aiItemsList');
+            
+            const selectedMembers = [];
+            document.querySelectorAll('.user-checkbox input:checked').forEach(input => {
+                const userId = parseInt(input.value);
+                const user = state.users.find(u => u.id === userId);
+                if(user) selectedMembers.push(user);
+            });
+
+            if(selectedMembers.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="padding: 20px;">Pilih anggota yang ikut di atas ⬆️</div>';
+                calculateAITotals();
+                return;
+            }
+
             container.innerHTML = aiItems.map((item, index) => `
-                <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 12px; box-shadow: var(--shadow-sm);">
-                    <div style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 10px;">
-                        <span>${item.item}</span>
-                        <span>Rp ${item.price.toLocaleString('id-ID')}</span>
+                <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; box-shadow: var(--shadow-sm); margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <span style="font-weight: 600; line-height: 1.3; padding-right: 12px;">${item.item}</span>
+                        <span style="font-weight: 700; white-space: nowrap;">Rp ${item.price.toLocaleString('id-ID')}</span>
                     </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">Dibayar oleh:</div>
                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        ${state.users.map(u => {
+                        ${selectedMembers.map(u => {
                             const isSelected = item.assignedTo.includes(u.id);
-                            return `<span onclick="toggleAIAssign(${index}, ${u.id})" 
-                                          style="font-size: 0.75rem; padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: all 0.2s;
+                            return `<div onclick="toggleAIAssign(${index}, ${u.id})" 
+                                          style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; cursor: pointer; transition: all 0.2s;
                                                  ${isSelected ? 'background: var(--primary); color: white; border: 1px solid var(--primary);' : 'background: transparent; color: var(--text-muted); border: 1px solid var(--border-color);'}">
-                                        ${u.display_name}
-                                    </span>`;
+                                        <div style="width: 20px; height: 20px; border-radius: 50%; background: ${isSelected ? 'rgba(255,255,255,0.2)' : 'var(--bg-secondary)'}; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: bold;">
+                                            ${u.display_name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span style="font-size: 0.75rem; font-weight: ${isSelected ? '600' : '400'};">${u.display_name.split(' ')[0]}</span>
+                                    </div>`;
                         }).join('')}
                     </div>
                 </div>
@@ -145,7 +191,11 @@
                 }
             }
 
-            updateSplit();
+            // Only update DOM perPersonAmount text without calling updateSplit() loop
+            const selected = getSelected();
+            const el = document.getElementById('perPersonAmount');
+            if (selected.length === 0) { el.textContent = 'Rp 0'; }
+            else { el.textContent = formatCurrencyPlain(selected.reduce((s, u) => s + u.amount, 0)); }
         }
 
         // Make sure btnAIOcr has click listener
@@ -264,6 +314,7 @@
     <script>
         let uploadedFilePath = null;
         let splitMode = 'equal';
+        let isAiMode = false;
 
         (async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
