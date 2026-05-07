@@ -2,6 +2,10 @@
 <html lang="id">
 
 <head>
+    <script>
+        // Set theme ASAP to prevent white flash
+        (function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);else if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');})();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <meta name="theme-color" content="#fafafa">
@@ -10,6 +14,8 @@
     <link rel="icon" type="image/png" href="icons/icon-512.png">
     <link rel="stylesheet" href="css/style.css">
     <style>
+        body { animation: pageFadeIn 0.15s ease; }
+        @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
         .copy-btn {
             background: var(--accent-light);
             border: none;
@@ -475,13 +481,11 @@
             openModal('debtDetailModal');
 
             try {
-                // Get expense details
-                const detailRes = await fetch(`${API_BASE}/debt_details?creditor_id=${creditorId}&debtor_id=${state.user.id}`, { credentials: 'include' });
-                const detailData = await detailRes.json();
-
-                // Get payment info
-                const paymentRes = await fetch(`${API_BASE}/payment_info?user_id=${creditorId}`, { credentials: 'include' });
-                const paymentData = await paymentRes.json();
+                // Parallel fetch — jauh lebih cepat + cache
+                const [detailData, paymentData] = await Promise.all([
+                    apiGet(`debt_details?creditor_id=${creditorId}&debtor_id=${state.user.id}`),
+                    apiGet(`payment_info?user_id=${creditorId}`)
+                ]);
                 const payInfo = paymentData.payment_info || {};
 
                 // Build expense list (what you owe - red) - only active/unsettled
@@ -651,18 +655,13 @@
             openModal('creditDetailModal');
 
             try {
-                // Get expense details
-                const detailRes = await fetch(`${API_BASE}/debt_details?creditor_id=${state.user.id}&debtor_id=${debtorId}`, { credentials: 'include' });
-                const detailData = await detailRes.json();
-
-                // Get debtor's payment info (for phone number)
-                const paymentRes = await fetch(`${API_BASE}/payment_info?user_id=${debtorId}`, { credentials: 'include' });
-                const paymentData = await paymentRes.json();
+                // Parallel fetch semua data — jauh lebih cepat + cache
+                const [detailData, paymentData, myPaymentData] = await Promise.all([
+                    apiGet(`debt_details?creditor_id=${state.user.id}&debtor_id=${debtorId}`),
+                    apiGet(`payment_info?user_id=${debtorId}`),
+                    apiGet(`payment_info?user_id=${state.user.id}`)
+                ]);
                 const debtorPhone = paymentData.payment_info?.phone_wa || null;
-
-                // Get creditor's (my) payment info for the WA message
-                const myPaymentRes = await fetch(`${API_BASE}/payment_info?user_id=${state.user.id}`, { credentials: 'include' });
-                const myPaymentData = await myPaymentRes.json();
                 const myPaymentInfo = myPaymentData.payment_info || {};
 
                 // Build expense list - only active/unsettled

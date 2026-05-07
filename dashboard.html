@@ -2,6 +2,10 @@
 <html lang="id">
 
 <head>
+    <script>
+        // Set theme ASAP to prevent white flash
+        (function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);else if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');})();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <meta name="theme-color" content="#0f0f0f">
@@ -15,6 +19,10 @@
     <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
     <link rel="apple-touch-icon-precomposed" href="apple-touch-icon.png">
     <link rel="stylesheet" href="css/style.css">
+    <style>
+        body { animation: pageFadeIn 0.15s ease; }
+        @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
 </head>
 
 <body>
