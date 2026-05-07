@@ -78,42 +78,49 @@ function updateThemeIcons() {
     });
 }
 
-// ==================== API Cache ====================
-const _cache = {};
+// ==================== API Cache (sessionStorage) ====================
+// sessionStorage bertahan antar navigasi halaman dalam 1 tab
 const _cacheTTL = {
-  'users':         5 * 60 * 1000,  // 5 menit (jarang berubah)
-  'balance':       45 * 1000,       // 45 detik
-  'expenses':      45 * 1000,       // 45 detik
-  'info':          60 * 1000,       // 60 detik
-  'notifications': 20 * 1000,       // 20 detik
-  'settlements':   45 * 1000,       // 45 detik
-  'payment_info':  60 * 1000,       // 60 detik
+  'users':         5 * 60 * 1000,  // 5 menit
+  'balance':       45 * 1000,
+  'expenses':      45 * 1000,
+  'info':          60 * 1000,
+  'notifications': 20 * 1000,
+  'settlements':   45 * 1000,
+  'payment_info':  60 * 1000,
 };
 
-function _getCacheKey(url) { return 'api_cache_' + url; }
-function _getEndpoint(url) { return url.split('/api/').pop()?.split('?')[0] || ''; }
+function _getCacheKey(url) { return 'apic__' + url; }
+function _getEndpoint(url) { return (url.split('/api/').pop() || '').split('?')[0]; }
 
 function _getCache(url) {
-    const key = _getCacheKey(url);
-    const cached = _cache[key];
-    if (!cached) return null;
-    if (Date.now() - cached.ts > cached.ttl) { delete _cache[key]; return null; }
-    return cached.data;
+    try {
+        const raw = sessionStorage.getItem(_getCacheKey(url));
+        if (!raw) return null;
+        const { data, ts, ttl } = JSON.parse(raw);
+        if (Date.now() - ts > ttl) { sessionStorage.removeItem(_getCacheKey(url)); return null; }
+        return data;
+    } catch { return null; }
 }
 
 function _setCache(url, data) {
-    const endpoint = _getEndpoint(url);
-    const ttl = _cacheTTL[endpoint] || 30 * 1000;
-    _cache[_getCacheKey(url)] = { data, ts: Date.now(), ttl };
+    try {
+        const endpoint = _getEndpoint(url);
+        const ttl = _cacheTTL[endpoint] || 30 * 1000;
+        sessionStorage.setItem(_getCacheKey(url), JSON.stringify({ data, ts: Date.now(), ttl }));
+    } catch {} // sessionStorage bisa penuh, ignore error
 }
 
 function _invalidateCache(endpoints = []) {
-    // If no specific endpoints, clear all
-    const keys = endpoints.length ? endpoints : Object.keys(_cacheTTL);
-    keys.forEach(ep => {
-        Object.keys(_cache).forEach(k => {
-            if (k.includes('api_cache_') && k.includes(ep)) delete _cache[k];
-        });
+    const keys = Object.keys(_cacheTTL);
+    const targets = endpoints.length ? endpoints : keys;
+    targets.forEach(ep => {
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+            const k = sessionStorage.key(i);
+            if (k && k.startsWith('apic__') && k.includes(ep)) {
+                sessionStorage.removeItem(k);
+            }
+        }
     });
 }
 
