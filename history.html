@@ -299,7 +299,7 @@
 
         async function loadListrikStats() {
             try {
-                const res = await fetch(`${API_BASE}/listrik.php`, { credentials: 'include' });
+                const res = await fetch(`${API_BASE}/listrik`, { credentials: 'include' });
                 const data = await res.json();
 
                 // Find minimum

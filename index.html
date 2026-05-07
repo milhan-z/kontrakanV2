@@ -24,7 +24,7 @@
         (async () => {
             try {
                 const apiBase = window.location.hostname === 'localhost' ? '/Kontrakan/api' : '/api';
-                const res = await fetch(apiBase + '/auth.php?action=me', { credentials: 'include' });
+                const res = await fetch(apiBase + '/auth?action=me', { credentials: 'include' });
                 if (res.ok) {
                     window.location.href = 'dashboard.html';
                 } else {

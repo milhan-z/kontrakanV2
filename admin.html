@@ -542,9 +542,9 @@
         async function loadAllData() {
             try {
                 const [expData, setData, infoData] = await Promise.all([
-                    fetch(`${API_BASE}/expenses.php?limit=500`, { credentials: 'include' }).then(r => r.json()),
-                    fetch(`${API_BASE}/settlements.php?limit=500`, { credentials: 'include' }).then(r => r.json()),
-                    fetch(`${API_BASE}/info.php?limit=100`, { credentials: 'include' }).then(r => r.json())
+                    fetch(`${API_BASE}/expenses?limit=500`, { credentials: 'include' }).then(r => r.json()),
+                    fetch(`${API_BASE}/settlements?limit=500`, { credentials: 'include' }).then(r => r.json()),
+                    fetch(`${API_BASE}/info?limit=100`, { credentials: 'include' }).then(r => r.json())
                 ]);
                 allExpenses = expData.expenses || [];
                 allSettlements = setData.settlements || [];
@@ -720,7 +720,7 @@
         async function deleteExpense(id) {
             if (!confirm('Hapus transaksi ini?')) return;
             try {
-                await apiDelete('expenses.php?id=' + id);
+                await apiDelete('expenses?id=' + id);
                 showToast('Transaksi dihapus', 'success');
                 await loadAllData();
                 renderDashboard();
@@ -732,7 +732,7 @@
         async function deleteInfo(id) {
             if (!confirm('Hapus info ini?')) return;
             try {
-                await apiDelete('info.php?id=' + id);
+                await apiDelete('info?id=' + id);
                 showToast('Info dihapus', 'success');
                 await loadAllData();
                 renderInfo();
@@ -748,7 +748,7 @@
 
         document.getElementById('confirmResetBtn').addEventListener('click', async () => {
             try {
-                await apiPut('admin.php?action=reset-password', { user_id: parseInt(document.getElementById('resetUserId').value) });
+                await apiPut('admin?action=reset-password', { user_id: parseInt(document.getElementById('resetUserId').value) });
                 showToast('Password direset ke kontrakan123', 'success');
                 closeModal('resetModal');
             } catch { showToast('Gagal reset password', 'error'); }
@@ -814,7 +814,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/admin.php?action=add-user`, {
+                const res = await fetch(`${API_BASE}/admin?action=add-user`, {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
@@ -843,7 +843,7 @@
             const userId = document.getElementById('deleteUserId').value;
 
             try {
-                const res = await fetch(`${API_BASE}/admin.php?action=delete-user&id=${userId}`, {
+                const res = await fetch(`${API_BASE}/admin?action=delete-user&id=${userId}`, {
                     method: 'DELETE',
                     credentials: 'include'
                 });
@@ -864,9 +864,8 @@
 
         // Logout
         async function logout() {
-            try {
-                await fetch(`${API_BASE}/auth.php?action=logout`, { credentials: 'include' });
-            } catch { }
+            localStorage.removeItem('kontrakan_token');
+            localStorage.removeItem('kontrakan_user');
             window.location.href = 'login.html';
         }
 
@@ -889,7 +888,7 @@
         async function executeReset(type, label) {
             try {
                 showLoading();
-                const res = await fetch(`${API_BASE}/reset.php`, {
+                const res = await fetch(`${API_BASE}/reset`, {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
@@ -968,7 +967,7 @@
             const userId = document.getElementById('deleteUserId').value;
             try {
                 showLoading();
-                const res = await fetch(`${API_BASE}/admin.php?action=delete-user&id=${userId}`, {
+                const res = await fetch(`${API_BASE}/admin?action=delete-user&id=${userId}`, {
                     method: 'DELETE',
                     credentials: 'include'
                 });
@@ -1002,7 +1001,7 @@
 
             try {
                 showLoading();
-                const res = await fetch(`${API_BASE}/admin.php?action=add-user`, {
+                const res = await fetch(`${API_BASE}/admin?action=add-user`, {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },

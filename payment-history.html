@@ -286,7 +286,7 @@
 
         async function loadSettlements() {
             try {
-                const res = await fetch(`${API_BASE}/settlements.php?limit=100`, { credentials: 'include' });
+                const res = await fetch(`${API_BASE}/settlements?limit=100`, { credentials: 'include' });
                 const data = await res.json();
                 allSettlements = data.settlements || [];
                 renderPayments('all');

@@ -90,7 +90,7 @@
         async function loadInfoList() {
             const container = document.getElementById('infoList');
             try {
-                const res = await fetch(`${API_BASE}/info.php?limit=50`, { credentials: 'include' });
+                const res = await fetch(`${API_BASE}/info?limit=50`, { credentials: 'include' });
                 const data = await res.json();
 
                 if (!data.info || data.info.length === 0) {
@@ -138,7 +138,7 @@
         async function deleteInfo(id) {
             if (!confirm('Hapus info ini?')) return;
             try {
-                await apiDelete('info.php?id=' + id);
+                await apiDelete('info?id=' + id);
                 showToast('Dihapus', 'success');
                 closeModal('infoDetailModal');
                 await loadInfoList();
@@ -178,7 +178,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/info.php`, {
+                const res = await fetch(`${API_BASE}/info`, {
                     method: 'POST',
                     credentials: 'include',
                     body: formData

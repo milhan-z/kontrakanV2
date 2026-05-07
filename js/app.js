@@ -6,6 +6,30 @@
 const API_BASE = window.location.hostname === 'localhost' ? '/Kontrakan/api' : '/api';
 const IMAGE_BASE = '';
 
+// ==================== Global Fetch Interceptor ====================
+// Otomatis inject JWT token ke semua fetch ke /api/*
+(function() {
+    const _originalFetch = window.fetch.bind(window);
+    window.fetch = function(url, options = {}) {
+        const urlStr = typeof url === 'string' ? url : url.toString();
+        const isApiCall = urlStr.includes('/api/') || urlStr.startsWith('/api');
+        if (isApiCall && !urlStr.includes('cloudinary.com')) {
+            const token = localStorage.getItem('kontrakan_token');
+            if (token) {
+                options = { ...options };
+                options.headers = {
+                    ...(options.headers || {}),
+                    'Authorization': `Bearer ${token}`
+                };
+            }
+            // Remove credentials: 'include' (tidak dipakai dengan JWT)
+            delete options.credentials;
+        }
+        return _originalFetch(url, options);
+    };
+})();
+
+
 // Helper to get image URL (Cloudinary or local)
 function imageUrl(path) {
     if (!path) return '';

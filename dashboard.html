@@ -329,7 +329,7 @@
 
             // Info
             try {
-                const res = await fetch(`${API_BASE}/info.php?limit=2`, { credentials: 'include' });
+                const res = await fetch(`${API_BASE}/info?limit=2`, { credentials: 'include' });
                 const data = await res.json();
                 const infoList = document.getElementById('infoList');
 
@@ -550,7 +550,7 @@
             }
 
             try {
-                const res = await fetch(`${API_BASE}/info.php`, {
+                const res = await fetch(`${API_BASE}/info`, {
                     method: 'POST',
                     credentials: 'include',
                     body: formData
