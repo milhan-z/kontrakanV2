@@ -125,6 +125,8 @@
             padding-bottom: var(--space-sm);
         }
     </style>
+    <link rel="prefetch" href="settle.html">
+    <link rel="prefetch" href="dashboard.html">
 </head>
 
 <body>
@@ -245,10 +247,8 @@
         (async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
             currentUserId = parseInt(state.user.id);
-            await loadUsers();
-            await loadSettlements();
-            buildUserFilters(); // Build after settlements loaded so we know who has transactions with us
-            await loadNotifications();
+            await Promise.all([loadUsers(), loadNotifications(), loadSettlements()]);
+            buildUserFilters();
         })();
 
         function buildUserFilters() {

@@ -23,6 +23,9 @@
         body { animation: pageFadeIn 0.15s ease; }
         @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
+    <link rel="prefetch" href="history.html">
+    <link rel="prefetch" href="settle.html">
+    <link rel="prefetch" href="notifications.html">
 </head>
 
 <body>
@@ -311,11 +314,18 @@
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
 
             document.getElementById('userName').textContent = state.user.display_name;
-            await Promise.all([loadUsers(), loadNotifications()]);
+            // PARALLEL: all data at once (massive speedup)
+            const [,,_balResult,_infoResult,_expResult] = await Promise.all([
+                loadUsers(), loadNotifications(),
+                loadBalance().catch(()=>null),
+                apiGet('info?limit=2').catch(()=>null),
+                loadExpenses().catch(()=>null)
+            ]);
 
             // Balance
             try {
-                balanceData = await loadBalance();
+                if (_balResult) balanceData = _balResult;
+                if (!balanceData) balanceData = await loadBalance();
 
                 // Calculate hutang/piutang from settlement suggestions (direct debts)
                 const suggestions = balanceData.settlement_suggestions || [];
@@ -336,10 +346,9 @@
             } catch (err) { console.error(err); }
 
 
-            // Info
+            // Info (preloaded above)
             try {
-                const res = await fetch(`${API_BASE}/info?limit=2`, { credentials: 'include' });
-                const data = await res.json();
+                const data = _infoResult || { info: [] };
                 const infoList = document.getElementById('infoList');
 
                 if (!data.info || data.info.length === 0) {
@@ -363,9 +372,10 @@
                 document.getElementById('infoList').innerHTML = '<div class="empty-state">Belum ada info</div>';
             }
 
-            // Transactions
+            // Transactions (preloaded above)
             try {
-                expensesData = await loadExpenses();
+                if (_expResult) expensesData = _expResult;
+                if (!expensesData) expensesData = await loadExpenses();
                 const expenses = expensesData.expenses || [];
                 const listEl = document.getElementById('transactionList');
 
@@ -543,7 +553,10 @@
                 await createSettlement(parseInt(document.getElementById('settleToUser').value), parseFloat(document.getElementById('settleAmount').value));
                 showToast('Pembayaran dicatat!', 'success');
                 closeModal('settleModal');
-                location.reload();
+                // Refresh data in-place (no full reload)
+                const [newBalance, newExp] = await Promise.all([loadBalance(), loadExpenses()]);
+                balanceData = newBalance; expensesData = newExp;
+                renderAll();
             } catch (err) { showToast('Gagal: ' + err.message, 'error'); }
         });
 
@@ -578,7 +591,9 @@
 
                 showToast('Info ditambahkan', 'success');
                 closeModal('addInfoModal');
-                location.reload();
+                _invalidateCache(['info']);
+                const freshInfo = await apiGet('info?limit=2');
+                renderInfoSection(freshInfo);
             } catch (err) {
                 showToast('Gagal: ' + err.message, 'error');
             } finally {

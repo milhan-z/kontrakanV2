@@ -22,6 +22,7 @@
             margin-top: var(--space-sm);
         }
     </style>
+    <link rel="prefetch" href="dashboard.html">
 </head>
 
 <body>
@@ -249,7 +250,7 @@
 
         (async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
-            await loadNotifications();
+            await Promise.all([loadNotifications(), loadPaymentMethods()]);
 
             document.getElementById('profileAvatar').textContent = getUserInitials(state.user.display_name);
             document.getElementById('profileName').textContent = state.user.display_name;
@@ -259,8 +260,7 @@
 
             if (state.user.role === 'admin') document.getElementById('adminSection').classList.remove('hidden');
 
-            // Load payment methods
-            await loadPaymentMethods();
+            // Payment methods already loaded above
         })();
 
         async function loadPaymentMethods() {

@@ -246,6 +246,7 @@
             margin-bottom: var(--space-lg);
         }
     </style>
+    <link rel="prefetch" href="dashboard.html">
 </head>
 
 <body>
@@ -526,8 +527,7 @@
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
             if (state.user.role !== 'admin') { window.location.href = 'dashboard.html'; return; }
 
-            await loadUsers();
-            await loadAllData();
+            await Promise.all([loadUsers(), loadAllData()]);
             renderDashboard();
             renderUsers();
             renderTransactions();

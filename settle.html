@@ -180,6 +180,8 @@
             font-size: 0.875rem;
         }
     </style>
+    <link rel="prefetch" href="dashboard.html">
+    <link rel="prefetch" href="payment-history.html">
 </head>
 
 <body>
@@ -384,7 +386,10 @@
 
         async function renderData() {
             try {
-                balanceData = await loadBalance();
+                // PARALLEL: balance + settlements
+                const [_bal, _settlePreload] = await Promise.all([loadBalance(), loadSettlements()]);
+                balanceData = _bal;
+                window._settleCache = _settlePreload;
 
                 const suggestions = balanceData.settlement_suggestions || [];
                 const myDebts = suggestions.filter(s => s.from_user_id == state.user.id);
@@ -433,8 +438,8 @@
                     creditsSection.style.display = 'none';
                 }
 
-                // Settlement History
-                const settlementsData = await loadSettlements();
+                // Settlement History (preloaded above)
+                const settlementsData = window._settleCache || await loadSettlements();
                 const allSettlements = settlementsData.settlements || [];
                 const historyEl = document.getElementById('settlementHistory');
 

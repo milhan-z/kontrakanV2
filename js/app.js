@@ -550,6 +550,18 @@ function installPWA() {
     }
 }
 
+
+// ==================== Background Prefetch ====================
+// Prefetch common API data so next pages load from cache
+function prefetchCommonData() {
+    // Fire and forget — fill cache for next navigation
+    setTimeout(() => {
+        apiGet('balance').catch(() => {});
+        apiGet('expenses').catch(() => {});
+        apiGet('settlements').catch(() => {});
+    }, 1500); // Wait 1.5s after page load so we don't compete with critical requests
+}
+
 // ==================== Init ====================
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
