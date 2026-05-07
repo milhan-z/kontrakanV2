@@ -14,6 +14,9 @@ module.exports = async function handler(req, res) {
   const user = requireAuth(req, res);
   if (!user) return;
 
+  // Route /api/listrik → listrik stats handler
+  if ((req.url || '').includes('/listrik')) return listrikStats(req, res, user);
+
   if (req.method === 'GET')    return listExpenses(req, res, user);
   if (req.method === 'POST')   return createExpense(req, res, user);
   if (req.method === 'DELETE') return deleteExpense(req, res, user);
@@ -149,4 +152,20 @@ async function deleteExpense(req, res, user) {
 
   await db.query('DELETE FROM expenses WHERE id = $1', [expenseId]);
   return jsonResponse(res, { success: true, message: 'Expense deleted' });
+}
+
+// Listrik rotation stats (served via /api/listrik → /api/expenses.js)
+async function listrikStats(req, res, user) {
+  const db = getDB();
+  const result = await db.query(`
+    SELECT u.id as user_id, u.display_name,
+           COUNT(e.id) as payment_count,
+           COALESCE(SUM(e.amount), 0) as total_amount,
+           MAX(e.created_at) as last_payment
+    FROM users u
+    LEFT JOIN expenses e ON e.paid_by = u.id AND e.category = 'Listrik'
+    GROUP BY u.id, u.display_name
+    ORDER BY payment_count ASC, last_payment ASC NULLS FIRST
+  `);
+  return jsonResponse(res, { stats: result.rows, next_payer: result.rows[0] || null });
 }

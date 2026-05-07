@@ -13,6 +13,9 @@ module.exports = async function handler(req, res) {
   const user = requireAuth(req, res);
   if (!user) return;
 
+  // Route /api/debt_details → debt details between 2 users
+  if ((req.url || '').includes('/debt_details')) return debtDetails(req, res, user);
+
   if (req.method === 'GET')  return listSettlements(req, res, user);
   if (req.method === 'POST') return createSettlement(req, res, user);
 
@@ -114,4 +117,40 @@ async function createSettlement(req, res, user) {
   } finally {
     client.release();
   }
+}
+
+// Debt details between 2 users (served via /api/debt_details → /api/settlements.js)
+async function debtDetails(req, res, user) {
+  const creditorId = parseInt(req.query.creditor_id || '0');
+  const debtorId   = parseInt(req.query.debtor_id   || '0');
+  if (!creditorId || !debtorId)
+    return jsonResponse(res, { error: 'creditor_id and debtor_id required' }, 400);
+
+  const db = getDB();
+  const [expResult, setResult] = await Promise.all([
+    db.query(`
+      SELECT e.id, e.description, e.category, e.amount as total_amount,
+             es.amount as split_amount, e.created_at
+      FROM expenses e
+      JOIN expense_splits es ON es.expense_id = e.id
+      WHERE e.paid_by = $1 AND es.user_id = $2 AND e.category != 'Listrik'
+      ORDER BY e.created_at DESC
+    `, [creditorId, debtorId]),
+    db.query(`
+      SELECT id, amount, created_at, receipt_image
+      FROM settlements WHERE from_user = $1 AND to_user = $2
+      ORDER BY created_at DESC
+    `, [debtorId, creditorId]),
+  ]);
+
+  const totalExpenses = expResult.rows.reduce((s, e) => s + parseFloat(e.split_amount), 0);
+  const totalSettled  = setResult.rows.reduce((s, r) => s + parseFloat(r.amount), 0);
+
+  return jsonResponse(res, {
+    expenses:       expResult.rows,
+    settlements:    setResult.rows,
+    total_expenses: Math.round(totalExpenses * 100) / 100,
+    total_settled:  Math.round(totalSettled  * 100) / 100,
+    remaining:      Math.round((totalExpenses - totalSettled) * 100) / 100,
+  });
 }

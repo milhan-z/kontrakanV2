@@ -19,6 +19,9 @@ module.exports = async function handler(req, res) {
 
   const action = req.query.action || '';
 
+  // Route /api/reset → reset handler (admin-only data wipe)
+  if ((req.url || '').includes('/reset')) return resetData(req, res);
+
   if (req.method === 'GET'    && action === 'stats')          return getStats(req, res);
   if (req.method === 'POST'   && action === 'add-user')       return addUser(req, res);
   if (req.method === 'PUT'    && action === 'reset-password') return resetPassword(req, res);
@@ -129,4 +132,33 @@ async function clearExpenses(req, res) {
   await db.query('DELETE FROM settlements');
   await db.query('DELETE FROM notifications');
   return jsonResponse(res, { success: true, message: 'All expenses, settlements, and notifications cleared' });
+}
+
+// Reset specific data (served via /api/reset → /api/admin.js)
+async function resetData(req, res) {
+  const input = req.method === 'POST' ? await require('../lib/db').getBody(req) : {};
+  const { target } = input;
+  const db = getDB();
+
+  try {
+    if (!target || target === 'all') {
+      await db.query('DELETE FROM settlements');
+      await db.query('DELETE FROM expense_splits');
+      await db.query('DELETE FROM expenses');
+      await db.query('DELETE FROM notifications');
+      return jsonResponse(res, { success: true, message: 'All data reset' });
+    }
+    if (target === 'settlements') {
+      await db.query('DELETE FROM settlements');
+      return jsonResponse(res, { success: true, message: 'Settlements cleared' });
+    }
+    if (target === 'expenses') {
+      await db.query('DELETE FROM expense_splits');
+      await db.query('DELETE FROM expenses');
+      return jsonResponse(res, { success: true, message: 'Expenses cleared' });
+    }
+    return jsonResponse(res, { error: 'Invalid target' }, 400);
+  } catch (err) {
+    return jsonResponse(res, { error: err.message }, 500);
+  }
 }
