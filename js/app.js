@@ -78,10 +78,56 @@ function updateThemeIcons() {
     });
 }
 
+// ==================== API Cache ====================
+const _cache = {};
+const _cacheTTL = {
+  'users':         5 * 60 * 1000,  // 5 menit (jarang berubah)
+  'balance':       45 * 1000,       // 45 detik
+  'expenses':      45 * 1000,       // 45 detik
+  'info':          60 * 1000,       // 60 detik
+  'notifications': 20 * 1000,       // 20 detik
+  'settlements':   45 * 1000,       // 45 detik
+  'payment_info':  60 * 1000,       // 60 detik
+};
+
+function _getCacheKey(url) { return 'api_cache_' + url; }
+function _getEndpoint(url) { return url.split('/api/').pop()?.split('?')[0] || ''; }
+
+function _getCache(url) {
+    const key = _getCacheKey(url);
+    const cached = _cache[key];
+    if (!cached) return null;
+    if (Date.now() - cached.ts > cached.ttl) { delete _cache[key]; return null; }
+    return cached.data;
+}
+
+function _setCache(url, data) {
+    const endpoint = _getEndpoint(url);
+    const ttl = _cacheTTL[endpoint] || 30 * 1000;
+    _cache[_getCacheKey(url)] = { data, ts: Date.now(), ttl };
+}
+
+function _invalidateCache(endpoints = []) {
+    // If no specific endpoints, clear all
+    const keys = endpoints.length ? endpoints : Object.keys(_cacheTTL);
+    keys.forEach(ep => {
+        Object.keys(_cache).forEach(k => {
+            if (k.includes('api_cache_') && k.includes(ep)) delete _cache[k];
+        });
+    });
+}
+
 // ==================== API Helpers ====================
 async function api(endpoint, options = {}) {
     const url = `${API_BASE}/${endpoint}`;
-    // Attach JWT token from localStorage
+    const method = (options.method || 'GET').toUpperCase();
+
+    // Serve GET requests from cache
+    if (method === 'GET') {
+        const cached = _getCache(url);
+        if (cached) return cached;
+    }
+
     const token = localStorage.getItem('kontrakan_token');
     const config = {
         headers: {
@@ -94,7 +140,6 @@ async function api(endpoint, options = {}) {
     try {
         const response = await fetch(url, config);
 
-        // Auto redirect to login if 401
         if (response.status === 401) {
             localStorage.removeItem('kontrakan_token');
             localStorage.removeItem('kontrakan_user');
@@ -105,9 +150,22 @@ async function api(endpoint, options = {}) {
         }
 
         const data = await response.json();
-        if (!response.ok) {
-            throw new Error(data.error || 'Request failed');
+        if (!response.ok) throw new Error(data.error || 'Request failed');
+
+        // Cache successful GET responses
+        if (method === 'GET') _setCache(url, data);
+
+        // Invalidate related caches on mutations
+        if (['POST','PUT','DELETE'].includes(method)) {
+            const ep = _getEndpoint(url);
+            if (ep === 'expenses')     _invalidateCache(['expenses', 'balance']);
+            else if (ep === 'settlements') _invalidateCache(['settlements', 'balance']);
+            else if (ep === 'info')    _invalidateCache(['info']);
+            else if (ep === 'users')   _invalidateCache(['users']);
+            else if (ep === 'notifications') _invalidateCache(['notifications']);
+            else _invalidateCache([ep]);
         }
+
         return data;
     } catch (error) {
         console.error('API Error:', error);
@@ -115,21 +173,11 @@ async function api(endpoint, options = {}) {
     }
 }
 
-async function apiGet(endpoint) {
-    return api(endpoint);
-}
+async function apiGet(endpoint) { return api(endpoint); }
+async function apiPost(endpoint, body) { return api(endpoint, { method: 'POST', body: JSON.stringify(body) }); }
+async function apiPut(endpoint, body) { return api(endpoint, { method: 'PUT', body: JSON.stringify(body) }); }
+async function apiDelete(endpoint) { return api(endpoint, { method: 'DELETE' }); }
 
-async function apiPost(endpoint, body) {
-    return api(endpoint, { method: 'POST', body: JSON.stringify(body) });
-}
-
-async function apiPut(endpoint, body) {
-    return api(endpoint, { method: 'PUT', body: JSON.stringify(body) });
-}
-
-async function apiDelete(endpoint) {
-    return api(endpoint, { method: 'DELETE' });
-}
 
 // ==================== Auth ====================
 async function checkAuth() {
