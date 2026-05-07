@@ -10,7 +10,10 @@
     { "source": "/api/admin", "destination": "/api/admin.js" },
     { "source": "/api/info", "destination": "/api/info.js" },
     { "source": "/api/upload", "destination": "/api/upload.js" },
-    { "source": "/api/payment_info", "destination": "/api/payment_info.js" }
+    { "source": "/api/payment_info", "destination": "/api/payment_info.js" },
+    { "source": "/api/debt_details", "destination": "/api/debt_details.js" },
+    { "source": "/api/listrik", "destination": "/api/listrik.js" },
+    { "source": "/api/reset", "destination": "/api/reset.js" }
   ],
   "headers": [
     {
