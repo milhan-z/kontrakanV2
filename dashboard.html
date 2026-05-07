@@ -540,20 +540,29 @@
 
         document.getElementById('addInfoForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-
-            const formData = new FormData();
-            formData.append('title', document.getElementById('infoTitle').value.trim());
-            formData.append('content', document.getElementById('infoContent').value.trim());
-
-            if (imageInput.files[0]) {
-                formData.append('image', imageInput.files[0]);
-            }
+            const submitBtn = e.target.querySelector('[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Menyimpan...';
 
             try {
+                // 1. Upload gambar ke Cloudinary dulu jika ada
+                let imagePath = null;
+                const file = imageInput.files[0];
+                if (file) {
+                    submitBtn.textContent = 'Mengupload gambar...';
+                    const uploaded = await uploadReceipt(file);
+                    imagePath = uploaded.url || uploaded.path || null;
+                }
+
+                // 2. Kirim JSON ke API
                 const res = await fetch(`${API_BASE}/info`, {
                     method: 'POST',
-                    credentials: 'include',
-                    body: formData
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: document.getElementById('infoTitle').value.trim(),
+                        content: document.getElementById('infoContent').value.trim(),
+                        image_path: imagePath
+                    })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
@@ -563,6 +572,9 @@
                 location.reload();
             } catch (err) {
                 showToast('Gagal: ' + err.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Simpan';
             }
         });
 
