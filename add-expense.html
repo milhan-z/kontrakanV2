@@ -816,7 +816,18 @@
             aiSelectedMemberIds.forEach(id => {
                 if (totals[id] > 0) {
                     const finalShare = Math.round(totals[id] * ratio);
-                    finalAiSplits.push({ user_id: id, amount: finalShare });
+                    // NEW: Collect items assigned to this user
+                    const userItems = [];
+                    aiItems.forEach(item => {
+                        if (item.assignedTo.includes(id)) {
+                            userItems.push({
+                                item: item.item,
+                                price: Math.round((item.price / item.assignedTo.length) * ratio)
+                            });
+                        }
+                    });
+
+                    finalAiSplits.push({ user_id: id, amount: finalShare, items: userItems });
                     allocatedTotal += finalShare;
                 }
             });

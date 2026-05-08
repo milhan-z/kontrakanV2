@@ -54,7 +54,7 @@ async function listExpenses(req, res, user) {
   // Get ALL splits in ONE query using JSON aggregation (no N+1)
   const expenseIds = expenses.map(e => e.id);
   const splitsResult = await db.query(`
-    SELECT es.expense_id, es.user_id, es.amount, u.display_name
+    SELECT es.expense_id, es.user_id, es.amount, es.items, u.display_name
     FROM expense_splits es
     JOIN users u ON es.user_id = u.id
     WHERE es.expense_id = ANY($1::int[])
@@ -89,7 +89,7 @@ async function createExpense(req, res, user) {
 
   const db = getDB();
   // Ensure qty column exists
-  try { await db.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS qty INT DEFAULT 1'); } catch(e){}
+  try { await db.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS qty INT DEFAULT 1'); await db.query('ALTER TABLE expense_splits ADD COLUMN IF NOT EXISTS items JSONB DEFAULT NULL'); } catch(e){}
   
   const client = await db.connect();
 
@@ -110,9 +110,10 @@ async function createExpense(req, res, user) {
         const splitUserId = parseInt(split.user_id);
         const splitAmount = parseFloat(split.amount);
 
+        const itemsJson = split.items ? JSON.stringify(split.items) : null;
         await client.query(
-          'INSERT INTO expense_splits (expense_id, user_id, amount) VALUES ($1, $2, $3)',
-          [expenseId, splitUserId, splitAmount]
+          'INSERT INTO expense_splits (expense_id, user_id, amount, items) VALUES ($1, $2, $3, $4)',
+          [expenseId, splitUserId, splitAmount, itemsJson]
         );
 
         // Notifikasi ke user lain (bukan payer)
