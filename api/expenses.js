@@ -125,9 +125,9 @@ async function createExpense(req, res, user) {
         const splitUserId = parseInt(split.user_id);
         const splitAmount = parseFloat(split.amount);
 
-        const itemsJson = split.items ? JSON.stringify(split.items) : null;
+        const itemsJson = split.items && split.items.length > 0 ? JSON.stringify(split.items) : null;
         await client.query(
-          'INSERT INTO expense_splits (expense_id, user_id, amount, items) VALUES ($1, $2, $3, $4)',
+          'INSERT INTO expense_splits (expense_id, user_id, amount, items) VALUES ($1, $2, $3, $4::jsonb)',
           [expenseId, splitUserId, splitAmount, itemsJson]
         );
 

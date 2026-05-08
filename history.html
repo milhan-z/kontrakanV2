@@ -406,8 +406,11 @@
                     const userName = state.users.find(u => u.id == s.user_id)?.display_name || 'Unknown';
                     let itemsArr = [];
                     try {
-                        if (typeof s.items === 'string') itemsArr = JSON.parse(s.items);
-                        else if (Array.isArray(s.items)) itemsArr = s.items;
+                        let parsed = s.items;
+                        while (typeof parsed === 'string') {
+                            parsed = JSON.parse(parsed);
+                        }
+                        if (Array.isArray(parsed)) itemsArr = parsed;
                     } catch(e){}
 
                     return `
