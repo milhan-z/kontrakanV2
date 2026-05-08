@@ -57,12 +57,23 @@ async function listExpenses(req, res, user) {
   // Ensure items column exists before querying
   try { await db.query('ALTER TABLE expense_splits ADD COLUMN IF NOT EXISTS items JSONB DEFAULT NULL'); } catch(e){}
   
-  const splitsResult = await db.query(`
-    SELECT es.expense_id, es.user_id, es.amount, es.items, u.display_name
-    FROM expense_splits es
-    JOIN users u ON es.user_id = u.id
-    WHERE es.expense_id = ANY($1::int[])
-  `, [expenseIds]);
+  let splitsResult;
+  try {
+      splitsResult = await db.query(`
+        SELECT es.expense_id, es.user_id, es.amount, es.items, u.display_name
+        FROM expense_splits es
+        JOIN users u ON es.user_id = u.id
+        WHERE es.expense_id = ANY($1::int[])
+      `, [expenseIds]);
+  } catch (err) {
+      // Fallback if items column fails to add or isn't available
+      splitsResult = await db.query(`
+        SELECT es.expense_id, es.user_id, es.amount, u.display_name
+        FROM expense_splits es
+        JOIN users u ON es.user_id = u.id
+        WHERE es.expense_id = ANY($1::int[])
+      `, [expenseIds]);
+  }
 
   // Group splits by expense_id
   const splitsMap = {};
