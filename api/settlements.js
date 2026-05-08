@@ -5,6 +5,7 @@
  */
 
 const { getDB, setCors, jsonResponse, requireAuth, getBody, handleOptions } = require('../lib/db');
+const { sendPushNotification } = require('./lib/webpush');
 
 module.exports = async function handler(req, res) {
   setCors(res);
@@ -99,6 +100,7 @@ async function createSettlement(req, res, user) {
          VALUES ($1, 'Pembayaran Diterima', $2, 'settlement', $3)`,
         [toUser, `${userMap[fromUser]} sudah membayar Rp ${amountFormatted} ke kamu`, settlementId]
       );
+      sendPushNotification(toUser, 'Pembayaran Diterima', `${userMap[fromUser]} sudah membayar Rp ${amountFormatted} ke kamu`, '/settle.html');
     } else {
       // Creditor confirmed → notify debtor
       await client.query(
@@ -106,6 +108,7 @@ async function createSettlement(req, res, user) {
          VALUES ($1, 'Pembayaran Dikonfirmasi', $2, 'settlement', $3)`,
         [fromUser, `${userMap[toUser]} mengkonfirmasi pembayaran Rp ${amountFormatted} dari kamu`, settlementId]
       );
+      sendPushNotification(fromUser, 'Pembayaran Dikonfirmasi', `${userMap[toUser]} mengkonfirmasi pembayaran Rp ${amountFormatted} dari kamu`, '/settle.html');
     }
 
     await client.query('COMMIT');

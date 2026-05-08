@@ -574,3 +574,57 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.error('SW failed:', err));
     }
 });
+
+// ==================== Push Notifications ====================
+const VAPID_PUBLIC_KEY = 'BAS1OSKCInUAZNTH243fiVUg7h9CQHCgCEBIGFg7VQ8C0E23c2xJ3rgHSLve2zmfkOSm5kZc8lZ_yXkndCD2CZ8';
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+async function subscribeToPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        let subscription = await registration.pushManager.getSubscription();
+        
+        if (!subscription) {
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+            });
+        }
+        
+        // Kirim ke backend
+        await apiPost('push', { subscription });
+    } catch (err) {
+        console.error('Failed to subscribe to push:', err);
+    }
+}
+
+async function requestNotificationPermission() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+        subscribeToPush();
+    } else if (Notification.permission !== 'denied') {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+            subscribeToPush();
+        }
+    }
+}
+
+// Subscribe otomatis setelah login jika permission granted
+document.addEventListener('DOMContentLoaded', () => {
+    if (state.user && Notification.permission === 'granted') {
+        subscribeToPush();
+    }
+});

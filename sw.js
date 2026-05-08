@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kontrakan-v1';
+const CACHE_NAME = 'kontrakan-v2';
 const STATIC_ASSETS = [
     '/',
     '/login.html',
@@ -59,5 +59,54 @@ self.addEventListener('fetch', event => {
                 // Fallback to cache
                 return caches.match(event.request);
             })
+    );
+});
+
+// ==================== Push Notifications ====================
+self.addEventListener('push', event => {
+    let data = { title: 'Kontrakan Update', body: 'Ada pembaruan baru di aplikasi kontrakan.', url: '/' };
+    
+    if (event.data) {
+        try {
+            data = event.data.json();
+        } catch(e) {
+            data.body = event.data.text();
+        }
+    }
+
+    const options = {
+        body: data.body,
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-72x72.png',
+        vibrate: [100, 50, 100],
+        data: {
+            dateOfArrival: Date.now(),
+            primaryKey: '2',
+            url: data.url || '/'
+        }
+    };
+
+    event.waitUntil(
+        self.registration.showNotification(data.title, options)
+    );
+});
+
+self.addEventListener('notificationclick', event => {
+    event.notification.close();
+    
+    const targetUrl = event.notification.data && event.notification.data.url ? event.notification.data.url : '/';
+
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+            for (let i = 0; i < clientList.length; i++) {
+                const client = clientList[i];
+                if (client.url.includes(targetUrl) && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow(targetUrl);
+            }
+        })
     );
 });

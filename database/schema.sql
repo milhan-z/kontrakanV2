@@ -90,6 +90,15 @@ CREATE INDEX IF NOT EXISTS idx_settlements_to      ON settlements(to_user);
 CREATE INDEX IF NOT EXISTS idx_notifications_user  ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read  ON notifications(user_id, is_read);
 
+-- Push Notifications Subscriptions
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    subscription JSONB NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, subscription->>'endpoint')
+);
+
 -- =========================================
 -- Default Users (password: kontrakan123)
 -- Hash dibuat dengan bcrypt cost 10

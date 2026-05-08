@@ -6,6 +6,7 @@
  */
 
 const { getDB, setCors, jsonResponse, requireAuth, getBody, handleOptions } = require('../lib/db');
+const { sendPushNotification } = require('./lib/webpush');
 
 module.exports = async function handler(req, res) {
   setCors(res);
@@ -143,6 +144,12 @@ async function createExpense(req, res, user) {
               `${user.display_name} nalangin ${category}: ${description} sebesar Rp ${amountFormatted}`,
               expenseId,
             ]
+          );
+          sendPushNotification(
+            splitUserId, 
+            'Tagihan Baru', 
+            `${user.display_name} nalangin ${category}: ${description} sebesar Rp ${amountFormatted}`, 
+            '/history.html'
           );
         }
       }

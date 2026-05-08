@@ -14,7 +14,8 @@
     { "source": "/api/listrik", "destination": "/api/expenses.js" },
     { "source": "/api/galon", "destination": "/api/expenses.js" },
     { "source": "/api/debt_details", "destination": "/api/settlements.js" },
-    { "source": "/api/reset", "destination": "/api/admin.js" }
+    { "source": "/api/reset", "destination": "/api/admin.js" },
+    { "source": "/api/push", "destination": "/api/push.js" }
   ],
   "headers": [
     {

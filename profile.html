@@ -65,8 +65,29 @@
                         style="padding: var(--space-sm);">
                 </div>
             </div>
-            <button class="btn btn-primary btn-full" id="saveProfileBtn"
-                style="margin-top: var(--space-sm);">Simpan</button>
+            <button class="btn btn-primary btn-full" id="saveProfileBtn" style="margin-top: var(--space-sm);">Simpan</button>
+            <button class="btn btn-full" id="enablePushBtn" onclick="requestNotificationPermission()"
+                style="margin-top: var(--space-sm); background: rgba(0, 150, 136, 0.1); color: var(--green);">
+                <span class="icon" style="margin-right: 8px;"><svg viewBox="0 0 24 24" style="width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2;">
+                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                    <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg></span>
+                Aktifkan Notif HP
+            </button>
+            <div id="pushStatus" class="text-muted text-center hidden" style="font-size: 0.7rem; margin-top: 8px; color: var(--green);">Notifikasi HP sudah aktif ✔️</div>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => {
+                    if ('Notification' in window && Notification.permission === 'granted') {
+                        const btn = document.getElementById('enablePushBtn');
+                        const status = document.getElementById('pushStatus');
+                        if (btn) btn.classList.add('hidden');
+                        if (status) status.classList.remove('hidden');
+                    }
+                }, 500);
+            });
+        </script>
+
         </div>
 
         <!-- Payment Methods - Multiple Items -->
