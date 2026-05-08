@@ -53,6 +53,10 @@ async function listExpenses(req, res, user) {
 
   // Get ALL splits in ONE query using JSON aggregation (no N+1)
   const expenseIds = expenses.map(e => e.id);
+  
+  // Ensure items column exists before querying
+  try { await db.query('ALTER TABLE expense_splits ADD COLUMN IF NOT EXISTS items JSONB DEFAULT NULL'); } catch(e){}
+  
   const splitsResult = await db.query(`
     SELECT es.expense_id, es.user_id, es.amount, es.items, u.display_name
     FROM expense_splits es
