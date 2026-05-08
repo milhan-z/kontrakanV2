@@ -6,7 +6,6 @@
  */
 
 const { getDB, setCors, jsonResponse, requireAuth, getBody, handleOptions } = require('../lib/db');
-const { sendPushNotification } = require('./lib/webpush');
 
 module.exports = async function handler(req, res) {
   setCors(res);
@@ -56,7 +55,11 @@ async function listExpenses(req, res, user) {
   const expenseIds = expenses.map(e => e.id);
   
   // Ensure items column exists before querying
-  try { await db.query('ALTER TABLE expense_splits ADD COLUMN IF NOT EXISTS items JSONB DEFAULT NULL'); } catch(e){}
+  try { 
+    await db.query('ALTER TABLE expense_splits ADD COLUMN IF NOT EXISTS items JSONB DEFAULT NULL'); 
+  } catch(e) {
+    // Silently ignore if column already exists
+  }
   
   let splitsResult;
   try {
@@ -104,8 +107,14 @@ async function createExpense(req, res, user) {
   }
 
   const db = getDB();
+  
   // Ensure qty column exists
-  try { await db.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS qty INT DEFAULT 1'); await db.query('ALTER TABLE expense_splits ADD COLUMN IF NOT EXISTS items JSONB DEFAULT NULL'); } catch(e){}
+  try { 
+    await db.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS qty INT DEFAULT 1');
+    await db.query('ALTER TABLE expense_splits ADD COLUMN IF NOT EXISTS items JSONB DEFAULT NULL');
+  } catch(e) {
+    // Silently ignore if columns already exist
+  }
   
   const client = await db.connect();
 
@@ -144,12 +153,6 @@ async function createExpense(req, res, user) {
               `${user.display_name} nalangin ${category}: ${description} sebesar Rp ${amountFormatted}`,
               expenseId,
             ]
-          );
-          sendPushNotification(
-            splitUserId, 
-            'Tagihan Baru', 
-            `${user.display_name} nalangin ${category}: ${description} sebesar Rp ${amountFormatted}`, 
-            '/history.html'
           );
         }
       }
@@ -205,9 +208,14 @@ async function listrikStats(req, res, user) {
 
 // Galon rotation stats
 async function galonStats(req, res, user) {
-  const db = require('../lib/db').getDB();
+  const db = getDB();
+  
   // Ensure qty exists
-  try { await db.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS qty INT DEFAULT 1'); } catch(e){}
+  try { 
+    await db.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS qty INT DEFAULT 1');
+  } catch(e) {
+    // Silently ignore if column already exists
+  }
   
   const result = await db.query(`
     SELECT u.id as user_id, u.display_name,
@@ -220,7 +228,7 @@ async function galonStats(req, res, user) {
     GROUP BY u.id, u.display_name
     ORDER BY payment_count ASC, last_payment ASC NULLS FIRST
   `);
-  return require('../lib/db').jsonResponse(res, { stats: result.rows, next_payer: result.rows[0] || null });
+  return jsonResponse(res, { stats: result.rows, next_payer: result.rows[0] || null });
 }
 
 // ==================== OCR Receipt (Gemini AI) ====================
@@ -239,9 +247,17 @@ async function ocrReceipt(req, res, user) {
     const base64Data = Buffer.from(arrayBuffer).toString('base64');
     const mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
 
-    const promptText = "Kamu adalah asisten OCR struk belanja (seperti GoPay Split Bill). Ekstrak data struk dengan format JSON object murni. Property yang wajib ada: 1. 'items': array of objects, tiap object punya 'name' (string nama barang), 'qty' (number jumlah barang), dan 'price' (number total harga item tsb). 2. 'subtotal': number (jumlah harga semua barang sebelum pajak/diskon). 3. 'tax': number (pajak/PPN). 4. 'service': number (biaya layanan). 5. 'discount': number (total SEMUA diskon/potongan/hemat, HARUS bernilai negatif). 6. 'grand_total': number (total akhir yang ditagihkan/dibayarkan). JANGAN sertakan markdown atau teks apapun, murni JSON saja.";
+    const promptText = `Kamu adalah asisten OCR struk belanja (seperti GoPay Split Bill). Ekstrak data struk dengan format JSON object murni. Property yang wajib ada:
+    1. 'items': array of objects dengan fields: name (string), quantity (number), price (number)
+    2. 'subtotal': number (total sebelum tax/service)
+    3. 'tax': number (pajak, bisa 0)
+    4. 'service': number (service charge, bisa 0)
+    5. 'discount': number (diskon, harus negatif jika ada)
+    6. 'grand_total': number (total akhir)
+    
+    Kembalikan HANYA JSON object, tanpa markdown atau penjelasan apapun.`;
 
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -271,6 +287,7 @@ async function ocrReceipt(req, res, user) {
 
     const textRes = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
     let resultObj = { items: [], subtotal: 0, tax: 0, service: 0, discount: 0, grand_total: 0 };
+    
     try {
       const parsed = JSON.parse(textRes);
       if (Array.isArray(parsed)) {
@@ -288,10 +305,10 @@ async function ocrReceipt(req, res, user) {
       resultObj.discount = Number(resultObj.discount) || 0;
       if (resultObj.discount > 0) resultObj.discount = -resultObj.discount; // pastikan negatif
       resultObj.grand_total = Number(resultObj.grand_total) || 0;
-      
+       
     } catch (e) {
       console.error('Parse JSON failed:', textRes);
-      return jsonResponse(res, { error: 'Format AI tidak valid' }, 500);
+      return jsonResponse(res, { error: 'Format AI tidak valid: ' + e.message }, 500);
     }
 
     return jsonResponse(res, resultObj);
@@ -300,4 +317,3 @@ async function ocrReceipt(req, res, user) {
     return jsonResponse(res, { error: 'Terjadi kesalahan OCR: ' + err.message }, 500);
   }
 }
-
