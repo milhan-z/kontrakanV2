@@ -1,5 +1,4 @@
-const { getDB } = require('./lib/db');
-const { requireAuth, jsonResponse, getBody } = require('./lib/utils');
+const { getDB, requireAuth, jsonResponse, getBody } = require('../lib/db');
 const { vapidPublicKey } = require('./lib/webpush');
 
 module.exports = async (req, res) => {

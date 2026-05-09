@@ -2,6 +2,12 @@
  * Catatan Kontrakan - Main JavaScript
  */
 
+// Global Maintenance Mode Redirect
+if (!window.location.pathname.includes('maintenance.html')) {
+    window.location.href = 'maintenance.html';
+}
+
+
 // Auto-detect environment: local (XAMPP) vs production (Vercel)
 const API_BASE = window.location.hostname === 'localhost' ? '/Kontrakan/api' : '/api';
 const IMAGE_BASE = '';

@@ -1,5 +1,5 @@
 const webpush = require('web-push');
-const { getDB } = require('./db');
+const { getDB } = require('../../lib/db');
 
 // Gunakan Env Vars jika ada, kalau tidak gunakan kunci default yang di-generate
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BAS1OSKCInUAZNTH243fiVUg7h9CQHCgCEBIGFg7VQ8C0E23c2xJ3rgHSLve2zmfkOSm5kZc8lZ_yXkndCD2CZ8';

@@ -4,6 +4,12 @@
  * Include file ini di semua halaman HTML sebelum script lainnya
  */
 
+// Global Maintenance Mode Redirect
+if (!window.location.pathname.includes('maintenance.html')) {
+    window.location.href = '/maintenance.html';
+}
+
+
 const API = {
   // ── Token Management ───────────────────────────────────────
   getToken() {
