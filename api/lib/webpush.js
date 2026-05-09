@@ -2,8 +2,8 @@ const webpush = require('web-push');
 const { getDB } = require('../../lib/db');
 
 // Gunakan Env Vars jika ada, kalau tidak gunakan kunci default yang di-generate
-const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BAS1OSKCInUAZNTH243fiVUg7h9CQHCgCEBIGFg7VQ8C0E23c2xJ3rgHSLve2zmfkOSm5kZc8lZ_yXkndCD2CZ8';
-const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || 'LFr9byySemZgrcym6M4euVXkcQrOAuX9f3lcRpMUH28';
+const vapidPublicKey = process.env.VAPID_PUBLIC_KEY || 'BGUjYcMzjO44_TlXZzt7-H-FwFiOOcPOvrd6kt4PxpcfHyfrkMrgiYQXa2L7zCH-S-FIyW1cvi1AIZmnHBnmFFw';
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY || 'ICtQK62UwsqaAZyJ-ca1a20MtKQTYAd5Wsuws6YiRFM';
 
 webpush.setVapidDetails(
   'mailto:hilman@example.com',

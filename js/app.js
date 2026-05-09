@@ -582,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==================== Push Notifications ====================
-const VAPID_PUBLIC_KEY = 'BAS1OSKCInUAZNTH243fiVUg7h9CQHCgCEBIGFg7VQ8C0E23c2xJ3rgHSLve2zmfkOSm5kZc8lZ_yXkndCD2CZ8';
+const VAPID_PUBLIC_KEY = 'BGUjYcMzjO44_TlXZzt7-H-FwFiOOcPOvrd6kt4PxpcfHyfrkMrgiYQXa2L7zCH-S-FIyW1cvi1AIZmnHBnmFFw';
 
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
