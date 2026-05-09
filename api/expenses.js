@@ -365,4 +365,3 @@ Aturan:
     return jsonResponse(res, { error: 'Gagal memproses struk: ' + err.message }, 500);
   }
 }
-}
