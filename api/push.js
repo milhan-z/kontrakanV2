@@ -1,56 +1,165 @@
-const { getDB, requireAuth, jsonResponse, getBody } = require('../lib/db');
+const { getDB, requireAuth, jsonResponse, getBody, setCors, handleOptions } = require('../lib/db');
 const { vapidPublicKey } = require('./lib/webpush');
 
 module.exports = async (req, res) => {
-  // Hanya beri VAPID public key jika method GET
+  setCors(res);
+  if (handleOptions(req, res)) return;
+
   if (req.method === 'GET') {
     return jsonResponse(res, { publicKey: vapidPublicKey });
   }
 
-  // Handle pembuatan subscription baru
-  const user = await requireAuth(req, res);
+  const user = requireAuth(req, res);
   if (!user) return;
+
+  const db = getDB();
+
+  try {
+    await ensurePushTable(db);
+  } catch (err) {
+    console.error('Failed to ensure push_subscriptions table:', err);
+    return jsonResponse(res, { error: 'Push storage is not ready' }, 500);
+  }
 
   if (req.method === 'POST') {
     const input = await getBody(req);
-    const { subscription } = input;
+    let { subscription } = input || {};
 
-    if (!subscription || !subscription.endpoint) {
+    if (typeof subscription === 'string') {
+      try { subscription = JSON.parse(subscription); } catch { subscription = null; }
+    }
+
+    if (!subscription || typeof subscription !== 'object' || !subscription.endpoint) {
       return jsonResponse(res, { error: 'Invalid subscription' }, 400);
     }
 
-    const db = getDB();
     try {
-      // Pastikan tabel ada
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS push_subscriptions (
-          id SERIAL PRIMARY KEY,
-          user_id INT REFERENCES users(id) ON DELETE CASCADE,
-          subscription JSONB NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(user_id, subscription->>'endpoint')
-        )
-      `);
-
-      // Cek apakah subscription sudah ada
-      const existing = await db.query(
-        'SELECT id FROM push_subscriptions WHERE user_id = $1 AND subscription->>\'endpoint\' = $2',
-        [user.user_id, subscription.endpoint]
+      await db.query(
+        `INSERT INTO push_subscriptions (user_id, endpoint, subscription, user_agent, updated_at)
+         VALUES ($1, $2, $3::jsonb, $4, NOW())
+         ON CONFLICT (endpoint)
+         DO UPDATE SET
+           user_id = EXCLUDED.user_id,
+           subscription = EXCLUDED.subscription,
+           user_agent = EXCLUDED.user_agent,
+           updated_at = NOW()`,
+        [
+          user.user_id,
+          subscription.endpoint,
+          JSON.stringify(subscription),
+          req.headers['user-agent'] || null,
+        ]
       );
 
-      if (existing.rows.length === 0) {
-        await db.query(
-          'INSERT INTO push_subscriptions (user_id, subscription) VALUES ($1, $2)',
-          [user.user_id, JSON.stringify(subscription)]
-        );
-      }
-      
       return jsonResponse(res, { success: true });
     } catch (err) {
-      console.error(err);
+      console.error('Failed to save push subscription:', err);
       return jsonResponse(res, { error: 'Failed to save subscription' }, 500);
     }
   }
 
+  if (req.method === 'DELETE') {
+    const input = await getBody(req);
+    const endpoint = input?.endpoint || req.query.endpoint;
+
+    if (!endpoint) {
+      return jsonResponse(res, { error: 'Endpoint is required' }, 400);
+    }
+
+    await db.query(
+      'DELETE FROM push_subscriptions WHERE user_id = $1 AND endpoint = $2',
+      [user.user_id, endpoint]
+    );
+
+    return jsonResponse(res, { success: true });
+  }
+
   return jsonResponse(res, { error: 'Method not allowed' }, 405);
 };
+
+async function ensurePushTable(db) {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id SERIAL PRIMARY KEY,
+      user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      endpoint TEXT NOT NULL UNIQUE,
+      subscription JSONB NOT NULL,
+      user_agent TEXT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id)`);
+
+  await db.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'push_subscriptions' AND column_name = 'user_agent'
+      ) THEN
+        ALTER TABLE push_subscriptions ADD COLUMN user_agent TEXT NULL;
+      END IF;
+
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'push_subscriptions' AND column_name = 'updated_at'
+      ) THEN
+        ALTER TABLE push_subscriptions ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
+      END IF;
+    END $$;
+  `);
+
+
+  await db.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'push_subscriptions'
+          AND column_name = 'endpoint'
+      ) THEN
+        ALTER TABLE push_subscriptions ADD COLUMN endpoint TEXT;
+        UPDATE push_subscriptions
+        SET endpoint = subscription->>'endpoint'
+        WHERE endpoint IS NULL;
+      END IF;
+    END $$;
+  `);
+
+  await db.query(`
+    UPDATE push_subscriptions
+    SET endpoint = subscription->>'endpoint',
+        updated_at = COALESCE(updated_at, NOW())
+    WHERE endpoint IS NULL
+  `);
+
+  await db.query(`DELETE FROM push_subscriptions WHERE endpoint IS NULL OR endpoint = ''`);
+
+  await db.query(`
+    DELETE FROM push_subscriptions a
+    USING push_subscriptions b
+    WHERE a.id < b.id
+      AND a.endpoint = b.endpoint
+  `);
+
+
+  await db.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'push_subscriptions_endpoint_key'
+      ) THEN
+        BEGIN
+          ALTER TABLE push_subscriptions ADD CONSTRAINT push_subscriptions_endpoint_key UNIQUE (endpoint);
+        EXCEPTION WHEN duplicate_table OR duplicate_object THEN
+          NULL;
+        END;
+      END IF;
+    END $$;
+  `);
+}

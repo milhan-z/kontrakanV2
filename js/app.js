@@ -202,12 +202,14 @@ async function checkAuth() {
         // Parse user dari localStorage
         if (savedUser) {
             state.user = JSON.parse(savedUser);
+            setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
             return true;
         }
         // Fallback: verifikasi ke server
         const data = await apiGet('auth?action=me');
         if (data && data.user) {
             state.user = data.user;
+            setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
             return true;
         }
         return false;
@@ -229,6 +231,7 @@ async function login(username, password) {
     localStorage.setItem('kontrakan_token', data.token);
     localStorage.setItem('kontrakan_user', JSON.stringify(data.user));
     state.user = data.user;
+    setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
     return data;
 }
 
@@ -582,11 +585,38 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==================== Push Notifications ====================
-const VAPID_PUBLIC_KEY = 'BGUjYcMzjO44_TlXZzt7-H-FwFiOOcPOvrd6kt4PxpcfHyfrkMrgiYQXa2L7zCH-S-FIyW1cvi1AIZmnHBnmFFw';
+let pushPublicKeyPromise = null;
+
+function isIosDevice() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function isStandalonePwa() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+async function getPushPublicKey() {
+    if (!pushPublicKeyPromise) {
+        pushPublicKeyPromise = fetch(`${API_BASE}/push`)
+            .then(async (res) => {
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.publicKey) {
+                    throw new Error(data.error || 'Public key push tidak tersedia');
+                }
+                return data.publicKey;
+            })
+            .catch((err) => {
+                pushPublicKeyPromise = null;
+                throw err;
+            });
+    }
+    return pushPublicKeyPromise;
+}
 
 function urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
     const rawData = window.atob(base64);
     const outputArray = new Uint8Array(rawData.length);
     for (let i = 0; i < rawData.length; ++i) {
@@ -595,42 +625,133 @@ function urlBase64ToUint8Array(base64String) {
     return outputArray;
 }
 
+async function updatePushUi() {
+    const btn = document.getElementById('enablePushBtn');
+    const status = document.getElementById('pushStatus');
+
+    if (!btn && !status) return;
+
+    let active = false;
+    try {
+        if ('serviceWorker' in navigator && 'PushManager' in window) {
+            const registration = await navigator.serviceWorker.ready;
+            const subscription = await registration.pushManager.getSubscription();
+            active = Notification.permission === 'granted' && !!subscription;
+        }
+    } catch (err) {
+        console.warn('Failed to update push UI:', err);
+    }
+
+    if (btn) btn.classList.toggle('hidden', active);
+    if (status) status.classList.toggle('hidden', !active);
+}
+
+async function unsubscribeFromPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    if (!subscription) return true;
+
+    const endpoint = subscription.endpoint;
+    try {
+        await fetch(`${API_BASE}/push`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ endpoint })
+        });
+    } catch (err) {
+        console.warn('Failed to unregister push subscription on server:', err);
+    }
+
+    await subscription.unsubscribe();
+    await updatePushUi();
+    return true;
+}
+
 async function subscribeToPush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-    
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        showToast('Browser ini belum mendukung notifikasi push.', 'error');
+        return false;
+    }
+
+    if (isIosDevice() && !isStandalonePwa()) {
+        showToast('Di iPhone, buka dari Home Screen dulu lalu aktifkan notif.', 'info');
+        return false;
+    }
+
     try {
         const registration = await navigator.serviceWorker.ready;
         let subscription = await registration.pushManager.getSubscription();
-        
+
         if (!subscription) {
+            const publicKey = await getPushPublicKey();
             subscription = await registration.pushManager.subscribe({
                 userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                applicationServerKey: urlBase64ToUint8Array(publicKey)
             });
         }
-        
-        // Kirim ke backend
+
         await apiPost('push', { subscription });
+        await updatePushUi();
+        showToast('Notifikasi HP berhasil diaktifkan.', 'success');
+        return true;
     } catch (err) {
         console.error('Failed to subscribe to push:', err);
+        showToast('Gagal mengaktifkan notif HP. Coba refresh lalu ulangi.', 'error');
+        return false;
     }
+}
+
+async function syncPushSubscription() {
+    if (!state.user || !('Notification' in window)) return false;
+    if (Notification.permission !== 'granted') {
+        await updatePushUi();
+        return false;
+    }
+    return subscribeToPush();
 }
 
 async function requestNotificationPermission() {
-    if (!('Notification' in window)) return;
-    if (Notification.permission === 'granted') {
-        subscribeToPush();
-    } else if (Notification.permission !== 'denied') {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-            subscribeToPush();
-        }
+    if (!('Notification' in window)) {
+        showToast('Browser ini belum mendukung notifikasi.', 'error');
+        return false;
     }
+
+    if (isIosDevice() && !isStandalonePwa()) {
+        showToast('iPhone hanya bisa menerima push jika app dibuka dari Home Screen.', 'info');
+        return false;
+    }
+
+    if (Notification.permission === 'granted') {
+        return syncPushSubscription();
+    }
+
+    if (Notification.permission === 'denied') {
+        showToast('Notif sedang diblokir. Aktifkan lagi dari pengaturan browser.', 'error');
+        return false;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+        return syncPushSubscription();
+    }
+
+    showToast('Izin notifikasi belum diberikan.', 'info');
+    await updatePushUi();
+    return false;
 }
 
-// Subscribe otomatis setelah login jika permission granted
 document.addEventListener('DOMContentLoaded', () => {
-    if (state.user && Notification.permission === 'granted') {
-        subscribeToPush();
+    updatePushUi();
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.ready
+            .then(() => updatePushUi())
+            .catch(() => {});
+    }
+
+    if (state.user && 'Notification' in window && Notification.permission === 'granted') {
+        syncPushSubscription();
     }
 });
