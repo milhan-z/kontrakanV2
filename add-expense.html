@@ -2,70 +2,9 @@
 <html lang="id">
 <head>
     <script>
-        (function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);else if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');})();
-    
-        let activeMainTab = 'biasa';
-        let giliranFilePath = null;
-
-        function switchMainTab(tabId) {
-            activeMainTab = tabId;
-            document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            
-            document.querySelector(`.main-tab[onclick*="${tabId}"]`).classList.add('active');
-            if (tabId === 'biasa') {
-                document.getElementById('tabBiasa').classList.add('active');
-            } else {
-                document.getElementById('tabGiliran').classList.add('active');
-            }
-        }
-
-        function toggleGiliranType() {
-            const type = document.getElementById('giliranType').value;
-            document.getElementById('giliranQtyGroup').style.display = type === 'Galon' ? 'block' : 'none';
-        }
-
-        document.getElementById('giliranUploadArea').addEventListener('click', () => document.getElementById('giliranReceiptInput').click());
-        document.getElementById('giliranReceiptInput').addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = e => {
-                document.getElementById('giliranReceiptPreview').src = e.target.result;
-                document.getElementById('giliranReceiptPreview').classList.remove('hidden');
-                document.getElementById('giliranUploadArea').classList.add('has-file');
-            };
-            reader.readAsDataURL(file);
-            try {
-                const res = await uploadReceipt(file);
-                giliranFilePath = res.path;
-                showToast('Bukti terupload', 'success');
-            } catch { showToast('Gagal upload', 'error'); }
-        });
-
-        async function submitGiliran() {
-            const type = document.getElementById('giliranType').value;
-            const amount = parseFloat(document.getElementById('giliranAmount').value);
-            const qty = type === 'Galon' ? parseInt(document.getElementById('giliranQty').value) : 1;
-
-            if (!amount) { showToast('Masukkan nominal', 'error'); return; }
-
-            try {
-                showToast('Menyimpan...', 'info');
-                await createExpense({ 
-                    amount: amount, 
-                    description: 'Isi ' + type, 
-                    category: type, 
-                    receipt_image: giliranFilePath, 
-                    splits: [],
-                    qty: qty
-                });
-                showToast('Tersimpan!', 'success');
-                setTimeout(() => window.location.href = 'dashboard.html', 800);
-            } catch (err) { showToast('Gagal menyimpan', 'error'); }
-        }
-
+        (function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);else if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark')})();
     </script>
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <meta name="theme-color" content="#fafafa">
@@ -173,7 +112,7 @@
             0% { top: 0; }
             100% { top: 100%; }
         }
-</style>
+    </style>
 </head>
 <body>
     <div class="container" style="padding-bottom: 100px;">
@@ -240,7 +179,7 @@
             <div id="customMethodOptions" class="hidden" style="margin-bottom: 24px;">
                 <div class="method-card" onclick="checkDescThen('ai')">
                     <div class="method-icon">
-                        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="12" cy="12" r="2"></circle></svg>
                     </div>
                     <div style="flex:1;">
                         <div class="method-title">Hitung otomatis pake struk</div>
@@ -313,7 +252,7 @@
             <!-- End Tab Giliran -->
         </div>
 
-        <!-- STATE 2: AI UPLOAD (Hanya muncul jika belum upload bukti di page utama) -->
+        <!-- STATE 2: AI UPLOAD -->
         <div id="stepAiUpload" class="wizard-step">
             <h2 style="font-size:1.2rem; margin-bottom:16px;">Upload Struk</h2>
             <div class="upload-area" id="aiUploadArea" style="height: 300px; display:flex; flex-direction:column; justify-content:center;">
@@ -328,7 +267,7 @@
             <button id="btnAiProcess" class="btn btn-primary btn-full btn-lg hidden" style="margin-top:24px;" onclick="startAiScan()">Pake foto ini</button>
         </div>
 
-        <!-- STATE 3: AI SCANNING LOADING -->
+        <!-- STATE 3: AI SCANNING -->
         <div id="stepAiScanning" class="wizard-step text-center" style="padding-top: 40px;">
             <div class="scanner-container">
                 <img id="scanningImgPreview" class="scanner-img" src="">
@@ -338,7 +277,7 @@
             <p class="text-muted" style="font-size: 0.85rem;">AI sedang mengekstrak item dan harga. Mohon tunggu sebentar.</p>
         </div>
 
-        <!-- STATE 4: AI CONFIRM ITEMS -->
+        <!-- STATE 4: AI CONFIRM -->
         <div id="stepAiConfirm" class="wizard-step">
             <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">Rincian split bill dari struk:</div>
             
@@ -347,7 +286,7 @@
             <button class="btn btn-primary btn-full btn-lg" onclick="goToStep('stepAiMembers')">Konfirmasi</button>
         </div>
 
-        <!-- STATE 5: AI SELECT MEMBERS -->
+        <!-- STATE 5: AI MEMBERS -->
         <div id="stepAiMembers" class="wizard-step">
             <div style="font-size:0.85rem; color:var(--text-muted); margin-bottom:16px;">Pilih anggota yang ikut di struk ini:</div>
             
@@ -356,11 +295,11 @@
             <button class="btn btn-primary btn-full btn-lg" style="margin-top:24px;" onclick="goToAiAssign()">Konfirmasi Anggota</button>
         </div>
 
-        <!-- STATE 6: AI ASSIGN ITEMS -->
+        <!-- STATE 6: AI ASSIGN -->
         <div id="stepAiAssign" class="wizard-step">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <div style="font-size:0.85rem; color:var(--text-muted);">Pembagian split bill</div>
-                <button class="btn btn-sm" onclick="bagiRataSemuaAi()" style="background:rgba(var(--primary-rgb),0.1); color:var(--primary); border:none; border-radius:20px; font-weight:600;">✨ Bagi Rata Semua</button>
+                <button class="btn btn-sm" onclick="bagiRataSemuaAi()" style="background:rgba(var(--primary-rgb),0.1); color:var(--primary); border:none; border-radius:20px; font-weight:600;">✨ Rata</button>
             </div>
 
             <div id="aiAssignList"></div>
@@ -389,19 +328,113 @@
         let aiDetails = { subtotal: 0, tax: 0, service: 0, discount: 0, lainnya: 0 };
         let aiSelectedMemberIds = [];
 
-        (async () => {
+        // Initialize setelah DOM loaded
+        document.addEventListener('DOMContentLoaded', async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
             await loadUsers();
             renderManualUserGrid();
             renderAiMembersGrid();
-        })();
+            setupEventListeners();
+        });
+
+        // Setup event listeners setelah DOM ready
+        function setupEventListeners() {
+            // Giliran upload
+            const giliranUploadArea = document.getElementById('giliranUploadArea');
+            const giliranReceiptInput = document.getElementById('giliranReceiptInput');
+            if (giliranUploadArea && giliranReceiptInput) {
+                giliranUploadArea.addEventListener('click', () => giliranReceiptInput.click());
+                giliranReceiptInput.addEventListener('change', handleGiliranUpload);
+            }
+
+            // Manual upload
+            const manualUploadArea = document.getElementById('manualUploadArea');
+            const manualReceiptInput = document.getElementById('manualReceiptInput');
+            if (manualUploadArea && manualReceiptInput) {
+                manualUploadArea.addEventListener('click', () => manualReceiptInput.click());
+                manualReceiptInput.addEventListener('change', handleManualUpload);
+            }
+
+            // AI upload
+            const aiUploadArea = document.getElementById('aiUploadArea');
+            const aiReceiptInput = document.getElementById('aiReceiptInput');
+            if (aiUploadArea && aiReceiptInput) {
+                aiUploadArea.addEventListener('click', () => aiReceiptInput.click());
+                aiReceiptInput.addEventListener('change', handleAiUpload);
+            }
+
+            // Manual amount input
+            const manualAmount = document.getElementById('manualAmount');
+            if (manualAmount) {
+                manualAmount.addEventListener('input', updateManualSplit);
+            }
+        }
+
+        function switchMainTab(tabId) {
+            document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            
+            document.querySelector(`.main-tab[onclick*="${tabId}"]`).classList.add('active');
+            if (tabId === 'biasa') {
+                document.getElementById('tabBiasa').classList.add('active');
+            } else {
+                document.getElementById('tabGiliran').classList.add('active');
+            }
+        }
+
+        function toggleGiliranType() {
+            const type = document.getElementById('giliranType').value;
+            document.getElementById('giliranQtyGroup').style.display = type === 'Galon' ? 'block' : 'none';
+        }
+
+        async function handleGiliranUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('giliranReceiptPreview').src = e.target.result;
+                document.getElementById('giliranReceiptPreview').classList.remove('hidden');
+                document.getElementById('giliranUploadArea').classList.add('has-file');
+            };
+            reader.readAsDataURL(file);
+            try {
+                const res = await uploadReceipt(file);
+                window.giliranFilePath = res.path;
+                showToast('Bukti terupload', 'success');
+            } catch { showToast('Gagal upload', 'error'); }
+        }
+
+        async function submitGiliran() {
+            const type = document.getElementById('giliranType').value;
+            const amount = parseFloat(document.getElementById('giliranAmount').value);
+            const qty = type === 'Galon' ? parseInt(document.getElementById('giliranQty').value) : 1;
+
+            if (!amount) { showToast('Masukkan nominal', 'error'); return; }
+
+            try {
+                showToast('Menyimpan...', 'info');
+                await createExpense({ 
+                    amount: amount, 
+                    description: 'Isi ' + type, 
+                    category: type, 
+                    receipt_image: window.giliranFilePath, 
+                    splits: [],
+                    qty: qty
+                });
+                showToast('Tersimpan!', 'success');
+                setTimeout(() => window.location.href = 'dashboard.html', 800);
+            } catch (err) { 
+                console.error('Error:', err);
+                showToast('Gagal menyimpan: ' + err.message, 'error'); 
+            }
+        }
 
         function goBack() {
             if (currentStep === 'stepMain') { window.location.href = 'dashboard.html'; return; }
             if (currentStep === 'stepAiUpload') goToStep('stepMain');
             else if (currentStep === 'stepAiScanning') goToStep('stepMain');
             else if (currentStep === 'stepAiConfirm') {
-                if (uploadedFilePath) goToStep('stepMain'); // If they came from main page with image already uploaded
+                if (uploadedFilePath) goToStep('stepMain');
                 else goToStep('stepAiUpload');
             }
             else if (currentStep === 'stepAiMembers') goToStep('stepAiConfirm');
@@ -413,7 +446,6 @@
             document.getElementById(stepId).classList.add('active');
             currentStep = stepId;
 
-            // Update header text based on step
             const titles = {
                 'stepMain': 'Catat Pengeluaran',
                 'stepAiUpload': 'Foto Struk',
@@ -425,26 +457,21 @@
             document.getElementById('headerTitle').textContent = titles[stepId] || 'Catat Pengeluaran';
         }
 
-        // --- MAIN UI LOGIC ---
         function setManualSplitMode(mode) {
             manualSplitMode = mode;
             document.getElementById('btnSplitEqual').classList.toggle('active', mode === 'equal');
             document.getElementById('btnSplitCustom').classList.toggle('active', mode === 'custom');
             
             if (mode === 'custom') {
-                // Sembunyikan Grid, Munculkan 2 Opsi
                 document.getElementById('userGridGroup').classList.add('hidden');
                 document.getElementById('perPersonGroup').classList.add('hidden');
                 document.getElementById('btnSubmitMain').classList.add('hidden');
                 document.getElementById('customMethodOptions').classList.remove('hidden');
             } else {
-                // Kembali ke Bagi Rata
                 document.getElementById('customMethodOptions').classList.add('hidden');
                 document.getElementById('userGridGroup').classList.remove('hidden');
                 document.getElementById('perPersonGroup').classList.remove('hidden');
                 document.getElementById('btnSubmitMain').classList.remove('hidden');
-                
-                // Hide inputs amount di userGrid
                 document.querySelectorAll('#manualUserGrid .user-amount').forEach(el => el.classList.add('hidden'));
                 updateManualSplit();
             }
@@ -455,13 +482,11 @@
             document.getElementById('userGridGroup').classList.remove('hidden');
             document.getElementById('perPersonGroup').classList.remove('hidden');
             document.getElementById('btnSubmitMain').classList.remove('hidden');
-            
-            // Tampilkan inputs amount di userGrid
             document.querySelectorAll('#manualUserGrid .user-amount').forEach(el => el.classList.remove('hidden'));
             updateManualSplit();
         }
 
-                function checkDescThen(mode) {
+        function checkDescThen(mode) {
             const desc = document.getElementById('description').value.trim();
             const cat = document.getElementById('category').value;
             if (!desc || !cat) {
@@ -474,10 +499,8 @@
 
         function startAiFlow() {
             if (uploadedFilePath) {
-                // Langsung scan kalau udah upload di halaman depan
                 startAiScan();
             } else {
-                // Minta foto dulu
                 goToStep('stepAiUpload');
             }
         }
@@ -506,7 +529,6 @@
                     updateManualSplit();
                 });
             });
-            document.getElementById('manualAmount').addEventListener('input', updateManualSplit);
         }
 
         function getManualSelected() {
@@ -530,9 +552,7 @@
             else el.textContent = formatCurrencyPlain(selected.reduce((s, u) => s + u.amount, 0));
         }
 
-        // Manual upload logic (Page Depan)
-        document.getElementById('manualUploadArea').addEventListener('click', () => document.getElementById('manualReceiptInput').click());
-        document.getElementById('manualReceiptInput').addEventListener('change', async (e) => {
+        async function handleManualUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
             const textLabel = document.querySelector('#manualUploadArea div');
@@ -554,7 +574,7 @@
                 showToast('Gagal upload', 'error'); 
                 textLabel.textContent = 'Gagal upload';
             }
-        });
+        }
 
         async function submitManual() {
             const desc = document.getElementById('description').value.trim();
@@ -580,16 +600,13 @@
                 showToast('Tersimpan!', 'success');
                 setTimeout(() => window.location.href = 'dashboard.html', 800);
             } catch (err) { 
-                showToast('Gagal menyimpan', 'error'); 
+                showToast('Gagal menyimpan: ' + err.message, 'error'); 
                 document.getElementById('btnSubmitMain').disabled = false;
                 document.getElementById('btnSubmitMain').textContent = 'Simpan';
             }
         }
 
-
-        // --- AI MODE LOGIC ---
-        document.getElementById('aiUploadArea').addEventListener('click', () => document.getElementById('aiReceiptInput').click());
-        document.getElementById('aiReceiptInput').addEventListener('change', async (e) => {
+        async function handleAiUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
             const btnProcess = document.getElementById('btnAiProcess');
@@ -614,7 +631,7 @@
                 showToast('Gagal upload struk', 'error');
                 textLabel.textContent = 'Gagal upload. Coba lagi.';
             }
-        });
+        }
 
         async function startAiScan() {
             if (!uploadedFilePath) { showToast('Tunggu gambar selesai terupload...', 'info'); return; }
@@ -626,9 +643,9 @@
                 const res = await apiPost('expenses?action=ocr', { url: absoluteUrl });
                 
                 if (res && res.items && res.items.length > 0) {
-                    aiItems = res.items.map(i => ({ ...i, item: i.name || i.item, qty: i.qty || 1, assignedTo: [] }));
+                    aiItems = res.items.map(i => ({ ...i, item: i.name || i.item, qty: i.quantity || i.qty || 1, assignedTo: [] }));
                     
-                    const sumItems = aiItems.reduce((s,i) => s + i.price, 0);
+                    const sumItems = aiItems.reduce((s,i) => s + (i.price * i.qty), 0);
                     aiDetails.subtotal = res.subtotal || sumItems;
                     aiDetails.tax = res.tax || 0;
                     aiDetails.service = res.service || 0;
@@ -636,7 +653,6 @@
                     
                     aiGrandTotal = res.grand_total || sumItems;
                     
-                    // Hitung 'Lainnya' sbg penyeimbang (selisih)
                     const calculatedTotal = aiDetails.subtotal + aiDetails.tax + aiDetails.service + aiDetails.discount;
                     aiDetails.lainnya = aiGrandTotal - calculatedTotal;
 
@@ -647,7 +663,8 @@
                     goToStep('stepMain');
                 }
             } catch (err) {
-                showToast('Gagal memproses struk dengan AI', 'error');
+                console.error('OCR Error:', err);
+                showToast('Gagal memproses struk dengan AI: ' + err.message, 'error');
                 goToStep('stepMain');
             }
         }
@@ -655,9 +672,9 @@
         function renderAiConfirm() {
             let html = aiItems.map(i => `
                 <div class="summary-row" style="margin-bottom: 12px; align-items: flex-start;">
-                    <div style="flex:1; padding-right:12px; font-weight:600; line-height:1.4;">${i.item.toUpperCase()}</div>
-                    <div style="width: 30px; color: var(--text-muted); font-size: 0.8rem; text-align: center;">x${i.qty}</div>
-                    <div style="width: 70px; text-align: right; font-weight: 600;">${i.price.toLocaleString('id-ID')}</div>
+                    <div style="flex:1; padding-right:12px; font-weight:600; line-height:1.4;">${(i.item || i.name || 'Unknown').toUpperCase()}</div>
+                    <div style="width: 30px; color: var(--text-muted); font-size: 0.8rem; text-align: center;">x${i.qty || 1}</div>
+                    <div style="width: 70px; text-align: right; font-weight: 600;">${(i.price || 0).toLocaleString('id-ID')}</div>
                 </div>
             `).join('');
 
@@ -740,7 +757,6 @@
             aiSelectedMemberIds = Array.from(document.querySelectorAll('#aiMembersGrid input:checked')).map(i => parseInt(i.value));
             if (aiSelectedMemberIds.length === 0) { showToast('Pilih minimal 1 orang', 'error'); return; }
             
-            // Filter existing assignments to only keep selected members
             aiItems.forEach(item => {
                 item.assignedTo = item.assignedTo.filter(id => aiSelectedMemberIds.includes(id));
             });
@@ -755,9 +771,9 @@
             document.getElementById('aiAssignList').innerHTML = aiItems.map((item, index) => `
                 <div class="ai-item-card">
                     <div style="display:flex; justify-content:space-between; margin-bottom:12px; align-items:flex-start;">
-                        <div style="font-weight:600; line-height:1.3; padding-right:12px; flex:1;">${item.item.toUpperCase()}</div>
+                        <div style="font-weight:600; line-height:1.3; padding-right:12px; flex:1;">${(item.item || item.name || 'Unknown').toUpperCase()}</div>
                         <div style="color: var(--text-muted); font-size: 0.8rem; padding: 0 12px;">x${item.qty || 1}</div>
-                        <div style="font-weight:700; white-space:nowrap;">Rp ${item.price.toLocaleString('id-ID')}</div>
+                        <div style="font-weight:700; white-space:nowrap;">Rp ${(item.price || 0).toLocaleString('id-ID')}</div>
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border-color);">
                         ${members.map(u => {
@@ -785,7 +801,7 @@
 
         function bagiRataSemuaAi() {
             aiItems.forEach(item => {
-                item.assignedTo = [...aiSelectedMemberIds]; // Assign to all selected members
+                item.assignedTo = [...aiSelectedMemberIds];
             });
             renderAiAssign();
         }
@@ -800,13 +816,13 @@
 
             aiItems.forEach(item => {
                 if (item.assignedTo.length > 0) {
-                    const splitPrice = item.price / item.assignedTo.length;
+                    const splitPrice = (item.price || 0) / item.assignedTo.length;
                     item.assignedTo.forEach(id => { totals[id] += splitPrice; });
-                    selectedItemsTotal += item.price;
+                    selectedItemsTotal += (item.price || 0);
                 }
             });
 
-            const sumAllItems = aiItems.reduce((s, i) => s + i.price, 0);
+            const sumAllItems = aiItems.reduce((s, i) => s + (i.price || 0), 0);
             const ratio = (sumAllItems > 0 && aiGrandTotal > 0) ? (aiGrandTotal / sumAllItems) : 1;
             
             finalAiGrandTotal = Math.round(selectedItemsTotal * ratio);
@@ -816,13 +832,12 @@
             aiSelectedMemberIds.forEach(id => {
                 if (totals[id] > 0) {
                     const finalShare = Math.round(totals[id] * ratio);
-                    // NEW: Collect items assigned to this user
                     const userItems = [];
                     aiItems.forEach(item => {
                         if (item.assignedTo.includes(id)) {
                             userItems.push({
-                                item: item.item,
-                                price: Math.round((item.price / item.assignedTo.length) * ratio)
+                                item: item.item || item.name || 'Unknown',
+                                price: Math.round(((item.price || 0) / item.assignedTo.length) * ratio)
                             });
                         }
                     });
@@ -832,13 +847,11 @@
                 }
             });
 
-            // Adjust rounding
             const diff = finalAiGrandTotal - allocatedTotal;
             if (diff !== 0 && finalAiSplits.length > 0) {
                 finalAiSplits[0].amount += diff;
             }
 
-            // Render summary
             const summaryHtml = finalAiSplits.map(split => {
                 const user = state.users.find(u => u.id === split.user_id);
                 return `
@@ -872,6 +885,7 @@
                 showToast('Tagihan berhasil dikirim!', 'success');
                 setTimeout(() => window.location.href = 'dashboard.html', 800);
             } catch (err) {
+                console.error('Submit error:', err);
                 showToast('Gagal: ' + err.message, 'error');
                 btn.disabled = false;
                 btn.textContent = 'Coba Lagi';
