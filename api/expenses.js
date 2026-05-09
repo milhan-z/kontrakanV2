@@ -241,6 +241,13 @@ async function ocrReceipt(req, res, user) {
     return jsonResponse(res, { error: 'GEMINI_API_KEY belum dikonfigurasi di Vercel.' }, 500);
   }
 
+  // Model fallback list (dari quota terbanyak ke paling sedikit)
+  const modelList = [
+    'gemini-1.5-flash',      // Most reliable & quota
+    'gemini-2.5-flash-lite', // Good alternative
+    'gemini-2.0-flash',      // Last resort
+  ];
+
   try {
     const imgRes = await fetch(url);
     const arrayBuffer = await imgRes.arrayBuffer();
@@ -257,61 +264,96 @@ async function ocrReceipt(req, res, user) {
     
     Kembalikan HANYA JSON object, tanpa markdown atau penjelasan apapun.`;
 
-    const geminiRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: promptText },
-            {
-              inline_data: {
-                mime_type: mimeType,
-                data: base64Data
+    let lastError = null;
+
+    // Try each model in the list
+    for (const model of modelList) {
+      try {
+        console.log(`[OCR] Trying model: ${model}`);
+        
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: promptText },
+                  {
+                    inline_data: {
+                      mime_type: mimeType,
+                      data: base64Data
+                    }
+                  }
+                ]
+              }],
+              generationConfig: {
+                temperature: 0.1,
+                response_mime_type: "application/json"
               }
-            }
-          ]
-        }],
-        generationConfig: {
-            temperature: 0.1,
-            response_mime_type: "application/json"
+            })
+          }
+        );
+
+        const geminiData = await geminiRes.json();
+        
+        if (!geminiRes.ok) {
+          const errorMsg = geminiData?.error?.message || 'Unknown error';
+          console.error(`[OCR] Model ${model} failed:`, errorMsg);
+          lastError = errorMsg;
+          
+          // Jika quota habis (429) atau rate limit, lanjut ke model berikutnya
+          if (geminiRes.status === 429 || errorMsg.includes('quota')) {
+            continue; // Try next model
+          }
+          
+          // Untuk error lain, langsung return
+          return jsonResponse(res, { error: 'Gagal memproses struk dengan AI: ' + errorMsg }, geminiRes.status || 500);
         }
-      })
-    });
 
-    const geminiData = await geminiRes.json();
-    if (!geminiRes.ok) {
-      console.error('Gemini error:', geminiData);
-      return jsonResponse(res, { error: 'Gagal memproses struk dengan AI: ' + JSON.stringify(geminiData) }, 500);
-    }
+        // Success! Parse hasil
+        const textRes = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        let resultObj = { items: [], subtotal: 0, tax: 0, service: 0, discount: 0, grand_total: 0 };
+        
+        try {
+          const parsed = JSON.parse(textRes);
+          if (Array.isArray(parsed)) {
+            resultObj.items = parsed;
+            resultObj.grand_total = parsed.reduce((s, i) => s + (i.price || 0), 0);
+            resultObj.subtotal = resultObj.grand_total;
+          } else {
+            resultObj = { ...resultObj, ...parsed };
+          }
+          
+          // Ensure all numbers are safe
+          resultObj.subtotal = Number(resultObj.subtotal) || 0;
+          resultObj.tax = Number(resultObj.tax) || 0;
+          resultObj.service = Number(resultObj.service) || 0;
+          resultObj.discount = Number(resultObj.discount) || 0;
+          if (resultObj.discount > 0) resultObj.discount = -resultObj.discount; // pastikan negatif
+          resultObj.grand_total = Number(resultObj.grand_total) || 0;
+          
+          console.log(`[OCR] Success with model: ${model}`);
+          return jsonResponse(res, resultObj);
+           
+        } catch (e) {
+          console.error('Parse JSON failed:', textRes);
+          return jsonResponse(res, { error: 'Format AI tidak valid: ' + e.message }, 500);
+        }
 
-    const textRes = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-    let resultObj = { items: [], subtotal: 0, tax: 0, service: 0, discount: 0, grand_total: 0 };
-    
-    try {
-      const parsed = JSON.parse(textRes);
-      if (Array.isArray(parsed)) {
-        resultObj.items = parsed;
-        resultObj.grand_total = parsed.reduce((s, i) => s + (i.price || 0), 0);
-        resultObj.subtotal = resultObj.grand_total;
-      } else {
-        resultObj = { ...resultObj, ...parsed };
+      } catch (err) {
+        console.error(`[OCR] Error with model ${model}:`, err.message);
+        lastError = err.message;
+        continue; // Try next model
       }
-      
-      // Ensure all numbers are safe
-      resultObj.subtotal = Number(resultObj.subtotal) || 0;
-      resultObj.tax = Number(resultObj.tax) || 0;
-      resultObj.service = Number(resultObj.service) || 0;
-      resultObj.discount = Number(resultObj.discount) || 0;
-      if (resultObj.discount > 0) resultObj.discount = -resultObj.discount; // pastikan negatif
-      resultObj.grand_total = Number(resultObj.grand_total) || 0;
-       
-    } catch (e) {
-      console.error('Parse JSON failed:', textRes);
-      return jsonResponse(res, { error: 'Format AI tidak valid: ' + e.message }, 500);
     }
 
-    return jsonResponse(res, resultObj);
+    // Semua model gagal
+    return jsonResponse(res, { 
+      error: 'Semua model OCR tidak tersedia. ' + (lastError ? 'Last error: ' + lastError : 'Silakan coba lagi nanti.')
+    }, 503);
+
   } catch (err) {
     console.error('OCR Error:', err);
     return jsonResponse(res, { error: 'Terjadi kesalahan OCR: ' + err.message }, 500);
