@@ -712,6 +712,23 @@ async function syncPushSubscription() {
     return subscribeToPush();
 }
 
+
+async function sendTestPushNotification() {
+    try {
+        const res = await fetch(`${API_BASE}/test-push`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            throw new Error(data.error || 'Gagal kirim tes notifikasi');
+        }
+        showToast('Tes notifikasi dikirim. Cek HP kamu sekarang.', 'success');
+        return true;
+    } catch (err) {
+        console.error('Failed to send test push:', err);
+        showToast('Tes notif gagal dikirim.', 'error');
+        return false;
+    }
+}
+
 async function requestNotificationPermission() {
     if (!('Notification' in window)) {
         showToast('Browser ini belum mendukung notifikasi.', 'error');
@@ -744,6 +761,13 @@ async function requestNotificationPermission() {
 
 document.addEventListener('DOMContentLoaded', () => {
     updatePushUi();
+
+    const testPushBtn = document.getElementById('testPushBtn');
+    if (testPushBtn) {
+        testPushBtn.addEventListener('click', async () => {
+            await sendTestPushNotification();
+        });
+    }
 
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready

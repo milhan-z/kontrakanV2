@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kontrakan-v3';
+const CACHE_NAME = 'kontrakan-v4';
 const STATIC_ASSETS = [
     '/',
     '/login.html',
@@ -33,19 +33,32 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-    if (event.request.method !== 'GET') return;
-    if (event.request.url.includes('/api/')) return;
+    const request = event.request;
+    const url = new URL(request.url);
+
+    if (request.method !== 'GET') return;
+    if (url.origin !== self.location.origin) return;
+    if (!['http:', 'https:'].includes(url.protocol)) return;
+    if (url.pathname.startsWith('/api/')) return;
+    if (url.pathname.startsWith('/.well-known/')) return;
 
     event.respondWith(
-        fetch(event.request)
+        fetch(request)
             .then(response => {
-                if (response && response.status === 200) {
+                if (
+                    response &&
+                    response.status === 200 &&
+                    response.type === 'basic' &&
+                    ['http:', 'https:'].includes(url.protocol)
+                ) {
                     const responseClone = response.clone();
-                    caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
+                    caches.open(CACHE_NAME)
+                        .then(cache => cache.put(request, responseClone))
+                        .catch(err => console.warn('Failed to cache response:', err));
                 }
                 return response;
             })
-            .catch(() => caches.match(event.request))
+            .catch(() => caches.match(request).then(cached => cached || Response.error()))
     );
 });
 
@@ -86,18 +99,13 @@ self.addEventListener('notificationclick', event => {
     const targetUrl = (event.notification.data && event.notification.data.url) || '/notifications.html';
 
     event.waitUntil(
-        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-            for (const client of clientList) {
-                try {
-                    const clientUrl = new URL(client.url);
-                    const expectedUrl = new URL(targetUrl, self.location.origin);
-
-                    if (clientUrl.pathname === expectedUrl.pathname && 'focus' in client) {
-                        return client.focus();
-                    }
-                } catch (_) {}
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+            for (const client of windowClients) {
+                if ('focus' in client) {
+                    client.navigate(targetUrl);
+                    return client.focus();
+                }
             }
-
             if (clients.openWindow) {
                 return clients.openWindow(targetUrl);
             }

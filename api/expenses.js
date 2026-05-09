@@ -144,16 +144,23 @@ async function createExpense(req, res, user) {
         // Notifikasi ke user lain (bukan payer)
         if (splitUserId !== user.user_id) {
           const amountFormatted = new Intl.NumberFormat('id-ID').format(splitAmount);
+          const notificationTitle = 'Pengeluaran Baru';
+          const notificationMessage = `${user.display_name} nalangin ${category}: ${description} sebesar Rp ${amountFormatted}`;
+
           await client.query(
             `INSERT INTO notifications (user_id, title, message, type, related_id)
              VALUES ($1, $2, $3, 'expense', $4)`,
             [
               splitUserId,
-              'Pengeluaran Baru',
-              `${user.display_name} nalangin ${category}: ${description} sebesar Rp ${amountFormatted}`,
+              notificationTitle,
+              notificationMessage,
               expenseId,
             ]
           );
+
+          sendPushNotification(splitUserId, notificationTitle, notificationMessage, '/notifications.html').catch(err => {
+            console.error('Failed to send expense push notification:', err);
+          });
         }
       }
     }
