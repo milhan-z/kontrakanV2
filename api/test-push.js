@@ -1,5 +1,5 @@
 const { requireAuth, jsonResponse, setCors, handleOptions } = require('../lib/db');
-const { sendPushNotification } = require('./lib/webpush');
+const { sendPushNotification } = require('../lib/webpush');
 
 module.exports = async (req, res) => {
   setCors(res);

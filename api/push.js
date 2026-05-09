@@ -1,5 +1,5 @@
 const { getDB, requireAuth, jsonResponse, getBody, setCors, handleOptions } = require('../lib/db');
-const { vapidPublicKey } = require('./lib/webpush');
+const { vapidPublicKey } = require('../lib/webpush');
 
 module.exports = async (req, res) => {
   setCors(res);
