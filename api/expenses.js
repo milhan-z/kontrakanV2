@@ -188,7 +188,7 @@ async function deleteExpense(req, res, user) {
   return jsonResponse(res, { success: true, message: 'Expense deleted' });
 }
 
-// Listrik rotation stats (served via /api/listrik → /api/expenses.js)
+// Listrik rotation stats
 async function listrikStats(req, res, user) {
   const db = getDB();
   const result = await db.query(`
@@ -205,16 +205,14 @@ async function listrikStats(req, res, user) {
   return jsonResponse(res, { stats: result.rows, next_payer: result.rows[0] || null });
 }
 
-
 // Galon rotation stats
 async function galonStats(req, res, user) {
   const db = getDB();
   
-  // Ensure qty exists
   try { 
     await db.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS qty INT DEFAULT 1');
   } catch(e) {
-    // Silently ignore if column already exists
+    // Silently ignore
   }
   
   const result = await db.query(`
@@ -231,7 +229,7 @@ async function galonStats(req, res, user) {
   return jsonResponse(res, { stats: result.rows, next_payer: result.rows[0] || null });
 }
 
-// ==================== OCR Receipt (Gemini AI) ====================
+// ==================== OCR Receipt (Gemini AI v1 API) ====================
 async function ocrReceipt(req, res, user) {
   const input = await getBody(req);
   const { url } = input;
@@ -241,121 +239,236 @@ async function ocrReceipt(req, res, user) {
     return jsonResponse(res, { error: 'GEMINI_API_KEY belum dikonfigurasi di Vercel.' }, 500);
   }
 
-  // Model fallback list (dari quota terbanyak ke paling sedikit)
+  // Model fallback list (sesuai dokumentasi Gemini API resmi)
   const modelList = [
-    'gemini-1.5-flash',      // Most reliable & quota
-    'gemini-2.5-flash-lite', // Good alternative
-    'gemini-2.0-flash',      // Last resort
+    'gemini-1.5-flash',       // Best: unlimited quota pada free tier
+    'gemini-2.5-flash-lite',  // Fallback 1: fast & efficient
+    'gemini-2.0-flash',       // Fallback 2: reliable
   ];
 
   try {
+    // Fetch image dan convert ke base64
+    console.log('[OCR] Fetching image from:', url);
     const imgRes = await fetch(url);
+    
+    if (!imgRes.ok) {
+      throw new Error(`Failed to fetch image: ${imgRes.statusText}`);
+    }
+
     const arrayBuffer = await imgRes.arrayBuffer();
     const base64Data = Buffer.from(arrayBuffer).toString('base64');
     const mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
 
-    const promptText = `Kamu adalah asisten OCR struk belanja (seperti GoPay Split Bill). Ekstrak data struk dengan format JSON object murni. Property yang wajib ada:
-    1. 'items': array of objects dengan fields: name (string), quantity (number), price (number)
-    2. 'subtotal': number (total sebelum tax/service)
-    3. 'tax': number (pajak, bisa 0)
-    4. 'service': number (service charge, bisa 0)
-    5. 'discount': number (diskon, harus negatif jika ada)
-    6. 'grand_total': number (total akhir)
-    
-    Kembalikan HANYA JSON object, tanpa markdown atau penjelasan apapun.`;
+    console.log(`[OCR] Image loaded: ${base64Data.length} bytes, type: ${mimeType}`);
+
+    // Prompt untuk OCR
+    const promptText = `Kamu adalah asisten OCR struk belanja. Ekstrak data struk dengan format JSON PURE (tanpa markdown, tanpa formatting).
+
+Struktur JSON yang HARUS dikembalikan:
+{
+  "items": [
+    {"name": "string", "quantity": number, "price": number},
+    ...
+  ],
+  "subtotal": number,
+  "tax": number,
+  "service": number,
+  "discount": number,
+  "grand_total": number
+}
+
+PENTING:
+- Gunakan format JSON valid dan murni SAJA
+- Jangan tambah markdown (```, #, dll)
+- Quantity dan price HARUS number, bukan string
+- Discount HARUS negatif jika ada
+- Kembalikan HANYA JSON, tanpa penjelasan apapun`;
 
     let lastError = null;
 
-    // Try each model in the list
+    // Try each model
     for (const model of modelList) {
       try {
-        console.log(`[OCR] Trying model: ${model}`);
-        
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: promptText },
-                  {
-                    inline_data: {
-                      mime_type: mimeType,
-                      data: base64Data
-                    }
+        console.log(`[OCR] Attempting model: ${model}`);
+
+        // Gunakan v1 endpoint sesuai dokumentasi resmi Gemini API
+        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+
+        const requestPayload = {
+          contents: [
+            {
+              role: 'user',
+              parts: [
+                {
+                  text: promptText
+                },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64Data
                   }
-                ]
-              }],
-              generationConfig: {
-                temperature: 0.1,
-                response_mime_type: "application/json"
-              }
-            })
-          }
-        );
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            temperature: 0,              // Deterministic output untuk JSON
+            top_p: 1,                    // Use all probability mass
+            top_k: 1,                    // No randomness
+            response_mime_type: 'application/json',
+            max_output_tokens: 2048
+          },
+          safetySettings: [
+            {
+              category: 'HARM_CATEGORY_UNSPECIFIED',
+              threshold: 'BLOCK_NONE'
+            },
+            {
+              category: 'HARM_CATEGORY_DEROGATORY_CONTENT',
+              threshold: 'BLOCK_NONE'
+            },
+            {
+              category: 'HARM_CATEGORY_VIOLENCE',
+              threshold: 'BLOCK_NONE'
+            },
+            {
+              category: 'HARM_CATEGORY_SEXUAL_CONTENT',
+              threshold: 'BLOCK_NONE'
+            },
+            {
+              category: 'HARM_CATEGORY_MEDICAL_CONTENT',
+              threshold: 'BLOCK_NONE'
+            },
+            {
+              category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
+              threshold: 'BLOCK_NONE'
+            }
+          ]
+        };
+
+        const geminiRes = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestPayload)
+        });
 
         const geminiData = await geminiRes.json();
-        
+
+        // Handle error response
         if (!geminiRes.ok) {
+          const errorCode = geminiData?.error?.code;
           const errorMsg = geminiData?.error?.message || 'Unknown error';
-          console.error(`[OCR] Model ${model} failed:`, errorMsg);
-          lastError = errorMsg;
           
-          // Jika quota habis (429) atau rate limit, lanjut ke model berikutnya
-          if (geminiRes.status === 429 || errorMsg.includes('quota')) {
-            continue; // Try next model
+          console.error(`[OCR] ${model} error (${geminiRes.status}):`, errorMsg);
+          lastError = { code: errorCode, message: errorMsg, status: geminiRes.status };
+
+          // Jika quota habis atau rate limit, lanjut ke model berikutnya
+          if (geminiRes.status === 429 || errorCode === 'RESOURCE_EXHAUSTED' || errorMsg.includes('quota')) {
+            console.log(`[OCR] Quota exceeded for ${model}, trying next model...`);
+            continue;
           }
-          
-          // Untuk error lain, langsung return
-          return jsonResponse(res, { error: 'Gagal memproses struk dengan AI: ' + errorMsg }, geminiRes.status || 500);
+
+          // Jika error lain (credential, permission, dll), stop
+          if (geminiRes.status === 401 || geminiRes.status === 403) {
+            return jsonResponse(res, { error: 'Authentication failed: ' + errorMsg }, 401);
+          }
+
+          // Untuk error lain, lanjut ke model berikutnya
+          continue;
         }
 
-        // Success! Parse hasil
-        const textRes = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        // Parse response - sesuai dokumentasi v1 API
+        const candidates = geminiData.candidates?.[0];
+        if (!candidates || !candidates.content || !candidates.content.parts) {
+          throw new Error('Invalid response structure from Gemini API');
+        }
+
+        const textContent = candidates.content.parts[0]?.text || '{}';
+        console.log(`[OCR] Raw response from ${model}:`, textContent.substring(0, 200));
+
         let resultObj = { items: [], subtotal: 0, tax: 0, service: 0, discount: 0, grand_total: 0 };
-        
+
         try {
-          const parsed = JSON.parse(textRes);
+          // Clean response jika ada markdown remnants
+          let cleanedText = textContent.trim();
+          if (cleanedText.startsWith('```')) {
+            cleanedText = cleanedText.replace(/^```json?\n?/, '').replace(/\n?```$/, '');
+          }
+
+          const parsed = JSON.parse(cleanedText);
+
           if (Array.isArray(parsed)) {
-            resultObj.items = parsed;
-            resultObj.grand_total = parsed.reduce((s, i) => s + (i.price || 0), 0);
+            // Jika response adalah array items langsung
+            resultObj.items = parsed.map(item => ({
+              name: String(item.name || item.item || ''),
+              quantity: Number(item.quantity || item.qty || 1) || 1,
+              price: Number(item.price || 0) || 0
+            }));
+            resultObj.grand_total = resultObj.items.reduce((sum, i) => sum + (i.price * i.quantity), 0);
             resultObj.subtotal = resultObj.grand_total;
           } else {
-            resultObj = { ...resultObj, ...parsed };
+            // JSON object structure
+            if (parsed.items && Array.isArray(parsed.items)) {
+              resultObj.items = parsed.items.map(item => ({
+                name: String(item.name || item.item || ''),
+                quantity: Number(item.quantity || item.qty || 1) || 1,
+                price: Number(item.price || 0) || 0
+              }));
+            }
+            
+            resultObj.subtotal = Number(parsed.subtotal) || 0;
+            resultObj.tax = Number(parsed.tax) || 0;
+            resultObj.service = Number(parsed.service) || 0;
+            resultObj.discount = Number(parsed.discount) || 0;
+            resultObj.grand_total = Number(parsed.grand_total) || 0;
+
+            // Ensure discount is negative
+            if (resultObj.discount > 0) resultObj.discount = -resultObj.discount;
           }
-          
-          // Ensure all numbers are safe
-          resultObj.subtotal = Number(resultObj.subtotal) || 0;
-          resultObj.tax = Number(resultObj.tax) || 0;
-          resultObj.service = Number(resultObj.service) || 0;
-          resultObj.discount = Number(resultObj.discount) || 0;
-          if (resultObj.discount > 0) resultObj.discount = -resultObj.discount; // pastikan negatif
-          resultObj.grand_total = Number(resultObj.grand_total) || 0;
-          
-          console.log(`[OCR] Success with model: ${model}`);
+
+          // Validation
+          if (!resultObj.items || resultObj.items.length === 0) {
+            console.warn('[OCR] No items found in parsed JSON');
+            lastError = { message: 'No items extracted from receipt', code: 'NO_ITEMS' };
+            continue;
+          }
+
+          console.log(`[OCR] ✓ Success with ${model}:`, {
+            itemCount: resultObj.items.length,
+            grandTotal: resultObj.grand_total
+          });
+
           return jsonResponse(res, resultObj);
-           
-        } catch (e) {
-          console.error('Parse JSON failed:', textRes);
-          return jsonResponse(res, { error: 'Format AI tidak valid: ' + e.message }, 500);
+
+        } catch (parseErr) {
+          console.error(`[OCR] JSON parse failed for ${model}:`, parseErr.message);
+          console.error('[OCR] Problematic text:', textContent);
+          lastError = { message: 'JSON parse error: ' + parseErr.message, code: 'PARSE_ERROR' };
+          continue;
         }
 
       } catch (err) {
-        console.error(`[OCR] Error with model ${model}:`, err.message);
-        lastError = err.message;
-        continue; // Try next model
+        console.error(`[OCR] Exception with ${model}:`, err.message);
+        lastError = { message: err.message, code: 'NETWORK_ERROR' };
+        continue;
       }
     }
 
     // Semua model gagal
-    return jsonResponse(res, { 
-      error: 'Semua model OCR tidak tersedia. ' + (lastError ? 'Last error: ' + lastError : 'Silakan coba lagi nanti.')
+    const errorSummary = lastError ? `${lastError.code}: ${lastError.message}` : 'Unknown error';
+    console.error('[OCR] All models exhausted. Last error:', errorSummary);
+
+    return jsonResponse(res, {
+      error: 'Gagal memproses struk dengan AI. Silakan coba lagi nanti.',
+      details: errorSummary
     }, 503);
 
   } catch (err) {
-    console.error('OCR Error:', err);
-    return jsonResponse(res, { error: 'Terjadi kesalahan OCR: ' + err.message }, 500);
+    console.error('[OCR] Critical error:', err);
+    return jsonResponse(res, {
+      error: 'Terjadi kesalahan saat memproses OCR: ' + err.message
+    }, 500);
   }
 }
