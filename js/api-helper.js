@@ -5,9 +5,9 @@
  */
 
 // Global Maintenance Mode Redirect
-if (!window.location.pathname.includes('maintenance.html')) {
-    window.location.href = '/maintenance.html';
-}
+// if (!window.location.pathname.includes('maintenance.html')) {
+//     window.location.href = '/maintenance.html';
+// }
 
 
 const API = {

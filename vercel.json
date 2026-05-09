@@ -1,7 +1,6 @@
 {
   "version": 2,
   "rewrites": [
-    { "source": "/((?!maintenance\\.html|api|css|js|icons|manifest\\.json).*)", "destination": "/maintenance.html" },
     { "source": "/api/auth", "destination": "/api/auth.js" },
     { "source": "/api/users", "destination": "/api/users.js" },
     { "source": "/api/expenses", "destination": "/api/expenses.js" },
