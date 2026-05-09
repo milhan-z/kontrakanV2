@@ -2,15 +2,32 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <title>Maintenance - Kontrakan V2</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #0f172a;
-            --text-color: #f8fafc;
-            --accent-color: #38bdf8;
-            --glass-bg: rgba(30, 41, 59, 0.7);
+            /* Light Mode Tokens */
+            --bg-primary: #fafafa;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border-color: #eeeeee;
+            --radius-xl: 28px;
+            --radius-md: 16px;
+        }
+
+        [data-theme="dark"] {
+            /* Dark Mode Tokens */
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #171717;
+            --bg-card: #1a1a1a;
+            --text-primary: #fafafa;
+            --text-secondary: #a3a3a3;
+            --text-muted: #737373;
+            --border-color: #262626;
         }
 
         * {
@@ -20,76 +37,81 @@
         }
 
         body {
-            font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            height: 100vh;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
-            background: radial-gradient(circle at top right, #1e293b, #0f172a);
+            padding: 20px;
+            transition: background 0.3s ease, color 0.3s ease;
         }
 
-        .container {
+        .maintenance-container {
+            max-width: 400px;
+            width: 100%;
+            background: var(--bg-card);
+            padding: 40px 24px;
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border-color);
             text-align: center;
-            padding: 2rem;
-            max-width: 500px;
-            width: 90%;
-            background: var(--glass-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            animation: fadeIn 0.8s ease-out;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            animation: fadeIn 0.6s ease-out;
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .icon {
-            font-size: 4rem;
-            margin-bottom: 1.5rem;
-            display: inline-block;
-            animation: pulse 2s infinite ease-in-out;
+        .icon-box {
+            width: 80px;
+            height: 80px;
+            background: var(--bg-primary);
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            border: 1px solid var(--border-color);
         }
 
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
+        .icon-box svg {
+            width: 40px;
+            height: 40px;
+            stroke: var(--text-primary);
+            stroke-width: 1.5;
+            fill: none;
         }
 
         h1 {
-            font-size: 1.8rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-            background: linear-gradient(to right, #38bdf8, #818cf8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 12px;
         }
 
         p {
-            font-size: 1.1rem;
-            color: #94a3b8;
+            font-size: 0.9375rem;
+            color: var(--text-secondary);
             line-height: 1.6;
-            margin-bottom: 2rem;
+            margin-bottom: 32px;
         }
 
         .loader {
             display: flex;
             justify-content: center;
             gap: 8px;
-            margin-top: 1rem;
         }
 
         .dot {
             width: 8px;
             height: 8px;
-            background-color: var(--accent-color);
+            background-color: var(--text-primary);
             border-radius: 50%;
             animation: dotFlashing 1s infinite linear alternate;
+            opacity: 0.2;
         }
 
         .dot:nth-child(2) { animation-delay: 0.2s; }
@@ -99,18 +121,44 @@
             0% { opacity: 0.2; transform: scale(0.8); }
             100% { opacity: 1; transform: scale(1.2); }
         }
+
+        .footer-text {
+            margin-top: 40px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
     </style>
+    <script>
+        // Theme Detection
+        (function() {
+            const saved = localStorage.getItem('theme');
+            if (saved) {
+                document.documentElement.setAttribute('data-theme', saved);
+            } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+            }
+        })();
+    </script>
 </head>
 <body>
-    <div class="container">
-        <div class="icon">🛠️</div>
-        <h1>App ini lagi di maintain</h1>
+    <div class="maintenance-container">
+        <div class="icon-box">
+            <svg viewBox="0 0 24 24">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+        </div>
+        <h1>App lagi di maintain</h1>
         <p>Tungguin yaa, kami sedang memperbaiki beberapa error supaya pengalaman kamu makin lancar jaya.</p>
         <div class="loader">
             <div class="dot"></div>
             <div class="dot"></div>
             <div class="dot"></div>
         </div>
+        <div class="footer-text">Catatan Kontrakan V2</div>
     </div>
 </body>
 </html>
+
