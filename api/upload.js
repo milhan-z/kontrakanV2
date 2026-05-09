@@ -21,13 +21,7 @@ cloudinary.config({
 });
 
 // Vercel config untuk handle body sebagai raw buffer
-export const config = {
-  api: {
-    bodyParser: false, // Disable default body parser untuk handle multipart
-  },
-};
-
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   setCors(res);
   if (handleOptions(req, res)) return;
 
@@ -73,4 +67,11 @@ module.exports = async function handler(req, res) {
   }
 
   return jsonResponse(res, { error: 'No image data provided. Send base64 in "data" field or URL in "url" field.' }, 400);
+}
+
+module.exports = handler;
+module.exports.config = {
+  api: {
+    bodyParser: false,
+  },
 };
