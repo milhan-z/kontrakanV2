@@ -5,6 +5,7 @@
  * PUT    ?action=update-user        - Update member data
  * PUT    ?action=reset-password     - Reset password
  * DELETE ?action=delete-user&id=X   - Delete user
+ * DELETE ?action=delete-jastip&id=X - Delete one jastip order
  * DELETE ?action=clear-expenses     - Clear finance data
  */
 
@@ -29,6 +30,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'PUT'    && action === 'update-user')    return updateUser(req, res, user);
   if (req.method === 'PUT'    && action === 'reset-password') return resetPassword(req, res);
   if (req.method === 'DELETE' && action === 'delete-user')    return deleteUser(req, res);
+  if (req.method === 'DELETE' && action === 'delete-jastip')  return deleteJastip(req, res);
   if (req.method === 'DELETE' && action === 'clear-expenses') return clearExpenses(req, res);
 
   return jsonResponse(res, { error: 'Invalid action' }, 400);
@@ -281,6 +283,21 @@ async function clearExpenses(req, res) {
   await db.query('DELETE FROM settlements');
   await db.query('DELETE FROM notifications');
   return jsonResponse(res, { success: true, message: 'All expenses, settlements, and notifications cleared' });
+}
+
+async function deleteJastip(req, res) {
+  const id = parseInt(req.query.id || req.query.order_id || '0', 10);
+  if (!id) return jsonResponse(res, { error: 'Jastip ID required' }, 400);
+
+  const db = getDB();
+  const existing = await safeRows(db, 'SELECT id, title FROM jastip_orders WHERE id = $1', [id]);
+  if (!existing[0]) return jsonResponse(res, { error: 'Jastip tidak ditemukan' }, 404);
+
+  await db.query('DELETE FROM jastip_orders WHERE id = $1', [id]);
+  return jsonResponse(res, {
+    success: true,
+    message: `Jastip ${existing[0].title} berhasil dihapus`,
+  });
 }
 
 // Reset specific data (served via /api/reset → /api/admin.js)

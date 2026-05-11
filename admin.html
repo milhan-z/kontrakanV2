@@ -1309,6 +1309,7 @@
                                 ${order.status === 'open' ? `<button class="mini-btn yellow" onclick="handleJastipAction(${Number(order.id)}, 'close')">Tutup</button>` : ''}
                                 ${['open', 'closed'].includes(order.status) ? `<button class="mini-btn red" onclick="handleJastipAction(${Number(order.id)}, 'cancel')">Batal</button>` : ''}
                                 ${order.expense_id ? `<button class="mini-btn green" onclick="showTransactionDetail(${Number(order.expense_id)})">Tagihan</button>` : ''}
+                                <button class="mini-btn red" onclick="deleteJastip(${Number(order.id)})">Hapus</button>
                             </div>
                         </div>
                     </div>
@@ -1527,6 +1528,17 @@
                 await refreshAdmin({ silent: true });
             } catch (err) {
                 showToast(err.message || 'Gagal mengubah jastip', 'error');
+            }
+        }
+
+        async function deleteJastip(id) {
+            if (!confirm('Hapus jastip ini? Nitipan ikut terhapus, tapi transaksi tagihan yang sudah dibuat tidak ikut dihapus.')) return;
+            try {
+                await apiDelete(`admin?action=delete-jastip&id=${id}`);
+                showToast('Jastip dihapus', 'success');
+                await refreshAdmin({ silent: true });
+            } catch (err) {
+                showToast(err.message || 'Gagal menghapus jastip', 'error');
             }
         }
 

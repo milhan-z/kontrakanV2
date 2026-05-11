@@ -76,6 +76,92 @@
             border-radius: var(--radius-full);
             font-size: 0.75rem;
         }
+
+        .history-section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-sm);
+        }
+
+        .jastip-history-list {
+            display: grid;
+            gap: var(--space-sm);
+        }
+
+        .jastip-history-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-sm);
+            align-items: center;
+            padding: var(--space-md);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            cursor: pointer;
+        }
+
+        .jastip-history-title {
+            color: var(--text-primary);
+            font-weight: 750;
+            overflow-wrap: anywhere;
+        }
+
+        .jastip-history-meta,
+        .jastip-detail-meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            margin-top: 4px;
+            line-height: 1.35;
+        }
+
+        .jastip-pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: var(--radius-full);
+            padding: 4px 9px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            white-space: nowrap;
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+        }
+
+        .jastip-pill.completed { color: #3b82f6; background: rgba(59, 130, 246, 0.14); }
+        .jastip-pill.cancelled { color: var(--red); background: var(--red-medium); }
+
+        .jastip-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: var(--space-md);
+        }
+
+        .jastip-detail-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-sm);
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .jastip-detail-row:last-child {
+            border-bottom: 0;
+        }
+
+        .jastip-detail-name {
+            color: var(--text-primary);
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+
+        .jastip-detail-total {
+            display: flex;
+            justify-content: space-between;
+            gap: var(--space-sm);
+            padding-top: var(--space-md);
+            font-weight: 800;
+        }
     </style>
     <link rel="prefetch" href="dashboard.html">
     <link rel="prefetch" href="settle.html">
@@ -152,6 +238,16 @@
                 </div>
             </div>
         </div>
+
+        <div class="section" id="jastipHistorySection">
+            <div class="history-section-head">
+                <div class="section-title">Riwayat Jastip</div>
+                <a href="jastip.html" class="section-link">Buka Jastip</a>
+            </div>
+            <div id="jastipHistoryList">
+                <div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>
+            </div>
+        </div>
     </div>
 
     <!-- Receipt Modal -->
@@ -167,6 +263,14 @@
         <div class="modal">
             <div class="modal-handle"></div>
             <div id="transactionDetailContent"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="jastipDetailModal">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <div id="jastipDetailContent"></div>
+            <button class="btn btn-full mt-sm" onclick="closeModal('jastipDetailModal')">Tutup</button>
         </div>
     </div>
 
@@ -216,6 +320,7 @@
     <script src="js/app.js"></script>
     <script>
         let currentCategory = '';
+        let jastipHistoryOrders = [];
 
         function formatDateFull(dateStr) {
             const d = new Date(dateStr);
@@ -225,7 +330,7 @@
         (async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
             await Promise.all([loadUsers(), loadNotifications()]);
-            await renderTransactions();
+            await Promise.all([renderTransactions(), loadJastipHistory()]);
         })();
 
         async function renderTransactions(category = '') {
@@ -278,6 +383,7 @@
 
                 if (expenses.length === 0) {
                     container.innerHTML = '<div class="empty-state">Tidak ada transaksi ditemukan</div>';
+                    renderJastipHistory();
                     return;
                 }
 
@@ -313,6 +419,7 @@
                         </div>
                     `;
                 }).join('');
+                renderJastipHistory();
             } catch { container.innerHTML = '<div class="empty-state">Gagal memuat</div>'; }
         }
 
@@ -321,6 +428,114 @@
             document.getElementById('fromDate').value = '';
             document.getElementById('toDate').value = '';
             renderTransactions(currentCategory);
+        }
+
+        async function loadJastipHistory() {
+            try {
+                const data = await apiGetFresh('jastip?limit=100');
+                jastipHistoryOrders = (data.orders || []).filter(order => !['open', 'closed'].includes(order.status));
+                renderJastipHistory();
+            } catch (err) {
+                console.error(err);
+                document.getElementById('jastipHistoryList').innerHTML = '<div class="empty-state">Gagal memuat riwayat jastip</div>';
+            }
+        }
+
+        function renderJastipHistory() {
+            const container = document.getElementById('jastipHistoryList');
+            if (!container) return;
+
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            const fromDate = document.getElementById('fromDate').value;
+            const toDate = document.getElementById('toDate').value;
+            let rows = [...jastipHistoryOrders];
+
+            if (searchTerm) {
+                rows = rows.filter(order =>
+                    String(order.title || '').toLowerCase().includes(searchTerm) ||
+                    String(order.opened_by_name || '').toLowerCase().includes(searchTerm) ||
+                    (order.items || []).some(item => String(item.item_name || '').toLowerCase().includes(searchTerm))
+                );
+            }
+            if (fromDate) {
+                const from = new Date(fromDate);
+                rows = rows.filter(order => new Date(order.completed_at || order.closed_at || order.created_at) >= from);
+            }
+            if (toDate) {
+                const to = new Date(toDate);
+                to.setHours(23, 59, 59);
+                rows = rows.filter(order => new Date(order.completed_at || order.closed_at || order.created_at) <= to);
+            }
+
+            container.innerHTML = rows.length
+                ? `<div class="jastip-history-list">${rows.map(renderJastipHistoryCard).join('')}</div>`
+                : '<div class="empty-state">Tidak ada riwayat jastip ditemukan</div>';
+        }
+
+        function renderJastipHistoryCard(order) {
+            const items = order.items || [];
+            const total = items
+                .filter(item => item.status === 'bought')
+                .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
+            return `
+                <div class="jastip-history-card" onclick="showJastipDetail(${Number(order.id)})">
+                    <div>
+                        <div class="jastip-history-title">${escapeHtml(order.title)}</div>
+                        <div class="jastip-history-meta">${escapeHtml(order.opened_by_name || '-')} - ${formatDate(order.completed_at || order.closed_at || order.created_at)}</div>
+                        <div class="jastip-history-meta">${items.length} item${total ? ' - Rp ' + total.toLocaleString('id-ID') : ''}</div>
+                    </div>
+                    <span class="jastip-pill ${order.status}">${jastipStatusLabel(order.status)}</span>
+                </div>
+            `;
+        }
+
+        function showJastipDetail(orderId) {
+            const order = jastipHistoryOrders.find(item => Number(item.id) === Number(orderId));
+            if (!order) {
+                showToast('Riwayat jastip tidak ditemukan', 'error');
+                return;
+            }
+            const items = order.items || [];
+            const total = items
+                .filter(item => item.status === 'bought')
+                .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
+            document.getElementById('jastipDetailContent').innerHTML = `
+                <h3 class="modal-title">${escapeHtml(order.title)}</h3>
+                <div class="jastip-detail-meta">Dibuka ${escapeHtml(order.opened_by_name || '-')} - ${formatDateFull(order.completed_at || order.closed_at || order.created_at)}</div>
+                <div style="margin-top:10px;"><span class="jastip-pill ${order.status}">${jastipStatusLabel(order.status)}</span></div>
+                ${order.note ? `<div class="jastip-detail-meta" style="margin-top:10px;">${escapeHtml(order.note)}</div>` : ''}
+                <div class="jastip-detail-list">
+                    ${items.length ? items.map(renderJastipDetailItem).join('') : '<div class="empty-state">Tidak ada item.</div>'}
+                </div>
+                <div class="jastip-detail-total">
+                    <span>Total terbeli</span>
+                    <span>Rp ${total.toLocaleString('id-ID')}</span>
+                </div>
+            `;
+            openModal('jastipDetailModal');
+        }
+
+        function renderJastipDetailItem(item) {
+            const price = Number(item.final_price || 0);
+            const qty = item.final_qty || item.requested_qty || 1;
+            return `
+                <div class="jastip-detail-row">
+                    <div>
+                        <div class="jastip-detail-name">${escapeHtml(item.item_name)} <span class="jastip-detail-meta">x${qty}</span></div>
+                        <div class="jastip-detail-meta">${escapeHtml(item.user_name || '-')}${item.note ? ' - ' + escapeHtml(item.note) : ''}</div>
+                        ${item.final_note ? `<div class="jastip-detail-meta">Hasil: ${escapeHtml(item.final_note)}</div>` : ''}
+                    </div>
+                    <div style="font-weight:700;">${item.status === 'bought' ? 'Rp ' + price.toLocaleString('id-ID') : itemStatusLabel(item.status)}</div>
+                </div>
+            `;
+        }
+
+        function jastipStatusLabel(status) {
+            return ({ completed: 'Selesai', cancelled: 'Batal', open: 'Open', closed: 'Ditutup' })[status] || status;
+        }
+
+        function itemStatusLabel(status) {
+            return ({ requested: 'Belum dicek', bought: 'Ada', unavailable: 'Kosong', cancelled: 'Batal' })[status] || status;
         }
 
         // Event handlers for search and date filters
@@ -476,7 +691,7 @@
             } catch (err) { showToast('Gagal', 'error'); }
         }
 
-        ['receiptModal', 'transactionDetailModal'].forEach(id => {
+        ['receiptModal', 'transactionDetailModal', 'jastipDetailModal'].forEach(id => {
             document.getElementById(id).addEventListener('click', (e) => {
                 if (e.target.classList.contains('modal-overlay')) closeModal(id);
             });

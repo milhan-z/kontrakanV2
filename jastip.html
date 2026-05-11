@@ -511,6 +511,7 @@
             const container = document.getElementById('jastipList');
             const activeOrders = jastipOrders.filter(order => ['open', 'closed'].includes(order.status));
             const historyOrders = jastipOrders.filter(order => !['open', 'closed'].includes(order.status));
+            const previewHistory = historyOrders.slice(0, 2);
 
             if (activeOrders.length === 0 && historyOrders.length === 0) {
                 container.innerHTML = '<div class="empty-jastip">Belum ada jastip. Open kalau ada yang mau belanja keluar.</div>';
@@ -523,8 +524,8 @@
                     ${activeOrders.map(renderActiveOrder).join('')}
                 ` : '<div class="empty-jastip">Tidak ada jastip aktif sekarang.</div>'}
                 ${historyOrders.length ? `
-                    <div class="section-subtitle">Riwayat <span>${historyOrders.length} jastip</span></div>
-                    <div class="history-grid">${historyOrders.map(renderHistoryOrder).join('')}</div>
+                    <div class="section-subtitle">Riwayat Terbaru <a href="history.html" class="section-link">Semua riwayat</a></div>
+                    <div class="history-grid">${previewHistory.map(renderHistoryOrder).join('')}</div>
                 ` : ''}
             `;
         }
