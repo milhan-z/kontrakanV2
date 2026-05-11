@@ -654,7 +654,7 @@ function renderActiveJastipBanner(orders = []) {
     const title = openOrders.length > 1
         ? `${openOrders.length} jastip sedang open`
         : `${first.opened_by_name || 'Teman'} buka jastip`;
-    const subtitle = `${first.title}${itemCount ? ` · ${itemCount} nitipan` : ''}${otherCount ? ` · +${otherCount} lainnya` : ''}`;
+    const subtitle = `${first.title}${itemCount ? ` - ${itemCount} nitipan` : ''}${otherCount ? ` - +${otherCount} lainnya` : ''}`;
 
     const banner = getActiveJastipBanner();
     banner.querySelector('.active-jastip-title').textContent = title;
@@ -696,7 +696,7 @@ function initActiveJastipBanner() {
     if (!activeJastipRefreshTimer) {
         activeJastipRefreshTimer = setInterval(() => {
             if (document.visibilityState === 'visible') refreshActiveJastipBanner();
-        }, 12000);
+        }, 7000);
     }
 
     document.addEventListener('visibilitychange', () => {

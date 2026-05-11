@@ -26,6 +26,7 @@ async function handlePost(req, res, user, db) {
   const action = req.query.action || 'create';
   if (action === 'create') return createOrder(req, res, user, db);
   if (action === 'item') return addItem(req, res, user, db);
+  if (action === 'items') return addItems(req, res, user, db);
   return jsonResponse(res, { error: 'Invalid action' }, 400);
 }
 
@@ -126,13 +127,17 @@ async function listJastip(req, res, user, db) {
 
   orders.forEach(order => {
     order.items = itemsByOrder[order.id] || [];
-    order.can_manage = order.opened_by === user.user_id || user.role === 'admin';
+    order.can_manage = order.opened_by === user.user_id;
   });
 
   return jsonResponse(res, { orders });
 }
 
 async function createOrder(req, res, user, db) {
+  if (user.role === 'admin') {
+    return jsonResponse(res, { error: 'Admin hanya untuk monitoring jastip' }, 403);
+  }
+
   const input = await getBody(req);
   const title = String(input.title || '').trim();
   const note = String(input.note || '').trim() || null;
@@ -142,13 +147,50 @@ async function createOrder(req, res, user, db) {
     return jsonResponse(res, { error: 'Judul jastip wajib diisi maksimal 120 karakter' }, 400);
   }
 
-  const result = await db.query(
-    `INSERT INTO jastip_orders (opened_by, title, note, closes_at)
-     VALUES ($1, $2, $3, $4)
-     RETURNING *`,
-    [user.user_id, title, note, closesAt && !Number.isNaN(closesAt.getTime()) ? closesAt : null]
-  );
-  const order = result.rows[0];
+  const client = await db.connect();
+  let order;
+  let duplicateFound = false;
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      'SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))',
+      ['jastip-create', `${user.user_id}:${title.toLowerCase()}`]
+    );
+
+    const duplicate = await client.query(
+      `SELECT *
+       FROM jastip_orders
+       WHERE opened_by = $1
+         AND LOWER(title) = LOWER($2)
+         AND status = 'open'
+         AND created_at > NOW() - INTERVAL '20 seconds'
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [user.user_id, title]
+    );
+    if (duplicate.rows[0]) {
+      order = duplicate.rows[0];
+      duplicateFound = true;
+    } else {
+      const result = await client.query(
+        `INSERT INTO jastip_orders (opened_by, title, note, closes_at)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [user.user_id, title, note, closesAt && !Number.isNaN(closesAt.getTime()) ? closesAt : null]
+      );
+      order = result.rows[0];
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    return jsonResponse(res, { error: err.message || 'Gagal membuka jastip' }, 500);
+  } finally {
+    client.release();
+  }
+
+  if (duplicateFound) {
+    return jsonResponse(res, { success: true, order, duplicate: true }, 200);
+  }
 
   await notifyUsers(
     db,
@@ -163,48 +205,127 @@ async function createOrder(req, res, user, db) {
 
 async function addItem(req, res, user, db) {
   const input = await getBody(req);
-  const jastipId = parseInt(input.jastip_id || '0', 10);
-  const itemName = String(input.item_name || '').trim();
-  const requestedQty = Math.max(1, parseInt(input.requested_qty || '1', 10) || 1);
-  const note = String(input.note || '').trim() || null;
-  const estimatedPrice = input.estimated_price === '' || input.estimated_price == null
-    ? null
-    : Number(input.estimated_price);
+  const result = await insertJastipItems(req, res, user, db, [input]);
+  if (!result) return;
+  return jsonResponse(res, { success: true, item: result.items[0] }, 201);
+}
 
-  if (!jastipId || !itemName || itemName.length > 160) {
-    return jsonResponse(res, { error: 'Jastip dan nama barang wajib diisi' }, 400);
-  }
-  if (estimatedPrice !== null && (!Number.isFinite(estimatedPrice) || estimatedPrice < 0)) {
-    return jsonResponse(res, { error: 'Estimasi harga tidak valid' }, 400);
-  }
+async function addItems(req, res, user, db) {
+  const input = await getBody(req);
+  const items = Array.isArray(input.items) ? input.items.map(item => ({
+    ...item,
+    jastip_id: input.jastip_id,
+  })) : [];
+  const result = await insertJastipItems(req, res, user, db, items);
+  if (!result) return;
+  return jsonResponse(res, { success: true, items: result.items }, 201);
+}
 
-  const order = await getOrder(db, jastipId);
-  if (!order) return jsonResponse(res, { error: 'Jastip tidak ditemukan' }, 404);
-  if (order.status !== 'open') return jsonResponse(res, { error: 'Jastip sudah ditutup' }, 409);
-  if (order.opened_by === user.user_id && user.role !== 'admin') {
-    return jsonResponse(res, { error: 'Pembuka jastip tidak perlu titip ke diri sendiri' }, 403);
-  }
-
-  const result = await db.query(
-    `INSERT INTO jastip_items (jastip_id, user_id, item_name, requested_qty, note, estimated_price)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
-    [jastipId, user.user_id, itemName, requestedQty, note, estimatedPrice]
-  );
-
-  if (order.opened_by !== user.user_id) {
-    await createNotification(
-      db,
-      order.opened_by,
-      'Nitipan Baru',
-      `${user.display_name} nitip ${itemName} di jastip ${order.title}`,
-      order.id
-    );
-    await sendPushNotification(order.opened_by, 'Nitipan Baru', `${user.display_name} nitip ${itemName}`, '/jastip.html')
-      .catch(err => console.error('Failed to send jastip item push:', err));
+async function insertJastipItems(req, res, user, db, inputs) {
+  if (user.role === 'admin') {
+    jsonResponse(res, { error: 'Admin hanya untuk monitoring jastip' }, 403);
+    return null;
   }
 
-  return jsonResponse(res, { success: true, item: result.rows[0] }, 201);
+  if (!Array.isArray(inputs) || inputs.length === 0) {
+    jsonResponse(res, { error: 'Minimal satu barang wajib diisi' }, 400);
+    return null;
+  }
+
+  const normalized = inputs.map(input => {
+    const itemName = String(input.item_name || '').trim();
+    const requestedQty = Math.max(1, parseInt(input.requested_qty || '1', 10) || 1);
+    const note = String(input.note || '').trim() || null;
+    const estimatedPrice = input.estimated_price === '' || input.estimated_price == null
+      ? null
+      : Number(input.estimated_price);
+    return {
+      jastipId: parseInt(input.jastip_id || '0', 10),
+      itemName,
+      requestedQty,
+      note,
+      estimatedPrice,
+    };
+  }).filter(item => item.itemName);
+
+  if (normalized.length === 0) {
+    jsonResponse(res, { error: 'Nama barang wajib diisi' }, 400);
+    return null;
+  }
+  if (normalized.length > 20) {
+    jsonResponse(res, { error: 'Maksimal 20 barang sekali nitip' }, 400);
+    return null;
+  }
+
+  const firstJastipId = normalized[0].jastipId;
+  if (!firstJastipId || normalized.some(item => item.jastipId !== firstJastipId)) {
+    jsonResponse(res, { error: 'Jastip tidak valid' }, 400);
+    return null;
+  }
+
+  for (const item of normalized) {
+    if (item.itemName.length > 160) {
+      jsonResponse(res, { error: 'Nama barang maksimal 160 karakter' }, 400);
+      return null;
+    }
+    if (item.estimatedPrice !== null && (!Number.isFinite(item.estimatedPrice) || item.estimatedPrice < 0)) {
+      jsonResponse(res, { error: 'Estimasi harga tidak valid' }, 400);
+      return null;
+    }
+  }
+
+  const order = await getOrder(db, firstJastipId);
+  if (!order) {
+    jsonResponse(res, { error: 'Jastip tidak ditemukan' }, 404);
+    return null;
+  }
+  if (order.status !== 'open') {
+    jsonResponse(res, { error: 'Jastip sudah ditutup' }, 409);
+    return null;
+  }
+  if (order.opened_by === user.user_id) {
+    jsonResponse(res, { error: 'Pembuka jastip tidak perlu titip ke diri sendiri' }, 403);
+    return null;
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const inserted = [];
+    for (const item of normalized) {
+      const result = await client.query(
+        `INSERT INTO jastip_items (jastip_id, user_id, item_name, requested_qty, note, estimated_price)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [firstJastipId, user.user_id, item.itemName, item.requestedQty, item.note, item.estimatedPrice]
+      );
+      inserted.push(result.rows[0]);
+    }
+    await client.query('COMMIT');
+
+    if (order.opened_by !== user.user_id) {
+      const itemLabel = inserted.length === 1
+        ? inserted[0].item_name
+        : `${inserted.length} barang`;
+      await createNotification(
+        db,
+        order.opened_by,
+        'Nitipan Baru',
+        `${user.display_name} nitip ${itemLabel} di jastip ${order.title}`,
+        order.id
+      );
+      await sendPushNotification(order.opened_by, 'Nitipan Baru', `${user.display_name} nitip ${itemLabel}`, '/jastip.html')
+        .catch(err => console.error('Failed to send jastip item push:', err));
+    }
+
+    return { order, items: inserted };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    jsonResponse(res, { error: err.message || 'Gagal menyimpan nitipan' }, 500);
+    return null;
+  } finally {
+    client.release();
+  }
 }
 
 async function closeOrder(req, res, user, db) {

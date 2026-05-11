@@ -15,154 +15,206 @@
     <style>
         body { animation: pageFadeIn 0.15s ease; }
         @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .jastip-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-lg);
-            padding: var(--space-md);
-            margin-bottom: var(--space-md);
-            box-shadow: var(--shadow-sm);
-            position: relative;
-            overflow: hidden;
+
+        .page-header {
+            align-items: center;
         }
-        .jastip-card::before {
-            content: "";
-            position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 4px;
-            background: var(--border-color);
-        }
-        .jastip-card.open {
-            border-color: rgba(34, 197, 94, 0.34);
-            box-shadow: 0 12px 32px rgba(34, 197, 94, 0.08);
-        }
-        .jastip-card.open::before { background: var(--green); }
-        .jastip-card.closed {
-            border-color: rgba(245, 158, 11, 0.28);
-        }
-        .jastip-card.closed::before { background: #f59e0b; }
-        .jastip-card.completed,
-        .jastip-card.cancelled {
-            opacity: 0.72;
-        }
-        .jastip-card.completed::before { background: #3b82f6; }
-        .jastip-card.cancelled::before { background: var(--red); }
+
         .section-subtitle {
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin: 22px 0 12px;
             color: var(--text-primary);
-            font-size: 0.9rem;
+            font-size: 0.92rem;
             font-weight: 800;
         }
+
         .section-subtitle span {
             color: var(--text-muted);
             font-size: 0.72rem;
-            font-weight: 600;
+            font-weight: 650;
         }
-        .active-strip {
-            margin: -2px 0 12px;
-            padding: 10px 12px;
-            border-radius: var(--radius-md);
-            background: rgba(34, 197, 94, 0.1);
-            color: var(--green);
-            font-size: 0.78rem;
-            font-weight: 700;
+
+        .active-order-card {
+            background: var(--green-light);
+            border: 1px solid var(--green-medium);
+            border-radius: var(--radius-lg);
+            padding: var(--space-md);
+            margin-bottom: var(--space-md);
+            box-shadow: 0 12px 30px rgba(34, 197, 94, 0.1);
         }
-        .jastip-top {
+
+        [data-theme="dark"] .active-order-card {
+            box-shadow: var(--glow-green);
+        }
+
+        .active-order-card.closed {
+            background: var(--green-light);
+            border-color: var(--yellow-medium);
+            box-shadow: 0 12px 30px rgba(34, 197, 94, 0.08);
+        }
+
+        .order-head {
             display: flex;
             justify-content: space-between;
-            gap: var(--space-sm);
             align-items: flex-start;
+            gap: var(--space-sm);
             margin-bottom: var(--space-sm);
         }
-        .jastip-title {
-            font-size: 1rem;
-            font-weight: 700;
+
+        .order-title {
             color: var(--text-primary);
-            margin-bottom: 4px;
+            font-size: 1.15rem;
+            line-height: 1.2;
+            font-weight: 850;
+            overflow-wrap: anywhere;
         }
+
+        .order-meta {
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            margin-top: 5px;
+            line-height: 1.35;
+        }
+
+        .owner-chip,
         .status-pill {
-            border-radius: 999px;
-            padding: 4px 9px;
-            font-size: 0.68rem;
-            font-weight: 700;
-            white-space: nowrap;
-            background: var(--bg-hover);
-            color: var(--text-muted);
-        }
-        .status-pill.open { background: rgba(34, 197, 94, 0.12); color: var(--green); }
-        .status-pill.closed { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
-        .status-pill.completed { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
-        .status-pill.cancelled { background: rgba(239, 68, 68, 0.12); color: var(--red); }
-        .owner-chip {
             display: inline-flex;
             align-items: center;
-            border-radius: 999px;
-            padding: 3px 8px;
-            margin-left: 6px;
-            background: var(--bg-hover);
-            color: var(--text-primary);
-            font-size: 0.65rem;
-            font-weight: 700;
-        }
-        .jastip-metrics {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-            margin-top: var(--space-md);
-        }
-        .jastip-metric {
-            background: var(--bg-secondary);
-            border-radius: var(--radius-sm);
-            padding: 9px 8px;
-            min-width: 0;
-        }
-        .jastip-card.open .jastip-metric {
-            background: rgba(34, 197, 94, 0.08);
-        }
-        .metric-value {
+            border-radius: var(--radius-full);
+            padding: 4px 9px;
+            font-size: 0.68rem;
             font-weight: 800;
-            color: var(--text-primary);
-            line-height: 1;
-            margin-bottom: 4px;
-        }
-        .metric-label {
-            font-size: 0.65rem;
-            color: var(--text-muted);
             white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
-        .jastip-actions {
-            display: flex;
-            gap: var(--space-sm);
-            flex-wrap: wrap;
+
+        .owner-chip {
+            margin-left: 6px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .status-pill.open {
+            background: var(--green);
+            color: #fff;
+        }
+
+        .status-pill.closed {
+            background: var(--yellow);
+            color: #111;
+        }
+
+        .status-pill.completed {
+            background: rgba(59, 130, 246, 0.14);
+            color: #3b82f6;
+        }
+
+        .status-pill.cancelled {
+            background: var(--red-medium);
+            color: var(--red);
+        }
+
+        .order-note {
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            background: rgba(255, 255, 255, 0.45);
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            line-height: 1.45;
+            margin: var(--space-sm) 0;
+        }
+
+        [data-theme="dark"] .order-note {
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .shopping-list {
+            display: grid;
+            gap: 8px;
             margin-top: var(--space-md);
         }
-        .jastip-item {
-            border-top: 1px solid var(--border-color);
-            padding-top: var(--space-sm);
-            margin-top: var(--space-sm);
+
+        .shopping-row {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px;
         }
-        .jastip-item-head {
-            display: flex;
-            justify-content: space-between;
-            gap: var(--space-sm);
-            align-items: flex-start;
-        }
-        .result-grid {
+
+        .shopping-row.simple {
             display: grid;
-            grid-template-columns: 1fr 86px 110px;
-            gap: 8px;
-            margin-top: var(--space-sm);
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+            gap: var(--space-sm);
         }
-        .result-grid select,
-        .result-grid input,
-        .result-note,
+
+        .item-name {
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-weight: 800;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        .item-meta {
+            color: var(--text-muted);
+            font-size: 0.74rem;
+            margin-top: 4px;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .item-right {
+            text-align: right;
+            color: var(--text-primary);
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .item-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            margin-top: 6px;
+        }
+
+        .item-status::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--yellow);
+        }
+
+        .item-status.bought::before { background: var(--green); }
+        .item-status.unavailable::before,
+        .item-status.cancelled::before { background: var(--red); }
+
+        .owner-result {
+            display: grid;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .owner-result-main {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .owner-result-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .owner-result select,
+        .owner-result input,
+        .item-draft-row input,
         .modal input,
         .modal textarea {
             width: 100%;
@@ -172,62 +224,118 @@
             border-radius: var(--radius-sm);
             padding: 10px 12px;
             font-size: 0.85rem;
+            font-family: inherit;
         }
-        .result-note {
-            margin-top: 8px;
+
+        .owner-result label {
             display: block;
-            outline: none;
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            font-weight: 750;
+            margin-bottom: 4px;
         }
-        .result-grid select:focus,
-        .result-grid input:focus,
-        .result-note:focus {
+
+        .owner-result select:focus,
+        .owner-result input:focus,
+        .item-draft-row input:focus,
+        .modal input:focus,
+        .modal textarea:focus {
+            outline: none;
             border-color: var(--text-primary);
         }
-        .item-total {
-            font-weight: 700;
+
+        .order-actions {
+            display: flex;
+            gap: var(--space-sm);
+            flex-wrap: wrap;
+            margin-top: var(--space-md);
+        }
+
+        .order-actions .btn {
+            flex: 1 1 auto;
+        }
+
+        .history-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: var(--space-sm);
+        }
+
+        .history-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            padding: 12px;
+            min-height: 92px;
+        }
+
+        .history-title {
             color: var(--text-primary);
-            white-space: nowrap;
+            font-weight: 800;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
         }
-        .item-status {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.72rem;
+
+        .history-meta {
             color: var(--text-muted);
-            margin-top: 3px;
+            font-size: 0.72rem;
+            margin-top: 6px;
+            line-height: 1.35;
         }
-        .item-status::before {
-            content: "";
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: var(--text-muted);
+
+        .empty-jastip {
+            padding: 34px 16px;
+            text-align: center;
+            color: var(--text-muted);
         }
-        .item-status.bought::before { background: var(--green); }
-        .item-status.unavailable::before,
-        .item-status.cancelled::before { background: var(--red); }
-        .item-status.requested::before { background: #f59e0b; }
+
+        .item-drafts {
+            display: grid;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-md);
+        }
+
+        .item-draft-row {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-primary);
+            padding: var(--space-sm);
+        }
+
+        .item-draft-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 82px;
+            gap: 8px;
+        }
+
+        .draft-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        .tiny-btn {
+            border: 0;
+            background: transparent;
+            color: var(--red);
+            font: inherit;
+            font-size: 0.74rem;
+            font-weight: 750;
+            cursor: pointer;
+            padding: 4px 0;
+        }
+
         .btn[disabled] {
             opacity: 0.45;
             cursor: not-allowed;
         }
-        .empty-jastip {
-            padding: 36px 16px;
-            text-align: center;
-            color: var(--text-muted);
-        }
-        .history-jastip .jastip-card {
-            margin-bottom: var(--space-sm);
-        }
-        .history-jastip .jastip-metrics,
-        .history-jastip .result-grid,
-        .history-jastip .result-note {
-            display: none;
-        }
+
         @media (max-width: 520px) {
-            .result-grid { grid-template-columns: 1fr; }
-            .jastip-metrics { grid-template-columns: repeat(2, 1fr); }
-            .jastip-actions .btn { flex: 1; }
+            .owner-result-main,
+            .owner-result-fields,
+            .item-draft-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -236,7 +344,7 @@
     <div class="container" style="padding-bottom: 100px;">
         <div class="page-header">
             <h1 class="page-title">Jastip</h1>
-            <button class="btn btn-primary" style="font-size:0.78rem; padding:8px 12px;" onclick="openModal('openJastipModal')">Open</button>
+            <button id="openJastipButton" class="btn btn-primary" style="font-size:0.78rem; padding:8px 12px; display:none;" onclick="openOpenJastipModal()">Open</button>
         </div>
 
         <div class="section">
@@ -256,14 +364,14 @@
             <div class="modal-handle"></div>
             <h3 class="modal-title">Open Jastip</h3>
             <div class="form-group">
-                <label class="form-label">Tujuan</label>
+                <label class="form-label">Mau ke mana?</label>
                 <input type="text" id="jastipTitle" class="form-control" placeholder="Contoh: Indomaret, Warmindo">
             </div>
             <div class="form-group">
-                <label class="form-label">Catatan</label>
+                <label class="form-label">Catatan opsional</label>
                 <textarea id="jastipNote" class="form-control" rows="3" placeholder="Contoh: berangkat jam 8 malam"></textarea>
             </div>
-            <button class="btn btn-primary btn-full" onclick="createJastip()">Buka Jastip</button>
+            <button id="openJastipSubmit" class="btn btn-primary btn-full" onclick="createJastip()">Buka Jastip</button>
             <button class="btn btn-full mt-sm" onclick="closeModal('openJastipModal')">Batal</button>
         </div>
     </div>
@@ -273,25 +381,9 @@
             <div class="modal-handle"></div>
             <h3 class="modal-title">Titip Barang</h3>
             <input type="hidden" id="itemJastipId">
-            <div class="form-group">
-                <label class="form-label">Barang</label>
-                <input type="text" id="itemName" class="form-control" placeholder="Contoh: roti, kopi, nasi ayam">
-            </div>
-            <div style="display:grid; grid-template-columns: 90px 1fr; gap: var(--space-sm);">
-                <div class="form-group">
-                    <label class="form-label">Qty</label>
-                    <input type="number" id="itemQty" class="form-control" value="1" min="1" inputmode="numeric">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Estimasi Harga</label>
-                    <input type="number" id="itemEstimate" class="form-control" placeholder="Opsional" min="0" inputmode="numeric">
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Catatan</label>
-                <textarea id="itemNote" class="form-control" rows="3" placeholder="Contoh: kalau tidak ada, rasa coklat"></textarea>
-            </div>
-            <button class="btn btn-primary btn-full" onclick="addJastipItem()">Kirim Nitipan</button>
+            <div id="itemDrafts" class="item-drafts"></div>
+            <button class="btn btn-full" onclick="addItemDraftRow()">Tambah Item</button>
+            <button id="addItemsSubmit" class="btn btn-primary btn-full mt-sm" onclick="addJastipItems()">Titip Sekarang</button>
             <button class="btn btn-full mt-sm" onclick="closeModal('addJastipItemModal')">Batal</button>
         </div>
     </div>
@@ -314,7 +406,7 @@
             <span>Jastip</span>
         </a>
         <a href="profile.html" class="nav-item">
-            <span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg></span>
+            <span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09A1.65 1.65 0 0 0 21 10.7H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg></span>
             <span>Profil</span>
         </a>
     </nav>
@@ -326,9 +418,15 @@
         let jastipOrders = [];
         let lastJastipSignature = '';
         let jastipRefreshTimer = null;
+        let creatingJastip = false;
+        let addingItems = false;
+        const savingItems = new Set();
+        const orderActions = new Set();
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
+            const openButton = document.getElementById('openJastipButton');
+            if (openButton && state.user?.role !== 'admin') openButton.style.display = 'inline-flex';
             await Promise.all([loadNotifications().catch(() => {}), loadJastip()]);
             startJastipRealtimeRefresh();
         });
@@ -357,7 +455,7 @@
             if (jastipRefreshTimer) return;
             jastipRefreshTimer = setInterval(() => {
                 if (document.visibilityState === 'visible') loadJastip({ silent: true });
-            }, 8000);
+            }, 5000);
             document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible') loadJastip({ silent: true });
             });
@@ -365,105 +463,143 @@
 
         function renderJastip() {
             const container = document.getElementById('jastipList');
-            if (jastipOrders.length === 0) {
-                container.innerHTML = '<div class="empty-jastip">Belum ada jastip. Buka jastip kalau mau belanja keluar.</div>';
-                return;
-            }
-
             const activeOrders = jastipOrders.filter(order => ['open', 'closed'].includes(order.status));
             const historyOrders = jastipOrders.filter(order => !['open', 'closed'].includes(order.status));
-            const renderGroup = (orders, className = '') => orders.map(order => {
-                const items = order.items || [];
-                const canAdd = order.status === 'open';
-                const canManage = !!order.can_manage;
-                const pendingCount = items.filter(item => item.status === 'requested').length;
-                const boughtCount = items.filter(item => item.status === 'bought').length;
-                const unavailableCount = items.filter(item => ['unavailable', 'cancelled'].includes(item.status)).length;
-                const participantCount = new Set(items.map(item => item.user_id)).size;
-                const total = items
-                    .filter(item => item.status === 'bought')
-                    .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
-                const canComplete = canManage && ['open','closed'].includes(order.status) && items.length > 0 && pendingCount === 0;
 
-                return `
-                    <div class="jastip-card ${order.status}">
-                        <div class="jastip-top">
-                            <div>
-                                <div class="jastip-title">${escapeHtml(order.title)}${order.opened_by === state.user.id ? '<span class="owner-chip">Kamu owner</span>' : ''}</div>
-                                <div class="text-muted" style="font-size:0.78rem;">Dibuka oleh ${escapeHtml(order.opened_by_name)} · ${formatDate(order.created_at)}</div>
-                                ${order.note ? `<div class="text-muted" style="font-size:0.78rem; margin-top:6px;">${escapeHtml(order.note)}</div>` : ''}
-                            </div>
-                            <span class="status-pill ${order.status}">${statusLabel(order.status)}</span>
-                        </div>
-
-                        ${order.status === 'open' ? '<div class="active-strip">Masih bisa titip sekarang</div>' : ''}
-                        ${order.status === 'closed' ? '<div class="active-strip" style="background:rgba(245,158,11,0.1); color:#f59e0b;">Ditutup, owner sedang isi hasil belanja</div>' : ''}
-
-                        <div class="jastip-metrics">
-                            <div class="jastip-metric"><div class="metric-value">${items.length}</div><div class="metric-label">Nitipan</div></div>
-                            <div class="jastip-metric"><div class="metric-value">${participantCount}</div><div class="metric-label">Penitip</div></div>
-                            <div class="jastip-metric"><div class="metric-value">${pendingCount}</div><div class="metric-label">Belum dicek</div></div>
-                            <div class="jastip-metric"><div class="metric-value">${boughtCount}/${unavailableCount}</div><div class="metric-label">Ada/Kosong</div></div>
-                        </div>
-
-                        ${items.length > 0 ? items.map(item => renderJastipItem(order, item, canManage)).join('') : '<div class="text-muted" style="font-size:0.8rem; padding-top:8px;">Belum ada nitipan.</div>'}
-
-                        ${total > 0 ? `<div class="summary-row total"><span>Total final</span><span>Rp ${total.toLocaleString('id-ID')}</span></div>` : ''}
-
-                        <div class="jastip-actions">
-                            ${canAdd ? `<button class="btn btn-primary" onclick="openAddItem(${order.id})">Titip</button>` : ''}
-                            ${canManage && order.status === 'open' ? `<button class="btn" onclick="closeJastip(${order.id})">Tutup</button>` : ''}
-                            ${canManage && ['open','closed'].includes(order.status) ? `<button class="btn btn-success" ${canComplete ? `onclick="completeJastip(${order.id})"` : 'disabled'}>Selesai</button>` : ''}
-                            ${canManage && ['open','closed'].includes(order.status) ? `<button class="btn btn-danger" onclick="cancelJastip(${order.id})">Batal</button>` : ''}
-                            ${order.expense_id ? `<a class="btn" href="history.html" style="text-decoration:none;">Lihat Tagihan</a>` : ''}
-                        </div>
-                        ${canManage && ['open','closed'].includes(order.status) && !canComplete ? `<div class="text-muted" style="font-size:0.72rem; margin-top:8px;">Selesaikan setelah semua nitipan dicek. Kalau semuanya kosong, jastip selesai tanpa tagihan.</div>` : ''}
-                    </div>
-                `;
-            }).join('');
+            if (activeOrders.length === 0 && historyOrders.length === 0) {
+                container.innerHTML = '<div class="empty-jastip">Belum ada jastip. Open kalau ada yang mau belanja keluar.</div>';
+                return;
+            }
 
             container.innerHTML = `
                 ${activeOrders.length ? `
                     <div class="section-subtitle">Sedang Aktif <span>${activeOrders.length} jastip</span></div>
-                    ${renderGroup(activeOrders)}
+                    ${activeOrders.map(renderActiveOrder).join('')}
                 ` : '<div class="empty-jastip">Tidak ada jastip aktif sekarang.</div>'}
                 ${historyOrders.length ? `
-                    <div class="section-subtitle">Riwayat Jastip <span>${historyOrders.length} selesai/batal</span></div>
-                    <div class="history-jastip">${renderGroup(historyOrders, 'history')}</div>
+                    <div class="section-subtitle">Riwayat <span>${historyOrders.length} jastip</span></div>
+                    <div class="history-grid">${historyOrders.map(renderHistoryOrder).join('')}</div>
                 ` : ''}
             `;
         }
 
-        function renderJastipItem(order, item, canManage) {
-            const finalPrice = Number(item.final_price || 0);
-            const mine = item.user_id === state.user.id;
+        function renderActiveOrder(order) {
+            const items = order.items || [];
+            const canManage = Boolean(order.can_manage);
+            const canAdd = order.status === 'open' && !canManage && state.user?.role !== 'admin';
+            const pendingCount = items.filter(item => item.status === 'requested').length;
+            const canComplete = canManage && order.status === 'closed' && items.length > 0 && pendingCount === 0;
+
             return `
-                <div class="jastip-item">
-                    <div class="jastip-item-head">
+                <div class="active-order-card ${order.status}">
+                    <div class="order-head">
                         <div>
-                            <div style="font-weight:700; color:var(--text-primary);">${escapeHtml(item.item_name)} <span class="text-muted" style="font-size:0.75rem;">x${item.requested_qty}</span></div>
-                            <div class="text-muted" style="font-size:0.75rem;">${escapeHtml(item.user_name)}${item.note ? ' · ' + escapeHtml(item.note) : ''}</div>
-                            <div class="item-status ${item.status}">${itemStatusLabel(item.status)}</div>
+                            <div class="order-title">
+                                ${escapeHtml(order.title)}
+                                ${order.opened_by === state.user.id ? '<span class="owner-chip">Kamu owner</span>' : ''}
+                            </div>
+                            <div class="order-meta">Dibuka ${escapeHtml(order.opened_by_name)} - ${relativeTime(order.created_at)}</div>
                         </div>
-                        <div class="item-total">${item.status === 'bought' ? 'Rp ' + finalPrice.toLocaleString('id-ID') : itemStatusLabel(item.status)}</div>
+                        <span class="status-pill ${order.status}">${statusLabel(order.status)}</span>
                     </div>
 
-                    ${canManage && ['open','closed'].includes(order.status) ? `
-                        <div class="result-grid">
-                            <select id="status-${item.id}">
-                                <option value="requested" ${item.status === 'requested' ? 'selected' : ''}>Belum dicek</option>
-                                <option value="bought" ${item.status === 'bought' ? 'selected' : ''}>Ada</option>
-                                <option value="unavailable" ${item.status === 'unavailable' ? 'selected' : ''}>Kosong</option>
-                                <option value="cancelled" ${item.status === 'cancelled' ? 'selected' : ''}>Batal</option>
-                            </select>
-                            <input id="qty-${item.id}" type="number" min="0" value="${item.final_qty || item.requested_qty || 1}" inputmode="numeric">
-                            <input id="price-${item.id}" type="number" min="0" value="${Math.round(finalPrice || item.estimated_price || 0)}" placeholder="Harga" inputmode="numeric">
-                        </div>
-                        <input class="result-note" id="note-${item.id}" type="text" value="${escapeAttribute(item.final_note || '')}" placeholder="Catatan hasil">
-                        <button class="btn btn-full mt-sm" onclick="saveItemResult(${item.id})">Simpan Hasil</button>
-                    ` : ''}
+                    ${order.note ? `<div class="order-note">${escapeHtml(order.note)}</div>` : ''}
 
-                    ${mine && order.status === 'open' ? `<button class="btn btn-danger mt-sm" style="font-size:0.75rem; padding:6px 10px;" onclick="deleteJastipItem(${item.id})">Hapus Nitipan</button>` : ''}
+                    <div class="shopping-list">
+                        ${items.length ? items.map(item => canManage ? renderOwnerItem(order, item) : renderUserItem(order, item)).join('') : '<div class="shopping-row simple"><div class="item-meta">Belum ada nitipan.</div></div>'}
+                    </div>
+
+                    <div class="order-actions">
+                        ${canAdd ? `<button class="btn btn-primary" onclick="openAddItem(${order.id})">Titip Barang</button>` : ''}
+                        ${canManage && order.status === 'open' ? `<button class="btn" onclick="closeJastip(${order.id})">Tutup Nitipan</button>` : ''}
+                        ${canManage && order.status === 'closed' ? `<button class="btn btn-success" ${canComplete ? `onclick="completeJastip(${order.id})"` : 'disabled'}>Selesai</button>` : ''}
+                        ${canManage && ['open','closed'].includes(order.status) ? `<button class="btn btn-danger" onclick="cancelJastip(${order.id})">Batal</button>` : ''}
+                    </div>
+                    ${canManage && order.status === 'closed' && !canComplete ? `<div class="item-meta" style="margin-top:8px;">Cek semua item dulu, lalu tekan Selesai.</div>` : ''}
+                </div>
+            `;
+        }
+
+        function renderUserItem(order, item) {
+            const mine = item.user_id === state.user.id;
+            const canDelete = mine && order.status === 'open';
+            const price = Number(item.final_price || 0);
+            return `
+                <div class="shopping-row simple">
+                    <div>
+                        <div class="item-name">${escapeHtml(item.item_name)} <span class="item-meta">x${item.requested_qty || 1}</span></div>
+                        <div class="item-meta">${escapeHtml(item.user_name)}${item.note ? ' - ' + escapeHtml(item.note) : ''}</div>
+                        <div class="item-status ${item.status}">${itemStatusLabel(item.status)}</div>
+                        ${canDelete ? `<button class="tiny-btn" onclick="deleteJastipItem(${item.id})">Hapus nitipan</button>` : ''}
+                    </div>
+                    <div class="item-right">${item.status === 'bought' ? 'Rp ' + price.toLocaleString('id-ID') : itemStatusLabel(item.status)}</div>
+                </div>
+            `;
+        }
+
+        function renderOwnerItem(order, item) {
+            const finalPrice = Number(item.final_price || 0);
+            const showFields = item.status === 'bought';
+            if (order.status === 'open') {
+                return `
+                    <div class="shopping-row simple">
+                        <div>
+                            <div class="item-name">${escapeHtml(item.item_name)} <span class="item-meta">x${item.requested_qty || 1}</span></div>
+                            <div class="item-meta">${escapeHtml(item.user_name)}${item.note ? ' - ' + escapeHtml(item.note) : ''}</div>
+                        </div>
+                        <div class="item-right">Belanja</div>
+                    </div>
+                `;
+            }
+
+            return `
+                <div class="shopping-row">
+                    <div class="shopping-row simple" style="padding:0; border:0; background:transparent;">
+                        <div>
+                            <div class="item-name">${escapeHtml(item.item_name)} <span class="item-meta">x${item.requested_qty || 1}</span></div>
+                            <div class="item-meta">${escapeHtml(item.user_name)}${item.note ? ' - ' + escapeHtml(item.note) : ''}</div>
+                        </div>
+                        <div class="item-right">${itemStatusLabel(item.status)}</div>
+                    </div>
+                    ${['open','closed'].includes(order.status) ? `
+                        <div class="owner-result">
+                            <div class="owner-result-main">
+                                <select id="status-${item.id}" onchange="toggleResultFields(${item.id})">
+                                    <option value="requested" ${item.status === 'requested' ? 'selected' : ''}>Belum dicek</option>
+                                    <option value="bought" ${item.status === 'bought' ? 'selected' : ''}>Ada</option>
+                                    <option value="unavailable" ${item.status === 'unavailable' ? 'selected' : ''}>Kosong</option>
+                                    <option value="cancelled" ${item.status === 'cancelled' ? 'selected' : ''}>Batal</option>
+                                </select>
+                                <button class="btn" onclick="saveItemResult(${item.id})">Simpan</button>
+                            </div>
+                            <div id="fields-${item.id}" class="owner-result-fields" style="display:${showFields ? 'grid' : 'none'};">
+                                <div>
+                                    <label>Jumlah didapat</label>
+                                    <input id="qty-${item.id}" type="number" min="0" value="${item.final_qty ?? ''}" placeholder="${item.requested_qty || 1}" inputmode="numeric">
+                                </div>
+                                <div>
+                                    <label>Total harga</label>
+                                    <input id="price-${item.id}" type="number" min="0" value="${finalPrice > 0 ? Math.round(finalPrice) : ''}" placeholder="Rp" inputmode="numeric">
+                                </div>
+                            </div>
+                            <input id="note-${item.id}" type="text" value="${escapeAttribute(item.final_note || '')}" placeholder="Catatan hasil (opsional)">
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function renderHistoryOrder(order) {
+            const items = order.items || [];
+            const total = items
+                .filter(item => item.status === 'bought')
+                .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
+            return `
+                <div class="history-card">
+                    <div class="history-title">${escapeHtml(order.title)}</div>
+                    <div class="history-meta">${escapeHtml(order.opened_by_name)} - ${formatDateShort(order.completed_at || order.closed_at || order.created_at)}</div>
+                    <div class="history-meta"><span class="status-pill ${order.status}">${statusLabel(order.status)}</span></div>
+                    <div class="history-meta">${items.length} item${total ? ' - Rp ' + total.toLocaleString('id-ID') : ''}</div>
                 </div>
             `;
         }
@@ -476,80 +612,155 @@
             return ({ requested: 'Belum dicek', bought: 'Ada', unavailable: 'Kosong', cancelled: 'Batal' })[status] || status;
         }
 
+        function relativeTime(dateStr) {
+            const diff = Date.now() - new Date(dateStr).getTime();
+            const minutes = Math.max(0, Math.floor(diff / 60000));
+            if (minutes < 1) return 'baru saja';
+            if (minutes < 60) return `${minutes}m lalu`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}j lalu`;
+            return formatDateShort(dateStr);
+        }
+
+        function formatDateShort(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+        }
+
+        function openOpenJastipModal() {
+            if (state.user?.role === 'admin') {
+                showToast('Admin hanya untuk monitoring jastip', 'error');
+                return;
+            }
+            document.getElementById('jastipTitle').value = '';
+            document.getElementById('jastipNote').value = '';
+            setButtonBusy('openJastipSubmit', false, 'Buka Jastip');
+            openModal('openJastipModal');
+            setTimeout(() => document.getElementById('jastipTitle').focus(), 150);
+        }
+
         function openAddItem(orderId) {
             document.getElementById('itemJastipId').value = orderId;
-            document.getElementById('itemName').value = '';
-            document.getElementById('itemQty').value = 1;
-            document.getElementById('itemEstimate').value = '';
-            document.getElementById('itemNote').value = '';
+            document.getElementById('itemDrafts').innerHTML = '';
+            addItemDraftRow();
+            setButtonBusy('addItemsSubmit', false, 'Titip Sekarang');
             openModal('addJastipItemModal');
         }
 
+        function addItemDraftRow() {
+            const container = document.getElementById('itemDrafts');
+            const row = document.createElement('div');
+            row.className = 'item-draft-row';
+            row.innerHTML = `
+                <div class="item-draft-grid">
+                    <input class="draft-name" type="text" placeholder="Nama barang">
+                    <input class="draft-qty" type="number" min="1" inputmode="numeric" placeholder="Jumlah">
+                </div>
+                <input class="draft-note" type="text" placeholder="Catatan opsional" style="margin-top:8px;">
+                <div class="draft-actions"><button class="tiny-btn" onclick="removeItemDraftRow(this)">Hapus item</button></div>
+            `;
+            container.appendChild(row);
+            row.querySelector('.draft-name').focus();
+        }
+
+        function removeItemDraftRow(button) {
+            const rows = document.querySelectorAll('.item-draft-row');
+            if (rows.length <= 1) {
+                rows[0].querySelectorAll('input').forEach(input => input.value = '');
+                rows[0].querySelector('.draft-name').focus();
+                return;
+            }
+            button.closest('.item-draft-row').remove();
+        }
+
+        function toggleResultFields(itemId) {
+            const status = document.getElementById(`status-${itemId}`).value;
+            const fields = document.getElementById(`fields-${itemId}`);
+            if (fields) fields.style.display = status === 'bought' ? 'grid' : 'none';
+        }
+
         async function createJastip() {
+            if (creatingJastip) return;
             const title = document.getElementById('jastipTitle').value.trim();
             const note = document.getElementById('jastipNote').value.trim();
             if (!title) { showToast('Tujuan jastip wajib diisi', 'error'); return; }
 
+            creatingJastip = true;
+            setButtonBusy('openJastipSubmit', true, 'Membuka...');
             try {
-                await apiPost('jastip?action=create', { title, note });
+                const result = await apiPost('jastip?action=create', { title, note });
                 closeModal('openJastipModal');
-                document.getElementById('jastipTitle').value = '';
-                document.getElementById('jastipNote').value = '';
-                showToast('Jastip dibuka', 'success');
+                showToast(result.duplicate ? 'Jastip sudah kebuka' : 'Jastip dibuka', 'success');
                 await loadJastip();
                 refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal buka jastip', 'error');
+            } finally {
+                creatingJastip = false;
+                setButtonBusy('openJastipSubmit', false, 'Buka Jastip');
             }
         }
 
-        async function addJastipItem() {
+        async function addJastipItems() {
+            if (addingItems) return;
             const jastipId = parseInt(document.getElementById('itemJastipId').value, 10);
-            const itemName = document.getElementById('itemName').value.trim();
-            const requestedQty = parseInt(document.getElementById('itemQty').value || '1', 10);
-            const estimatedPrice = document.getElementById('itemEstimate').value;
-            const note = document.getElementById('itemNote').value.trim();
-            if (!itemName) { showToast('Nama barang wajib diisi', 'error'); return; }
+            const items = Array.from(document.querySelectorAll('.item-draft-row')).map(row => ({
+                item_name: row.querySelector('.draft-name').value.trim(),
+                requested_qty: parseInt(row.querySelector('.draft-qty').value || '1', 10) || 1,
+                note: row.querySelector('.draft-note').value.trim(),
+            })).filter(item => item.item_name);
 
+            if (items.length === 0) {
+                showToast('Isi minimal satu barang', 'error');
+                return;
+            }
+
+            addingItems = true;
+            setButtonBusy('addItemsSubmit', true, 'Mengirim...');
             try {
-                await apiPost('jastip?action=item', {
-                    jastip_id: jastipId,
-                    item_name: itemName,
-                    requested_qty: requestedQty,
-                    estimated_price: estimatedPrice,
-                    note,
-                });
+                await apiPost('jastip?action=items', { jastip_id: jastipId, items });
                 closeModal('addJastipItemModal');
-                showToast('Nitipan masuk', 'success');
+                showToast(`${items.length} nitipan masuk`, 'success');
                 await loadJastip();
                 refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal nitip barang', 'error');
+            } finally {
+                addingItems = false;
+                setButtonBusy('addItemsSubmit', false, 'Titip Sekarang');
             }
         }
 
         async function saveItemResult(itemId) {
+            if (savingItems.has(itemId)) return;
             const status = document.getElementById(`status-${itemId}`).value;
-            const finalQty = document.getElementById(`qty-${itemId}`).value;
-            const finalPrice = document.getElementById(`price-${itemId}`).value;
+            const finalQtyInput = document.getElementById(`qty-${itemId}`);
+            const finalPriceInput = document.getElementById(`price-${itemId}`);
             const finalNote = document.getElementById(`note-${itemId}`).value.trim();
+            const payload = {
+                item_id: itemId,
+                status,
+                final_qty: status === 'bought' ? finalQtyInput.value : '',
+                final_price: status === 'bought' ? finalPriceInput.value : '',
+                final_note: finalNote,
+            };
 
+            savingItems.add(itemId);
             try {
-                await apiPut('jastip?action=item', {
-                    item_id: itemId,
-                    status,
-                    final_qty: finalQty,
-                    final_price: finalPrice,
-                    final_note: finalNote,
-                });
+                await apiPut('jastip?action=item', payload);
                 showToast('Hasil disimpan', 'success');
                 await loadJastip();
             } catch (err) {
                 showToast(err.message || 'Gagal simpan hasil', 'error');
+            } finally {
+                savingItems.delete(itemId);
             }
         }
 
         async function closeJastip(id) {
+            const key = `close-${id}`;
+            if (orderActions.has(key)) return;
+            orderActions.add(key);
             try {
                 await apiPut('jastip?action=close', { id });
                 showToast('Jastip ditutup', 'success');
@@ -557,11 +768,16 @@
                 refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal tutup jastip', 'error');
+            } finally {
+                orderActions.delete(key);
             }
         }
 
         async function cancelJastip(id) {
             if (!confirm('Batalkan jastip ini?')) return;
+            const key = `cancel-${id}`;
+            if (orderActions.has(key)) return;
+            orderActions.add(key);
             try {
                 await apiPut('jastip?action=cancel', { id });
                 showToast('Jastip dibatalkan', 'success');
@@ -569,11 +785,16 @@
                 refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal batalkan jastip', 'error');
+            } finally {
+                orderActions.delete(key);
             }
         }
 
         async function completeJastip(id) {
             if (!confirm('Selesaikan jastip dan buat tagihan otomatis?')) return;
+            const key = `complete-${id}`;
+            if (orderActions.has(key)) return;
+            orderActions.add(key);
             try {
                 const result = await apiPut('jastip?action=complete', { id });
                 showToast('Jastip selesai: Rp ' + Number(result.amount || 0).toLocaleString('id-ID'), 'success');
@@ -581,11 +802,16 @@
                 refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal selesaikan jastip', 'error');
+            } finally {
+                orderActions.delete(key);
             }
         }
 
         async function deleteJastipItem(itemId) {
             if (!confirm('Hapus nitipan ini?')) return;
+            const key = `delete-item-${itemId}`;
+            if (orderActions.has(key)) return;
+            orderActions.add(key);
             try {
                 await apiDelete('jastip?item_id=' + itemId);
                 showToast('Nitipan dihapus', 'success');
@@ -593,7 +819,16 @@
                 refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal hapus nitipan', 'error');
+            } finally {
+                orderActions.delete(key);
             }
+        }
+
+        function setButtonBusy(id, busy, text) {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            btn.disabled = busy;
+            btn.textContent = text;
         }
     </script>
 </body>
