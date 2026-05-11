@@ -959,6 +959,11 @@ body.tour-open {
     cursor: pointer;
 }
 
+.feature-tour-nav .btn:disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
 .feature-tour-progress {
     display: flex;
     gap: 6px;
@@ -1014,6 +1019,42 @@ body.tour-open {
 @media (min-width: 720px) {
     .feature-tour-card {
         max-height: min(70vh, 560px);
+    }
+}
+
+@media (max-width: 520px) {
+    .feature-tour-card {
+        border-radius: var(--radius-lg);
+        max-height: min(68vh, 520px);
+        padding: 18px;
+    }
+
+    .feature-tour-kicker {
+        font-size: 0.72rem;
+    }
+
+    .feature-tour-progress {
+        margin: 12px 0;
+    }
+
+    .feature-tour-title {
+        font-size: 1.18rem;
+        line-height: 1.22;
+    }
+
+    .feature-tour-body {
+        font-size: 0.84rem;
+        line-height: 1.48;
+    }
+
+    .feature-tour-note {
+        margin: 12px 0;
+        padding: 10px 11px;
+        font-size: 0.78rem;
+    }
+
+    .feature-tour-footer {
+        margin-top: 12px;
     }
 }
 

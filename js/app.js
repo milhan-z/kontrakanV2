@@ -128,7 +128,7 @@ function getFeatureTourSteps() {
             title: 'Pantau hutang, piutang, dan kabar kontrakan',
             body: 'Dashboard adalah ringkasan harian: saldo hutang/piutang, info terbaru, tombol tambah transaksi, dan banner jastip yang sedang open.',
             action: 'Area ini jadi titik awal sebelum kamu masuk ke fitur lain.',
-            target: ['.home-header', '.page-header']
+            target: ['.greeting', '.page-title']
         },
         {
             eyebrow: 'Tambah Transaksi',
@@ -277,7 +277,7 @@ function renderFeatureTour() {
             <div class="feature-tour-footer">
                 <button type="button" class="btn" onclick="finishFeatureTour(true)">${featureTourManual ? 'Tutup' : 'Lewati'}</button>
                 <div class="feature-tour-nav">
-                    <button type="button" class="btn" ${isFirst ? 'disabled' : ''} onclick="moveFeatureTour(-1)">Kembali</button>
+                    <button type="button" class="btn" ${isFirst ? 'disabled style="visibility:hidden;"' : ''} onclick="moveFeatureTour(-1)">Kembali</button>
                     <button type="button" class="btn btn-primary" onclick="${isLast ? 'finishFeatureTour(true)' : 'moveFeatureTour(1)'}">${isLast ? 'Selesai' : 'Lanjut'}</button>
                 </div>
             </div>
