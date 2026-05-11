@@ -198,8 +198,8 @@ async function api(endpoint, options = {}) {
         // Invalidate related caches on mutations
         if (['POST','PUT','DELETE'].includes(method)) {
             const ep = _getEndpoint(url);
-            if (ep === 'expenses')     _invalidateCache(['expenses', 'balance']);
-            else if (ep === 'settlements') _invalidateCache(['settlements', 'balance']);
+            if (ep === 'expenses')     _invalidateCache(['expenses', 'balance', 'debt_details']);
+            else if (ep === 'settlements') _invalidateCache(['settlements', 'balance', 'debt_details']);
             else if (ep === 'info')    _invalidateCache(['info']);
             else if (ep === 'users')   _invalidateCache(['users']);
             else if (ep === 'notifications') _invalidateCache(['notifications']);

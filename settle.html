@@ -384,10 +384,14 @@
             await renderData();
         })();
 
-        async function renderData() {
+        async function renderData(options = {}) {
             try {
+                const fresh = Boolean(options.fresh);
                 // PARALLEL: balance + settlements
-                const [_bal, _settlePreload] = await Promise.all([loadBalance(), loadSettlements()]);
+                const [_bal, _settlePreload] = await Promise.all([
+                    fresh ? apiGetFresh('balance') : loadBalance(),
+                    fresh ? apiGetFresh('settlements') : loadSettlements()
+                ]);
                 balanceData = _bal;
                 window._settleCache = _settlePreload;
 
@@ -488,7 +492,7 @@
             try {
                 // Parallel fetch — jauh lebih cepat + cache
                 const [detailData, paymentData] = await Promise.all([
-                    apiGet(`debt_details?creditor_id=${creditorId}&debtor_id=${state.user.id}`),
+                    apiGetFresh(`debt_details?creditor_id=${creditorId}&debtor_id=${state.user.id}`),
                     apiGet(`payment_info?user_id=${creditorId}`)
                 ]);
                 const payInfo = paymentData.payment_info || {};
@@ -662,7 +666,7 @@
             try {
                 // Parallel fetch semua data — jauh lebih cepat + cache
                 const [detailData, paymentData, myPaymentData] = await Promise.all([
-                    apiGet(`debt_details?creditor_id=${state.user.id}&debtor_id=${debtorId}`),
+                    apiGetFresh(`debt_details?creditor_id=${state.user.id}&debtor_id=${debtorId}`),
                     apiGet(`payment_info?user_id=${debtorId}`),
                     apiGet(`payment_info?user_id=${state.user.id}`)
                 ]);
@@ -957,6 +961,8 @@ _Pesan otomatis dari Catatan Kontrakan_`;
             document.getElementById('confirmFromUser').value = toUserId;
             document.getElementById('confirmFromName').textContent = toName;
             document.getElementById('confirmAmount').value = amount;
+            document.getElementById('confirmAmount').max = amount;
+            clearReceiptDraft();
 
             // Change modal title for debtor
             document.querySelector('#confirmPaymentModal .modal-title').textContent = 'Catat Pembayaran';
@@ -973,6 +979,7 @@ _Pesan otomatis dari Catatan Kontrakan_`;
             document.getElementById('confirmFromName').textContent = fromName;
             document.getElementById('confirmAmount').value = '';
             document.getElementById('confirmAmount').max = maxAmount;
+            clearReceiptDraft();
 
             // Change modal for creditor confirmation
             document.querySelector('#confirmPaymentModal .modal-title').textContent = 'Konfirmasi Pembayaran';
@@ -987,22 +994,15 @@ _Pesan otomatis dari Catatan Kontrakan_`;
 
             try {
                 // Creditor confirming payment FROM debtor TO themselves
-                const res = await fetch(`${API_BASE}/settlements`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        from_user: fromUserId,  // The debtor
-                        to_user: state.user.id, // The creditor (me)
-                        amount: amount
-                    })
+                await apiPost('settlements', {
+                    from_user: fromUserId,  // The debtor
+                    to_user: state.user.id, // The creditor (me)
+                    amount: amount
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Failed');
 
                 showToast('Pembayaran dikonfirmasi!', 'success');
                 closeModal('creditDetailModal');
-                await renderData();
+                await renderData({ fresh: true });
             } catch (err) {
                 showToast('Gagal: ' + err.message, 'error');
             }
@@ -1018,23 +1018,14 @@ _Pesan otomatis dari Catatan Kontrakan_`;
             if (!confirm(`Konfirmasi ${debtorName} sudah lunas Rp ${amount.toLocaleString('id-ID')}?`)) return;
 
             try {
-                // Create settlement for the full remaining amount
-                const res = await fetch(`${API_BASE}/settlements`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        from_user: debtorId,
-                        to_user: state.user.id,
-                        amount: amount
-                    })
+                await apiPost('settlements', {
+                    from_user: debtorId,
+                    to_user: state.user.id,
+                    amount: amount
                 });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Failed');
-
-                showToast('✓ Reset & Lunas berhasil! Semua detail di-clear.', 'success');
+                showToast('Lunas berhasil dicatat!', 'success');
                 closeModal('creditDetailModal');
-                await renderData();
+                await renderData({ fresh: true });
             } catch (err) {
                 showToast('Gagal: ' + err.message, 'error');
             }
@@ -1043,6 +1034,12 @@ _Pesan otomatis dari Catatan Kontrakan_`;
         // Track mode: 'debtor' = I'm paying someone, 'creditor' = I'm confirming someone paid me
         let confirmMode = 'debtor';
         let receiptFile = null;
+
+        function clearReceiptDraft() {
+            receiptFile = null;
+            document.getElementById('receiptPreview').classList.add('hidden');
+            document.getElementById('receiptInput').value = '';
+        }
 
         // Receipt upload preview
         document.getElementById('receiptUploadArea').addEventListener('click', () => {
@@ -1071,6 +1068,14 @@ _Pesan otomatis dari Catatan Kontrakan_`;
             try {
                 const otherUserId = parseInt(document.getElementById('confirmFromUser').value);
                 const amount = parseFloat(document.getElementById('confirmAmount').value);
+                const maxAmount = parseFloat(document.getElementById('confirmAmount').max || '0');
+
+                if (!Number.isFinite(amount) || amount <= 0) {
+                    throw new Error('Nominal pembayaran tidak valid');
+                }
+                if (maxAmount > 0 && amount > maxAmount) {
+                    throw new Error('Nominal melebihi sisa tagihan');
+                }
 
                 // 1. Upload receipt ke Cloudinary jika ada
                 let receiptUrl = null;
@@ -1091,24 +1096,15 @@ _Pesan otomatis dari Catatan Kontrakan_`;
                     payload.to_user = state.user.id;
                 }
 
-                const res = await fetch(`${API_BASE}/settlements`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Failed');
+                await apiPost('settlements', payload);
 
                 showToast('Pembayaran dicatat!', 'success');
                 closeModal('confirmPaymentModal');
 
                 // Reset receipt
-                receiptFile = null;
-                document.getElementById('receiptPreview').classList.add('hidden');
-                document.getElementById('receiptInput').value = '';
+                clearReceiptDraft();
 
-                await renderData();
+                await renderData({ fresh: true });
             } catch (err) {
                 showToast('Gagal: ' + err.message, 'error');
             } finally {

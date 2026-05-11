@@ -533,7 +533,10 @@
                             </div>
                             <div style="text-align: right;">
                                 <div style="font-weight: 700; color: var(--${type === 'hutang' ? 'red' : 'green'});">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
-                                ${type === 'hutang' ? `<button class="btn btn-success mt-sm" style="font-size: 0.75rem;" onclick="openSettleFromDebt(${personId}, ${JSON.stringify(person)}, ${s.amount})">Sudah TF</button>` : ''}
+                                ${type === 'hutang'
+                                    ? `<button class="btn btn-success mt-sm" style="font-size: 0.75rem;" onclick="openSettleFromDebt(${personId}, ${JSON.stringify(person)}, ${s.amount})">Sudah TF</button>`
+                                    : `<button class="btn btn-success mt-sm" style="font-size: 0.75rem;" onclick="window.location.href='settle.html'">Tagih</button>`
+                                }
                             </div>
                         </div>
                     `;
