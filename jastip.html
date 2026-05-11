@@ -267,6 +267,16 @@
             background: var(--bg-card);
             padding: 12px;
             min-height: 92px;
+            cursor: pointer;
+            transition: transform 0.15s ease, border-color 0.15s ease;
+        }
+
+        .history-card:active {
+            transform: scale(0.98);
+        }
+
+        .history-card:hover {
+            border-color: var(--text-muted);
         }
 
         .history-title {
@@ -330,6 +340,34 @@
             cursor: not-allowed;
         }
 
+        .detail-block {
+            display: grid;
+            gap: 8px;
+            margin-top: var(--space-md);
+        }
+
+        .detail-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-sm);
+            align-items: start;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .detail-row:last-child {
+            border-bottom: 0;
+        }
+
+        .detail-total {
+            display: flex;
+            justify-content: space-between;
+            gap: var(--space-sm);
+            padding-top: var(--space-md);
+            color: var(--text-primary);
+            font-weight: 850;
+        }
+
         @media (max-width: 520px) {
             .owner-result-main,
             .owner-result-fields,
@@ -385,6 +423,14 @@
             <button class="btn btn-full" onclick="addItemDraftRow()">Tambah Item</button>
             <button id="addItemsSubmit" class="btn btn-primary btn-full mt-sm" onclick="addJastipItems()">Titip Sekarang</button>
             <button class="btn btn-full mt-sm" onclick="closeModal('addJastipItemModal')">Batal</button>
+        </div>
+    </div>
+
+    <div id="jastipDetailModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-handle"></div>
+            <div id="jastipDetailContent"></div>
+            <button class="btn btn-full mt-sm" onclick="closeModal('jastipDetailModal')">Tutup</button>
         </div>
     </div>
 
@@ -512,6 +558,7 @@
                     <div class="order-actions">
                         ${canAdd ? `<button class="btn btn-primary" onclick="openAddItem(${order.id})">Titip Barang</button>` : ''}
                         ${canManage && order.status === 'open' ? `<button class="btn" onclick="closeJastip(${order.id})">Tutup Nitipan</button>` : ''}
+                        ${canManage && order.status === 'closed' ? `<button class="btn" onclick="reopenJastip(${order.id})">Buka Lagi</button>` : ''}
                         ${canManage && order.status === 'closed' ? `<button class="btn btn-success" ${canComplete ? `onclick="completeJastip(${order.id})"` : 'disabled'}>Selesai</button>` : ''}
                         ${canManage && ['open','closed'].includes(order.status) ? `<button class="btn btn-danger" onclick="cancelJastip(${order.id})">Batal</button>` : ''}
                     </div>
@@ -595,11 +642,61 @@
                 .filter(item => item.status === 'bought')
                 .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
             return `
-                <div class="history-card">
+                <div class="history-card" onclick="openHistoryDetail(${order.id})">
                     <div class="history-title">${escapeHtml(order.title)}</div>
                     <div class="history-meta">${escapeHtml(order.opened_by_name)} - ${formatDateShort(order.completed_at || order.closed_at || order.created_at)}</div>
                     <div class="history-meta"><span class="status-pill ${order.status}">${statusLabel(order.status)}</span></div>
                     <div class="history-meta">${items.length} item${total ? ' - Rp ' + total.toLocaleString('id-ID') : ''}</div>
+                    <div class="history-meta">Ketuk untuk detail</div>
+                </div>
+            `;
+        }
+
+        function openHistoryDetail(orderId) {
+            const order = jastipOrders.find(item => Number(item.id) === Number(orderId));
+            if (!order) {
+                showToast('Riwayat jastip tidak ditemukan', 'error');
+                return;
+            }
+            document.getElementById('jastipDetailContent').innerHTML = renderHistoryDetail(order);
+            openModal('jastipDetailModal');
+        }
+
+        function renderHistoryDetail(order) {
+            const items = order.items || [];
+            const total = items
+                .filter(item => item.status === 'bought')
+                .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
+            const canDelete = order.opened_by === state.user.id && !['open', 'closed'].includes(order.status);
+            return `
+                <h3 class="modal-title">${escapeHtml(order.title)}</h3>
+                <div class="order-meta">
+                    Dibuka ${escapeHtml(order.opened_by_name)} - ${formatDateShort(order.completed_at || order.closed_at || order.created_at)}
+                </div>
+                <div style="margin-top:10px;"><span class="status-pill ${order.status}">${statusLabel(order.status)}</span></div>
+                ${order.note ? `<div class="order-note">${escapeHtml(order.note)}</div>` : ''}
+                <div class="detail-block">
+                    ${items.length ? items.map(renderHistoryItemDetail).join('') : '<div class="item-meta">Tidak ada item.</div>'}
+                </div>
+                <div class="detail-total">
+                    <span>Total terbeli</span>
+                    <span>Rp ${total.toLocaleString('id-ID')}</span>
+                </div>
+                ${canDelete ? `<button class="btn btn-danger btn-full mt-sm" onclick="deleteJastipOrder(${order.id})">Hapus Riwayat</button>` : ''}
+            `;
+        }
+
+        function renderHistoryItemDetail(item) {
+            const price = Number(item.final_price || 0);
+            const qty = item.final_qty || item.requested_qty || 1;
+            return `
+                <div class="detail-row">
+                    <div>
+                        <div class="item-name">${escapeHtml(item.item_name)} <span class="item-meta">x${qty}</span></div>
+                        <div class="item-meta">${escapeHtml(item.user_name)}${item.note ? ' - ' + escapeHtml(item.note) : ''}</div>
+                        ${item.final_note ? `<div class="item-meta">Hasil: ${escapeHtml(item.final_note)}</div>` : ''}
+                    </div>
+                    <div class="item-right">${item.status === 'bought' ? 'Rp ' + price.toLocaleString('id-ID') : itemStatusLabel(item.status)}</div>
                 </div>
             `;
         }
@@ -773,6 +870,22 @@
             }
         }
 
+        async function reopenJastip(id) {
+            const key = `reopen-${id}`;
+            if (orderActions.has(key)) return;
+            orderActions.add(key);
+            try {
+                await apiPut('jastip?action=reopen', { id });
+                showToast('Jastip dibuka lagi', 'success');
+                await loadJastip();
+                refreshActiveJastipBanner({ force: true });
+            } catch (err) {
+                showToast(err.message || 'Gagal buka lagi jastip', 'error');
+            } finally {
+                orderActions.delete(key);
+            }
+        }
+
         async function cancelJastip(id) {
             if (!confirm('Batalkan jastip ini?')) return;
             const key = `cancel-${id}`;
@@ -819,6 +932,24 @@
                 refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal hapus nitipan', 'error');
+            } finally {
+                orderActions.delete(key);
+            }
+        }
+
+        async function deleteJastipOrder(orderId) {
+            if (!confirm('Hapus riwayat jastip ini? Transaksi tagihan yang sudah dibuat tidak ikut dihapus.')) return;
+            const key = `delete-order-${orderId}`;
+            if (orderActions.has(key)) return;
+            orderActions.add(key);
+            try {
+                await apiDelete('jastip?action=order&order_id=' + orderId);
+                closeModal('jastipDetailModal');
+                showToast('Riwayat jastip dihapus', 'success');
+                await loadJastip();
+                refreshActiveJastipBanner({ force: true });
+            } catch (err) {
+                showToast(err.message || 'Gagal hapus riwayat jastip', 'error');
             } finally {
                 orderActions.delete(key);
             }

@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') return listJastip(req, res, user, db);
   if (req.method === 'POST') return handlePost(req, res, user, db);
   if (req.method === 'PUT') return handlePut(req, res, user, db);
-  if (req.method === 'DELETE') return deleteItem(req, res, user, db);
+  if (req.method === 'DELETE') return handleDelete(req, res, user, db);
 
   return jsonResponse(res, { error: 'Method not allowed' }, 405);
 };
@@ -33,10 +33,16 @@ async function handlePost(req, res, user, db) {
 async function handlePut(req, res, user, db) {
   const action = req.query.action || '';
   if (action === 'close') return closeOrder(req, res, user, db);
+  if (action === 'reopen') return reopenOrder(req, res, user, db);
   if (action === 'cancel') return cancelOrder(req, res, user, db);
   if (action === 'item') return updateItem(req, res, user, db);
   if (action === 'complete') return completeOrder(req, res, user, db);
   return jsonResponse(res, { error: 'Invalid action' }, 400);
+}
+
+async function handleDelete(req, res, user, db) {
+  if (req.query.order_id || req.query.action === 'order') return deleteOrder(req, res, user, db);
+  return deleteItem(req, res, user, db);
 }
 
 async function ensureJastipTables(db) {
@@ -344,6 +350,30 @@ async function closeOrder(req, res, user, db) {
   return jsonResponse(res, { success: true });
 }
 
+async function reopenOrder(req, res, user, db) {
+  const input = await getBody(req);
+  const id = parseInt(input.id || '0', 10);
+  const order = await requireManageableOrder(db, id, user);
+  if (!order) return jsonResponse(res, { error: 'Jastip tidak ditemukan atau tidak boleh diubah' }, 404);
+  if (order.status !== 'closed') return jsonResponse(res, { error: 'Hanya jastip yang ditutup yang bisa dibuka lagi' }, 409);
+
+  await db.query(
+    `UPDATE jastip_orders
+     SET status = 'open', closed_at = NULL
+     WHERE id = $1`,
+    [id]
+  );
+
+  await notifyUsers(
+    db,
+    user.user_id,
+    'Jastip Dibuka Lagi',
+    `${user.display_name} buka lagi jastip ${order.title}. Masih bisa nitip.`,
+    order.id
+  );
+  return jsonResponse(res, { success: true });
+}
+
 async function cancelOrder(req, res, user, db) {
   const input = await getBody(req);
   const id = parseInt(input.id || '0', 10);
@@ -405,6 +435,21 @@ async function deleteItem(req, res, user, db) {
   }
 
   await db.query('DELETE FROM jastip_items WHERE id = $1', [itemId]);
+  return jsonResponse(res, { success: true });
+}
+
+async function deleteOrder(req, res, user, db) {
+  const id = parseInt(req.query.order_id || req.query.id || '0', 10);
+  const order = await getOrder(db, id);
+  if (!order) return jsonResponse(res, { error: 'Jastip tidak ditemukan' }, 404);
+  if (order.opened_by !== user.user_id) {
+    return jsonResponse(res, { error: 'Hanya pembuka jastip yang bisa menghapus riwayat ini' }, 403);
+  }
+  if (['open', 'closed'].includes(order.status)) {
+    return jsonResponse(res, { error: 'Jastip aktif tidak bisa dihapus dari riwayat' }, 409);
+  }
+
+  await db.query('DELETE FROM jastip_orders WHERE id = $1', [id]);
   return jsonResponse(res, { success: true });
 }
 
@@ -560,7 +605,7 @@ async function requireManageableOrder(db, id, user) {
   if (!id) return null;
   const order = await getOrder(db, id);
   if (!order) return null;
-  if (order.opened_by !== user.user_id && user.role !== 'admin') return null;
+  if (order.opened_by !== user.user_id) return null;
   return order;
 }
 
