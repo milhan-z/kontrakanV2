@@ -1,5 +1,7 @@
 (function () {
     if (!/settle\.html$/.test(window.location.pathname)) return;
+    if (window.__settleClickFixV13Loaded) return;
+    window.__settleClickFixV13Loaded = true;
 
     let currentDebtContext = null;
     let patchInFlight = null;
@@ -44,6 +46,32 @@
             name: name,
             amount: amount
         };
+    }
+
+    function inferDebtContextFromOpenModal() {
+        if (currentDebtContext && currentDebtContext.creditorId) return currentDebtContext;
+
+        const content = document.getElementById('debtDetailContent');
+        if (!content || !content.textContent.includes('Total Pengeluaran')) return null;
+
+        const label = content.querySelector('.amount-label');
+        const labelText = label ? label.textContent.trim() : '';
+        const name = labelText.replace(/^ke\s+/i, '').trim();
+        if (!name || !window.state || !Array.isArray(state.users)) return null;
+
+        const user = state.users.find(function (u) {
+            return String(u.display_name || '').trim() === name;
+        });
+        if (!user) return null;
+
+        const amountHeader = content.querySelector('.amount-value');
+        const amount = rupiahToNumber(amountHeader ? amountHeader.textContent : '0');
+        currentDebtContext = {
+            creditorId: parseInt(user.id, 10),
+            creditorName: name,
+            amount: amount
+        };
+        return currentDebtContext;
     }
 
     function activateItem(item) {
@@ -129,14 +157,15 @@
     }
 
     function scheduleDebtDetailPatch() {
-        [120, 350, 700, 1200].forEach(function (delay) {
+        [80, 180, 350, 700, 1200, 2000].forEach(function (delay) {
             setTimeout(patchDebtDetailWithOffsets, delay);
         });
     }
 
     async function fetchDebtDetails() {
-        if (!currentDebtContext || !currentDebtContext.creditorId || !window.state || !state.user) return null;
-        const endpoint = `debt_details?creditor_id=${currentDebtContext.creditorId}&debtor_id=${state.user.id}`;
+        const ctx = inferDebtContextFromOpenModal();
+        if (!ctx || !ctx.creditorId || !window.state || !state.user) return null;
+        const endpoint = `debt_details?creditor_id=${ctx.creditorId}&debtor_id=${state.user.id}`;
         if (typeof window.apiGetFresh === 'function') return window.apiGetFresh(endpoint);
 
         const res = await fetch(`${window.API_BASE || '/api'}/${endpoint}&_=${Date.now()}`, { cache: 'no-store' });
@@ -249,7 +278,9 @@
 
     async function patchDebtDetailWithOffsets() {
         const content = document.getElementById('debtDetailContent');
-        if (!content || !currentDebtContext) return;
+        if (!content) return;
+        inferDebtContextFromOpenModal();
+        if (!currentDebtContext) return;
         if (!content.textContent.includes('Total Pengeluaran') || content.querySelector('.spinner')) return;
         if (patchInFlight) return patchInFlight;
 
@@ -303,6 +334,11 @@
     } else {
         runFix();
     }
+
+    window.addEventListener('focus', scheduleDebtDetailPatch);
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') scheduleDebtDetailPatch();
+    });
 
     const observer = new MutationObserver(runFix);
     observer.observe(document.documentElement, { childList: true, subtree: true });
