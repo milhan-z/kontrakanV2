@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kontrakan-v10';
+const CACHE_NAME = 'kontrakan-v11';
 const STATIC_ASSETS = [
     '/',
     '/login.html',
@@ -16,6 +16,31 @@ const STATIC_ASSETS = [
     '/icons/icon-512.png',
     '/apple-touch-icon.png'
 ];
+
+function shouldInjectSettleFix(url) {
+    return url.pathname === '/settle.html' || url.pathname.endsWith('/settle.html');
+}
+
+async function injectSettleFix(request, response) {
+    if (!response || response.status !== 200) return response;
+
+    const contentType = response.headers.get('content-type') || '';
+    if (!contentType.includes('text/html')) return response;
+
+    const html = await response.clone().text();
+    if (html.includes('/js/settle-click-fix.js')) return response;
+
+    const scriptTag = '<script src="/js/settle-click-fix.js"></scr' + 'ipt>';
+    const fixedHtml = html.includes('</body>')
+        ? html.replace('</body>', scriptTag + '\n</body>')
+        : html + '\n' + scriptTag;
+
+    return new Response(fixedHtml, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers
+    });
+}
 
 self.addEventListener('install', event => {
     event.waitUntil(
@@ -46,19 +71,25 @@ self.addEventListener('fetch', event => {
 
     event.respondWith(
         fetch(request)
-            .then(response => {
+            .then(async response => {
+                let responseToReturn = response;
+
+                if (shouldInjectSettleFix(url)) {
+                    responseToReturn = await injectSettleFix(request, response);
+                }
+
                 if (
-                    response &&
-                    response.status === 200 &&
-                    response.type === 'basic' &&
+                    responseToReturn &&
+                    responseToReturn.status === 200 &&
+                    responseToReturn.type === 'basic' &&
                     ['http:', 'https:'].includes(url.protocol)
                 ) {
-                    const responseClone = response.clone();
+                    const responseClone = responseToReturn.clone();
                     caches.open(CACHE_NAME)
                         .then(cache => cache.put(request, responseClone))
                         .catch(err => console.warn('Failed to cache response:', err));
                 }
-                return response;
+                return responseToReturn;
             })
             .catch(() => caches.match(request).then(cached => cached || Response.error()))
     );
