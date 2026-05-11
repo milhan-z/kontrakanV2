@@ -819,7 +819,7 @@
                 '</div>' +
                 '<div class="ai-item-actions">' +
                 '<button type="button" class="ai-edit-btn" onclick="toggleAiItemEditor(' + index + ')">' + (item.isEditing ? 'Selesai' : 'Edit') + '</button>' +
-                '<div class="ai-helper-text">Terbagi ' + getAiAssignedQty(item) + '/' + getAiItemQty(item) + ' pcs</div>' +
+                '<div class="ai-helper-text">Dibagi ke ' + getAiAssignedQty(item) + ' bagian</div>' +
                 '</div>' +
                 (item.isEditing ? renderAiItemEditor(index, item, members) : '') +
                 '</div>'
@@ -832,11 +832,7 @@
             syncAiItemState(item);
             if (getAiAllocatedQty(item, userId) > 0) {
                 item.allocations[userId] = 0;
-            } else if (getAiAssignedQty(item) < getAiItemQty(item)) {
-                item.allocations[userId] = 1;
             } else {
-                const firstAllocatedUserId = aiSelectedMemberIds.find(id => getAiAllocatedQty(item, id) > 0);
-                if (firstAllocatedUserId) item.allocations[firstAllocatedUserId] -= 1;
                 item.allocations[userId] = 1;
             }
             normalizeAiAllocations(item);
@@ -852,21 +848,22 @@
             let totals = {};
             aiSelectedMemberIds.forEach(id => { totals[id] = 0; });
             let selectedItemsSubtotal = 0;
-            let unassignedQtyTotal = 0;
+            let unassignedItemsTotal = 0;
 
             aiItems.forEach(item => {
                 syncAiItemState(item);
-                const qty = getAiItemQty(item);
                 const assignedQty = getAiAssignedQty(item);
-                unassignedQtyTotal += Math.max(0, qty - assignedQty);
-                if (qty <= 0 || assignedQty <= 0) return;
+                if (assignedQty <= 0) {
+                    unassignedItemsTotal += 1;
+                    return;
+                }
 
-                const unitPrice = getAiItemUnitPrice(item);
+                const unitPrice = getAiItemSharePrice(item);
                 aiSelectedMemberIds.forEach(id => {
                     const userQty = getAiAllocatedQty(item, id);
                     if (userQty > 0) totals[id] += unitPrice * userQty;
                 });
-                selectedItemsSubtotal += unitPrice * assignedQty;
+                selectedItemsSubtotal += Number(item.price || 0) || 0;
             });
 
             const sumAllItems = aiItems.reduce((s, i) => s + (i.price || 0), 0);
@@ -883,7 +880,7 @@
                     aiItems.forEach(item => {
                         const userQty = getAiAllocatedQty(item, id);
                         if (userQty > 0) {
-                            const baseShare = getAiItemUnitPrice(item) * userQty;
+                            const baseShare = getAiItemSharePrice(item) * userQty;
                             userItems.push({
                                 item: item.item || item.name || 'Unknown',
                                 qty: userQty,
@@ -909,13 +906,13 @@
             }).join('');
 
             document.getElementById('aiFinalTotals').innerHTML = finalAiSplits.length > 0
-                ? summaryHtml + (unassignedQtyTotal > 0
-                    ? '<div class="ai-helper-text" style="margin-top:12px; color:var(--red);">Masih ada ' + unassignedQtyTotal + ' pcs yang belum dibagi.</div>'
+                ? summaryHtml + (unassignedItemsTotal > 0
+                    ? '<div class="ai-helper-text" style="margin-top:12px; color:var(--red);">Masih ada ' + unassignedItemsTotal + ' item yang belum dibagi.</div>'
                     : '')
                 : '<div class="text-muted text-center">Belum ada item yang dibagi</div>';
 
             const btn = document.getElementById('btnSubmitAi');
-            btn.disabled = finalAiSplits.length === 0 || unassignedQtyTotal > 0;
+            btn.disabled = finalAiSplits.length === 0 || unassignedItemsTotal > 0;
             btn.textContent = 'Kirim Tagihan (Rp ' + finalAiGrandTotal.toLocaleString('id-ID') + ')';
         }
 
@@ -923,9 +920,9 @@
             return Math.max(1, parseInt(item.qty || item.quantity || 1, 10) || 1);
         }
 
-        function getAiItemUnitPrice(item) {
-            const qty = getAiItemQty(item);
-            return qty > 0 ? ((Number(item.price || 0) || 0) / qty) : 0;
+        function getAiItemSharePrice(item) {
+            const assignedQty = getAiAssignedQty(item);
+            return assignedQty > 0 ? ((Number(item.price || 0) || 0) / assignedQty) : 0;
         }
 
         function getAiAllocatedQty(item, userId) {
@@ -949,33 +946,17 @@
         }
 
         function normalizeAiAllocations(item) {
-            const maxQty = getAiItemQty(item);
             aiSelectedMemberIds.forEach(id => {
                 const normalized = Math.max(0, Math.floor(Number(item.allocations[id]) || 0));
                 item.allocations[id] = normalized;
             });
-
-            let overflow = getAiAssignedQty(item) - maxQty;
-            if (overflow > 0) {
-                [...aiSelectedMemberIds].reverse().forEach(id => {
-                    if (overflow <= 0) return;
-                    const current = getAiAllocatedQty(item, id);
-                    const reduced = Math.min(current, overflow);
-                    item.allocations[id] = current - reduced;
-                    overflow -= reduced;
-                });
-            }
         }
 
         function distributeAiItemEvenly(item) {
             syncAiItemState(item);
             aiSelectedMemberIds.forEach(id => { item.allocations[id] = 0; });
-            const qty = getAiItemQty(item);
-            if (aiSelectedMemberIds.length === 0 || qty <= 0) return;
-            for (let i = 0; i < qty; i++) {
-                const targetId = aiSelectedMemberIds[i % aiSelectedMemberIds.length];
-                item.allocations[targetId] += 1;
-            }
+            if (aiSelectedMemberIds.length === 0) return;
+            aiSelectedMemberIds.forEach(id => { item.allocations[id] = 1; });
         }
 
         function toggleAiItemEditor(index) {
@@ -984,15 +965,15 @@
         }
 
         function renderAiItemEditor(index, item, members) {
-            const remainingQty = getAiItemQty(item) - getAiAssignedQty(item);
-            const unitPrice = getAiItemUnitPrice(item);
+            const assignedQty = getAiAssignedQty(item);
+            const sharePrice = getAiItemSharePrice(item);
             return '<div class="ai-edit-panel">' +
                 '<div class="ai-edit-grid">' +
                 '<input type="text" value="' + escapeHtml(item.item || item.name || '') + '" oninput="updateAiItemField(' + index + ', \'item\', this.value)" placeholder="Nama item">' +
                 '<input type="number" min="1" step="1" value="' + getAiItemQty(item) + '" oninput="updateAiItemField(' + index + ', \'qty\', this.value)" placeholder="Qty">' +
                 '<input type="number" min="0" step="100" value="' + Math.round(Number(item.price || 0)) + '" oninput="updateAiItemField(' + index + ', \'price\', this.value)" placeholder="Harga">' +
                 '</div>' +
-                '<div class="ai-helper-text" style="margin-bottom:12px;">Sisa belum dibagi: ' + remainingQty + ' pcs. Harga per pcs sekitar Rp ' + Math.round(unitPrice).toLocaleString('id-ID') + '.</div>' +
+                '<div class="ai-helper-text" style="margin-bottom:12px;">Total ' + getAiItemQty(item) + ' pcs dibagi ke ' + assignedQty + ' bagian. Harga per bagian sekitar Rp ' + Math.round(sharePrice).toLocaleString('id-ID') + '.</div>' +
                 '<div class="ai-member-allocations">' +
                 members.map(u => {
                     const userQty = getAiAllocatedQty(item, u.id);
@@ -1001,7 +982,7 @@
                         '<div class="member-avatar ' + (userQty > 0 ? 'selected' : '') + '">' + u.display_name.charAt(0).toUpperCase() + '</div>' +
                         '<div>' +
                         '<div style="font-weight:600; color:var(--text-primary);">' + escapeHtml(u.display_name) + '</div>' +
-                        '<div class="ai-helper-text">Rp ' + Math.round(unitPrice * userQty).toLocaleString('id-ID') + '</div>' +
+                        '<div class="ai-helper-text">Rp ' + Math.round(sharePrice * userQty).toLocaleString('id-ID') + '</div>' +
                         '</div>' +
                         '</div>' +
                         '<div class="ai-stepper">' +
@@ -1038,8 +1019,6 @@
             if (delta < 0) {
                 item.allocations[userId] = Math.max(0, current + delta);
             } else {
-                const remainingQty = getAiItemQty(item) - getAiAssignedQty(item);
-                if (remainingQty <= 0) return;
                 item.allocations[userId] = current + 1;
             }
             renderAiAssign();
