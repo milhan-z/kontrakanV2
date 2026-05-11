@@ -772,7 +772,7 @@
             <section class="tab-content" id="tab-jastip">
                 <div class="section-head">
                     <div class="section-title"><span class="admin-icon" data-icon="package"></span>Jastip Kontrakan</div>
-                    <button class="btn" onclick="window.location.href='jastip.html'">Buka Jastip</button>
+                    <span class="section-meta">Monitoring admin</span>
                 </div>
                 <div class="toolbar">
                     <select class="form-select" id="jastipStatusFilter">
@@ -849,6 +849,31 @@
                 <div style="display:flex; gap:var(--space-sm); margin-top:var(--space-sm);">
                     <button class="btn btn-full" type="button" onclick="closeModal('addUserModal')">Batal</button>
                     <button class="btn btn-primary btn-full" id="addUserSubmit" type="submit">Tambah</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="editUserModal">
+        <div class="modal admin-modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Edit User</h3>
+            <form id="editUserForm" class="detail-stack">
+                <input type="hidden" id="editUserId">
+                <input class="form-input" id="editUsername" name="username" type="text" autocomplete="off" placeholder="Username" minlength="3" required>
+                <input class="form-input" id="editDisplayName" name="display_name" type="text" autocomplete="name" placeholder="Nama tampilan" required>
+                <input class="form-input" id="editPhoneWa" name="phone_wa" type="tel" autocomplete="tel" placeholder="Nomor WA">
+                <select class="form-select" id="editRole" name="role" required>
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                </select>
+                <select class="form-select" id="editMustChangePassword" name="must_change_password">
+                    <option value="false">Password normal</option>
+                    <option value="true">Wajib ganti password saat login</option>
+                </select>
+                <div style="display:flex; gap:var(--space-sm); margin-top:var(--space-sm);">
+                    <button class="btn btn-full" type="button" onclick="closeModal('editUserModal')">Batal</button>
+                    <button class="btn btn-primary btn-full" id="editUserSubmit" type="submit">Simpan</button>
                 </div>
             </form>
         </div>
@@ -962,6 +987,7 @@
             document.getElementById('logoutBtn').addEventListener('click', logoutAdmin);
             document.getElementById('openAddUserBtn').addEventListener('click', () => openModal('addUserModal'));
             document.getElementById('addUserForm').addEventListener('submit', addNewMember);
+            document.getElementById('editUserForm').addEventListener('submit', updateMember);
             document.getElementById('confirmPasswordResetBtn').addEventListener('click', resetMemberPassword);
             document.getElementById('confirmDeleteUserBtn').addEventListener('click', confirmDeleteMember);
             document.getElementById('confirmResetDataBtn').addEventListener('click', executeResetData);
@@ -974,7 +1000,7 @@
                 document.getElementById(id).addEventListener('change', renderActiveData);
             });
 
-            ['addUserModal', 'resetPasswordModal', 'deleteUserModal', 'detailModal', 'resetDataModal'].forEach(id => {
+            ['addUserModal', 'editUserModal', 'resetPasswordModal', 'deleteUserModal', 'detailModal', 'resetDataModal'].forEach(id => {
                 document.getElementById(id).addEventListener('click', event => {
                     if (event.target.classList.contains('modal-overlay')) closeModal(id);
                 });
@@ -1163,12 +1189,11 @@
                             </div>
                         </div>
                         <div>
-                            ${isAdmin ? '<span class="chip red">Dilindungi</span>' : `
-                                <div class="row-actions">
-                                    <button class="mini-btn yellow" onclick="openResetPasswordModal(${Number(user.id)})">Reset PW</button>
-                                    <button class="mini-btn red" onclick="openDeleteUserModal(${Number(user.id)})">Hapus</button>
-                                </div>
-                            `}
+                            <div class="row-actions">
+                                <button class="mini-btn" onclick="openEditUserModal(${Number(user.id)})">Edit</button>
+                                <button class="mini-btn yellow" onclick="openResetPasswordModal(${Number(user.id)})">Reset PW</button>
+                                ${isAdmin ? '<span class="chip red">Dilindungi</span>' : `<button class="mini-btn red" onclick="openDeleteUserModal(${Number(user.id)})">Hapus</button>`}
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1281,7 +1306,6 @@
                         <div>
                             <div class="amount">${counts.total ? formatCurrency(counts.total) : '-'}</div>
                             <div class="row-actions">
-                                <button class="mini-btn" onclick="window.location.href='jastip.html'">Buka</button>
                                 ${order.status === 'open' ? `<button class="mini-btn yellow" onclick="handleJastipAction(${Number(order.id)}, 'close')">Tutup</button>` : ''}
                                 ${['open', 'closed'].includes(order.status) ? `<button class="mini-btn red" onclick="handleJastipAction(${Number(order.id)}, 'cancel')">Batal</button>` : ''}
                                 ${order.expense_id ? `<button class="mini-btn green" onclick="showTransactionDetail(${Number(order.expense_id)})">Tagihan</button>` : ''}
@@ -1385,6 +1409,58 @@
                 await refreshAdmin({ silent: true });
             } catch (err) {
                 showToast(err.message || 'Gagal menambah member', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function openEditUserModal(userId) {
+            const user = state.users.find(item => Number(item.id) === Number(userId));
+            if (!user) {
+                showToast('User tidak ditemukan', 'error');
+                return;
+            }
+
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUsername').value = user.username || '';
+            document.getElementById('editDisplayName').value = user.display_name || '';
+            document.getElementById('editPhoneWa').value = user.phone_wa || '';
+            const roleSelect = document.getElementById('editRole');
+            roleSelect.value = user.role || 'member';
+            roleSelect.disabled = Number(user.id) === Number(state.user?.id || state.user?.user_id);
+            document.getElementById('editMustChangePassword').value = user.must_change_password ? 'true' : 'false';
+            openModal('editUserModal');
+        }
+
+        async function updateMember(event) {
+            event.preventDefault();
+            const btn = document.getElementById('editUserSubmit');
+            const userId = Number(document.getElementById('editUserId').value);
+            const payload = {
+                user_id: userId,
+                username: document.getElementById('editUsername').value.trim(),
+                display_name: document.getElementById('editDisplayName').value.trim(),
+                phone_wa: document.getElementById('editPhoneWa').value.trim(),
+                role: document.getElementById('editRole').value,
+                must_change_password: document.getElementById('editMustChangePassword').value === 'true'
+            };
+
+            btn.disabled = true;
+            try {
+                const data = await apiPut('admin?action=update-user', payload);
+                const currentId = Number(state.user?.id || state.user?.user_id);
+                if (currentId === userId) {
+                    const updated = data.user || payload;
+                    if (data.token) localStorage.setItem('kontrakan_token', data.token);
+                    state.user = { ...state.user, ...updated };
+                    localStorage.setItem('kontrakan_user', JSON.stringify(state.user));
+                    document.getElementById('adminSubtitle').textContent = `${state.user.display_name || 'Admin'} mengelola sistem`;
+                }
+                closeModal('editUserModal');
+                showToast('User berhasil diperbarui', 'success');
+                await refreshAdmin({ silent: true });
+            } catch (err) {
+                showToast(err.message || 'Gagal update user', 'error');
             } finally {
                 btn.disabled = false;
             }

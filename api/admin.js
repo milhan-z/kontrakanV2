@@ -2,6 +2,7 @@
  * api/admin.js - Admin API
  * GET    ?action=stats              - Statistics
  * POST   ?action=add-user           - Add member
+ * PUT    ?action=update-user        - Update member data
  * PUT    ?action=reset-password     - Reset password
  * DELETE ?action=delete-user&id=X   - Delete user
  * DELETE ?action=clear-expenses     - Clear finance data
@@ -9,7 +10,7 @@
 
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { getDB, setCors, jsonResponse, requireAdmin, getBody, handleOptions } = require('../lib/db');
+const { getDB, setCors, jsonResponse, requireAdmin, getBody, handleOptions, createToken } = require('../lib/db');
 
 module.exports = async function handler(req, res) {
   setCors(res);
@@ -25,6 +26,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'GET'    && action === 'stats')          return getStats(req, res);
   if (req.method === 'POST'   && action === 'add-user')       return addUser(req, res);
+  if (req.method === 'PUT'    && action === 'update-user')    return updateUser(req, res, user);
   if (req.method === 'PUT'    && action === 'reset-password') return resetPassword(req, res);
   if (req.method === 'DELETE' && action === 'delete-user')    return deleteUser(req, res);
   if (req.method === 'DELETE' && action === 'clear-expenses') return clearExpenses(req, res);
@@ -109,7 +111,7 @@ async function addUser(req, res) {
   }
 
   const db = getDB();
-  await ensureUserSecurityColumns(db);
+  await ensureUserColumns(db);
   const existing = await db.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [normalizedUsername]);
   if (existing.rows.length > 0) {
     return jsonResponse(res, { error: 'Username sudah digunakan' }, 400);
@@ -128,13 +130,101 @@ async function addUser(req, res) {
   }, 201);
 }
 
+async function updateUser(req, res, adminUser) {
+  const input = await getBody(req);
+  const userId = parseInt(input.user_id || input.id || '0', 10);
+  if (!userId) return jsonResponse(res, { error: 'User ID required' }, 400);
+
+  const normalizedUsername = String(input.username || '').trim().toLowerCase();
+  const normalizedDisplayName = String(input.display_name || '').trim();
+  const phoneWa = String(input.phone_wa || '').trim() || null;
+  const role = String(input.role || '').trim().toLowerCase();
+  const mustChangePassword = Boolean(input.must_change_password);
+
+  if (!normalizedUsername || !normalizedDisplayName || !role) {
+    return jsonResponse(res, { error: 'Username, nama tampilan, dan role harus diisi' }, 400);
+  }
+  if (normalizedUsername.length < 3) return jsonResponse(res, { error: 'Username minimal 3 karakter' }, 400);
+  if (!/^[a-z0-9._-]+$/.test(normalizedUsername)) {
+    return jsonResponse(res, { error: 'Username hanya boleh huruf kecil, angka, titik, underscore, atau strip' }, 400);
+  }
+  if (normalizedDisplayName.length > 100) {
+    return jsonResponse(res, { error: 'Nama tampilan maksimal 100 karakter' }, 400);
+  }
+  if (phoneWa && phoneWa.length > 20) {
+    return jsonResponse(res, { error: 'Nomor WA maksimal 20 karakter' }, 400);
+  }
+  if (!['admin', 'member'].includes(role)) {
+    return jsonResponse(res, { error: 'Role tidak valid' }, 400);
+  }
+
+  const db = getDB();
+  await ensureUserColumns(db);
+
+  const currentResult = await db.query(
+    'SELECT id, username, display_name, phone_wa, role, COALESCE(must_change_password, FALSE) AS must_change_password FROM users WHERE id = $1',
+    [userId]
+  );
+  const current = currentResult.rows[0];
+  if (!current) return jsonResponse(res, { error: 'User tidak ditemukan' }, 404);
+
+  const duplicate = await db.query(
+    'SELECT id FROM users WHERE LOWER(username) = LOWER($1) AND id != $2 LIMIT 1',
+    [normalizedUsername, userId]
+  );
+  if (duplicate.rows.length > 0) {
+    return jsonResponse(res, { error: 'Username sudah digunakan user lain' }, 400);
+  }
+
+  if (userId === adminUser.user_id && role !== current.role) {
+    return jsonResponse(res, { error: 'Tidak bisa mengubah role akun admin yang sedang dipakai' }, 400);
+  }
+
+  if (current.role === 'admin' && role !== 'admin') {
+    const adminCount = await db.query("SELECT COUNT(*) AS count FROM users WHERE role = 'admin'");
+    if (parseInt(adminCount.rows[0].count, 10) <= 1) {
+      return jsonResponse(res, { error: 'Minimal harus ada satu admin' }, 400);
+    }
+  }
+
+  const result = await db.query(
+    `UPDATE users
+     SET username = $1,
+         display_name = $2,
+         phone_wa = $3,
+         role = $4,
+         must_change_password = $5
+     WHERE id = $6
+     RETURNING id, username, display_name, phone_wa, role, COALESCE(must_change_password, FALSE) AS must_change_password`,
+    [normalizedUsername, normalizedDisplayName, phoneWa, role, mustChangePassword, userId]
+  );
+  const updatedUser = result.rows[0];
+
+  let token = null;
+  if (userId === adminUser.user_id) {
+    token = createToken({
+      user_id: updatedUser.id,
+      role: updatedUser.role,
+      display_name: updatedUser.display_name,
+    });
+    res.setHeader('Set-Cookie', `token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${60*60*24*30}`);
+  }
+
+  return jsonResponse(res, {
+    success: true,
+    message: 'User berhasil diperbarui',
+    user: updatedUser,
+    token,
+  });
+}
+
 async function resetPassword(req, res) {
   const input = await getBody(req);
   const userId = parseInt(input.user_id || '0');
   if (!userId) return jsonResponse(res, { error: 'User ID required' }, 400);
 
   const db = getDB();
-  await ensureUserSecurityColumns(db);
+  await ensureUserColumns(db);
 
   const temporaryPassword = generateTemporaryPassword();
   const hash = await bcrypt.hash(temporaryPassword, 10);
@@ -257,10 +347,14 @@ async function resetData(req, res) {
   }
 }
 
-async function ensureUserSecurityColumns(db) {
+async function ensureUserColumns(db) {
   await db.query(`
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+  await db.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS phone_wa VARCHAR(20) DEFAULT NULL
   `);
 }
 
