@@ -383,7 +383,7 @@
                 const total = items
                     .filter(item => item.status === 'bought')
                     .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
-                const canComplete = canManage && ['open','closed'].includes(order.status) && pendingCount === 0 && boughtCount > 0;
+                const canComplete = canManage && ['open','closed'].includes(order.status) && items.length > 0 && pendingCount === 0;
 
                 return `
                     <div class="jastip-card ${order.status}">
@@ -417,7 +417,7 @@
                             ${canManage && ['open','closed'].includes(order.status) ? `<button class="btn btn-danger" onclick="cancelJastip(${order.id})">Batal</button>` : ''}
                             ${order.expense_id ? `<a class="btn" href="history.html" style="text-decoration:none;">Lihat Tagihan</a>` : ''}
                         </div>
-                        ${canManage && ['open','closed'].includes(order.status) && !canComplete ? `<div class="text-muted" style="font-size:0.72rem; margin-top:8px;">Selesaikan setelah semua nitipan dicek dan minimal satu barang ditandai ada.</div>` : ''}
+                        ${canManage && ['open','closed'].includes(order.status) && !canComplete ? `<div class="text-muted" style="font-size:0.72rem; margin-top:8px;">Selesaikan setelah semua nitipan dicek. Kalau semuanya kosong, jastip selesai tanpa tagihan.</div>` : ''}
                     </div>
                 `;
             }).join('');

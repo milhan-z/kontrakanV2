@@ -322,7 +322,31 @@ async function completeOrder(req, res, user, db) {
     }
 
     const boughtItems = itemsResult.rows.filter(item => item.status === 'bought');
-    if (boughtItems.length === 0) throw new Error('Belum ada barang yang ditandai ada');
+    if (boughtItems.length === 0) {
+      await client.query(
+        `UPDATE jastip_orders
+         SET status = 'completed', completed_at = NOW(), closed_at = COALESCE(closed_at, NOW()), expense_id = NULL
+         WHERE id = $1`,
+        [id]
+      );
+
+      const participantIds = [...new Set(itemsResult.rows.map(item => item.user_id).filter(id => id !== currentOrder.opened_by))];
+      for (const participantId of participantIds) {
+        await client.query(
+          `INSERT INTO notifications (user_id, title, message, type, related_id)
+           VALUES ($1, 'Jastip Selesai', $2, 'info', $3)`,
+          [participantId, `Jastip ${currentOrder.title} selesai. Tidak ada barang yang terbeli, jadi tidak ada tagihan.`, currentOrder.id]
+        );
+        pushJobs.push(
+          sendPushNotification(participantId, 'Jastip Selesai', `Tidak ada tagihan untuk jastip ${currentOrder.title}`, '/jastip.html')
+            .catch(err => console.error('Failed to send empty jastip push:', err))
+        );
+      }
+
+      await client.query('COMMIT');
+      await Promise.allSettled(pushJobs);
+      return jsonResponse(res, { success: true, expense_id: null, amount: 0 });
+    }
 
     const splitMap = new Map();
     let totalAmount = 0;
