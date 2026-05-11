@@ -619,6 +619,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let pushPublicKeyPromise = null;
 let pushAvailability = { checked: false, enabled: true, message: '' };
 let pushSyncInFlight = null;
+let pushSuccessShown = false;
 
 function isIosDevice() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -717,20 +718,22 @@ async function unsubscribeFromPush() {
     return true;
 }
 
-async function subscribeToPush() {
+async function subscribeToPush(options = {}) {
+    const { silent = false } = options;
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-        showToast('Browser ini belum mendukung notifikasi push.', 'error');
+        if (!silent) showToast('Browser ini belum mendukung notifikasi push.', 'error');
         return false;
     }
 
     if (isIosDevice() && !isStandalonePwa()) {
-        showToast('Di iPhone, buka dari Home Screen dulu lalu aktifkan notif.', 'info');
+        if (!silent) showToast('Di iPhone, buka dari Home Screen dulu lalu aktifkan notif.', 'info');
         return false;
     }
 
     try {
         const registration = await navigator.serviceWorker.ready;
         let subscription = await registration.pushManager.getSubscription();
+        const alreadySubscribed = !!subscription;
 
         if (!subscription) {
             const publicKey = await getPushPublicKey();
@@ -742,16 +745,21 @@ async function subscribeToPush() {
 
         await apiPost('push', { subscription });
         await updatePushUi();
-        showToast('Notifikasi HP berhasil diaktifkan.', 'success');
+        if (!silent && (!alreadySubscribed || !pushSuccessShown)) {
+            showToast('Notifikasi HP berhasil diaktifkan.', 'success');
+            pushSuccessShown = true;
+        }
         return true;
     } catch (err) {
         console.error('Failed to subscribe to push:', err);
-        showToast(err.message || 'Gagal mengaktifkan notif HP. Coba refresh lalu ulangi.', 'error');
+        if (!silent) {
+            showToast(err.message || 'Gagal mengaktifkan notif HP. Coba refresh lalu ulangi.', 'error');
+        }
         return false;
     }
 }
 
-async function syncPushSubscription() {
+async function syncPushSubscription(silent = true) {
     if (!state.user || !('Notification' in window)) return false;
     if (Notification.permission !== 'granted') {
         await updatePushUi();
@@ -761,7 +769,7 @@ async function syncPushSubscription() {
         return false;
     }
     if (!pushSyncInFlight) {
-        pushSyncInFlight = subscribeToPush().finally(() => {
+        pushSyncInFlight = subscribeToPush({ silent }).finally(() => {
             pushSyncInFlight = null;
         });
     }
@@ -797,7 +805,7 @@ async function requestNotificationPermission() {
     }
 
     if (Notification.permission === 'granted') {
-        return syncPushSubscription();
+        return syncPushSubscription(false);
     }
 
     if (Notification.permission === 'denied') {
@@ -807,7 +815,7 @@ async function requestNotificationPermission() {
 
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-        return syncPushSubscription();
+        return syncPushSubscription(false);
     }
 
     showToast('Izin notifikasi belum diberikan.', 'info');

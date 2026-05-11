@@ -104,17 +104,24 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- App settings / one-time migration flags
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- =========================================
 -- Default Users
 -- Setelah import schema, ganti password tiap user dari admin panel
 -- atau set hash milikmu sendiri sebelum dipakai di production.
 -- =========================================
-INSERT INTO users (username, password_hash, display_name, role) VALUES
-('hilman', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Hilman', 'admin'),
-('arkan',  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Arkan', 'member'),
-('rafli',  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Rafli', 'member'),
-('rafi',   '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Rafi', 'member'),
-('kahfi',  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Kahfi', 'member'),
-('alromy', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Al Romy', 'member'),
-('lutfan', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Lutfan', 'member')
+INSERT INTO users (username, password_hash, display_name, role, must_change_password) VALUES
+('admin', '$2a$10$MN7Wy0PwAT5yCCMVID.b4uOj5EcA90/n7ezHEVBu3t4YUKsiIvmfC', 'Hilman', 'admin', FALSE),
+('arkan',  '$2a$10$shj1n0fgpSesySekx7B0ueQPQbcQ5zYuMs81wvy0a1vEusOnGiQk2', 'Arkan', 'member', FALSE),
+('rafli',  '$2a$10$shj1n0fgpSesySekx7B0ueQPQbcQ5zYuMs81wvy0a1vEusOnGiQk2', 'Rafli', 'member', FALSE),
+('rafi',   '$2a$10$shj1n0fgpSesySekx7B0ueQPQbcQ5zYuMs81wvy0a1vEusOnGiQk2', 'Rafi', 'member', FALSE),
+('kahfi',  '$2a$10$shj1n0fgpSesySekx7B0ueQPQbcQ5zYuMs81wvy0a1vEusOnGiQk2', 'Kahfi', 'member', FALSE),
+('alromy', '$2a$10$shj1n0fgpSesySekx7B0ueQPQbcQ5zYuMs81wvy0a1vEusOnGiQk2', 'Al Romy', 'member', FALSE),
+('lutfan', '$2a$10$shj1n0fgpSesySekx7B0ueQPQbcQ5zYuMs81wvy0a1vEusOnGiQk2', 'Lutfan', 'member', FALSE)
 ON CONFLICT (username) DO NOTHING;
