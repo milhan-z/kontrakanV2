@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kontrakan-v15';
+const CACHE_NAME = 'kontrakan-v16';
 const STATIC_ASSETS = [
     '/',
     '/login.html',
@@ -12,27 +12,37 @@ const STATIC_ASSETS = [
     '/css/style.css',
     '/js/app.js',
     '/js/settle-click-fix.js',
+    '/js/jastip-ux-fix.js',
     '/manifest.json',
     '/icons/icon-512.png',
     '/apple-touch-icon.png'
 ];
 
-function shouldInjectSettleFix(url) {
-    return url.pathname === '/settle.html' || url.pathname.endsWith('/settle.html');
+function getPageFixScript(url) {
+    if (url.pathname === '/settle.html' || url.pathname.endsWith('/settle.html')) {
+        return '<script src="/js/settle-click-fix.js?v=15"></scr' + 'ipt>';
+    }
+    if (url.pathname === '/jastip.html' || url.pathname.endsWith('/jastip.html')) {
+        return '<script src="/js/jastip-ux-fix.js?v=1"></scr' + 'ipt>';
+    }
+    return '';
 }
 
-async function injectSettleFix(request, response) {
+async function injectPageFix(request, response, url) {
     if (!response || response.status !== 200) return response;
 
     const contentType = response.headers.get('content-type') || '';
     if (!contentType.includes('text/html')) return response;
 
-    const html = await response.clone().text();
-    const scriptTag = '<script src="/js/settle-click-fix.js?v=15"></scr' + 'ipt>';
+    const scriptTag = getPageFixScript(url);
+    if (!scriptTag) return response;
 
+    const html = await response.clone().text();
     let fixedHtml = html
         .replace(/<script\s+src=["']\/js\/settle-click-fix\.js(?:\?v=\d+)?["']><\/script>/g, '')
-        .replace(/<script\s+src=["']js\/settle-click-fix\.js(?:\?v=\d+)?["']><\/script>/g, '');
+        .replace(/<script\s+src=["']js\/settle-click-fix\.js(?:\?v=\d+)?["']><\/script>/g, '')
+        .replace(/<script\s+src=["']\/js\/jastip-ux-fix\.js(?:\?v=\d+)?["']><\/script>/g, '')
+        .replace(/<script\s+src=["']js\/jastip-ux-fix\.js(?:\?v=\d+)?["']><\/script>/g, '');
 
     fixedHtml = fixedHtml.includes('</body>')
         ? fixedHtml.replace('</body>', scriptTag + '\n</body>')
@@ -76,11 +86,9 @@ self.addEventListener('fetch', event => {
         fetch(request)
             .then(async response => {
                 let responseToReturn = response;
-
-                if (shouldInjectSettleFix(url)) {
-                    responseToReturn = await injectSettleFix(request, response);
+                if (getPageFixScript(url)) {
+                    responseToReturn = await injectPageFix(request, response, url);
                 }
-
                 if (
                     responseToReturn &&
                     responseToReturn.status === 200 &&
