@@ -1,10 +1,17 @@
 (function () {
     if (!/settle\.html$/.test(window.location.pathname)) return;
-    if (window.__settleClickFixV13Loaded) return;
-    window.__settleClickFixV13Loaded = true;
+    if (window.__settleClickFixV14Loaded) return;
+    window.__settleClickFixV14Loaded = true;
 
     let currentDebtContext = null;
     let patchInFlight = null;
+
+    function getAppState() {
+        try {
+            if (typeof state !== 'undefined') return state;
+        } catch (_) {}
+        return window.state || null;
+    }
 
     function rupiahToNumber(text) {
         const cleaned = String(text || '').replace(/[^0-9]/g, '');
@@ -57,9 +64,10 @@
         const label = content.querySelector('.amount-label');
         const labelText = label ? label.textContent.trim() : '';
         const name = labelText.replace(/^ke\s+/i, '').trim();
-        if (!name || !window.state || !Array.isArray(state.users)) return null;
+        const appState = getAppState();
+        if (!name || !appState || !Array.isArray(appState.users)) return null;
 
-        const user = state.users.find(function (u) {
+        const user = appState.users.find(function (u) {
             return String(u.display_name || '').trim() === name;
         });
         if (!user) return null;
@@ -164,11 +172,13 @@
 
     async function fetchDebtDetails() {
         const ctx = inferDebtContextFromOpenModal();
-        if (!ctx || !ctx.creditorId || !window.state || !state.user) return null;
-        const endpoint = `debt_details?creditor_id=${ctx.creditorId}&debtor_id=${state.user.id}`;
+        const appState = getAppState();
+        if (!ctx || !ctx.creditorId || !appState || !appState.user) return null;
+        const endpoint = `debt_details?creditor_id=${ctx.creditorId}&debtor_id=${appState.user.id}`;
         if (typeof window.apiGetFresh === 'function') return window.apiGetFresh(endpoint);
 
-        const res = await fetch(`${window.API_BASE || '/api'}/${endpoint}&_=${Date.now()}`, { cache: 'no-store' });
+        const apiBase = (typeof API_BASE !== 'undefined') ? API_BASE : (window.API_BASE || '/api');
+        const res = await fetch(`${apiBase}/${endpoint}&_=${Date.now()}`, { cache: 'no-store' });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Gagal memuat detail hutang');
         return data;
