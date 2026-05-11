@@ -106,10 +106,11 @@ function updateThemeIcons() {
 }
 
 // ==================== Feature Tour ====================
-const FEATURE_TOUR_VERSION = 'v1';
+const FEATURE_TOUR_VERSION = 'v2';
 let featureTourIndex = 0;
 let featureTourSteps = [];
 let featureTourManual = false;
+let featureTourLayoutQueued = false;
 
 function getCurrentPageName() {
     return window.location.pathname.split('/').pop() || 'dashboard.html';
@@ -126,43 +127,50 @@ function getFeatureTourSteps() {
             eyebrow: 'Mulai dari Home',
             title: 'Pantau hutang, piutang, dan kabar kontrakan',
             body: 'Dashboard adalah ringkasan harian: saldo hutang/piutang, info terbaru, tombol tambah transaksi, dan banner jastip yang sedang open.',
-            action: 'Gunakan tombol plus untuk catat pengeluaran baru.'
+            action: 'Area ini jadi titik awal sebelum kamu masuk ke fitur lain.',
+            target: ['.home-header', '.page-header']
         },
         {
             eyebrow: 'Tambah Transaksi',
             title: 'Catat patungan dan split bill',
             body: 'Masukkan total belanja, pilih siapa yang bayar, lalu tentukan siapa saja yang ikut. Untuk split bill detail, item bisa dibagi per orang atau per porsi.',
-            action: 'Cocok untuk makan bareng, listrik, galon, dan belanja kontrakan.'
+            action: 'Tekan tombol plus untuk mulai catat pengeluaran baru.',
+            target: ['.fab', 'a[href="add-expense.html"]']
         },
         {
             eyebrow: 'Bayar & Tagih',
             title: 'Selesaikan hutang tanpa hitung manual',
             body: 'Halaman Bayar menampilkan saran pembayaran paling ringkas. Info rekening, e-wallet, dan QRIS diambil dari Profil penerima.',
-            action: 'Setelah transfer, catat pembayaran supaya saldo semua orang ikut update.'
+            action: 'Buka menu Bayar atau tombol Bayar/Tagih di kartu saldo.',
+            target: ['.bottom-nav a[href="settle.html"]', '.balance-cards']
         },
         {
             eyebrow: 'Jastip Kontrakan',
             title: 'Open jastip dan kumpulkan titipan teman',
             body: 'Saat ada yang open jastip, teman kontrakan dapat notif. Mereka bisa titip beberapa item sekaligus, lalu owner mengisi hasil belanja dan harga.',
-            action: 'Kalau jastip selesai, sistem otomatis membuat tagihan.'
+            action: 'Buka menu Jastip. Kalau sedang ada yang open, bannernya juga muncul di dashboard.',
+            target: ['#activeJastipBanner.show', '.bottom-nav a[href="jastip.html"]', '#openJastipButton']
         },
         {
             eyebrow: 'Riwayat',
             title: 'Cek transaksi dan jastip dalam satu timeline',
             body: 'Riwayat menyatukan transaksi biasa dan jastip. Pakai filter kategori, pencarian, dan tanggal untuk menemukan catatan lama.',
-            action: 'Ketuk kartu untuk melihat detail split dan item.'
+            action: 'Ketuk kartu riwayat untuk melihat detail split dan item.',
+            target: ['.bottom-nav a[href="history.html"]', '#transactionList']
         },
         {
             eyebrow: 'Notifikasi HP',
             title: 'Aktifkan push supaya tidak kelewat kabar',
             body: 'Push dipakai untuk jastip baru, tagihan, dan update penting. Di iPhone, buka app dari Home Screen dulu sebelum mengaktifkan notifikasi.',
-            action: 'Aktifkan dari Profil kapan saja.'
+            action: 'Dari Profil, tekan tombol Aktifkan Notif HP.',
+            target: ['#enablePushBtn', 'a[href="notifications.html"]']
         },
         {
             eyebrow: 'Profil',
             title: 'Lengkapi data pembayaranmu',
             body: 'Isi nomor WhatsApp, rekening bank, e-wallet, dan QRIS. Data ini muncul saat teman mau bayar hutang ke kamu.',
-            action: 'Kamu juga bisa membuka tour ini lagi dari Profil.'
+            action: 'Nomor WA yang sudah tersimpan sekarang langsung kelihatan di kartu profil.',
+            target: ['#phoneWa', '.bottom-nav a[href="profile.html"]']
         }
     ];
 
@@ -171,7 +179,8 @@ function getFeatureTourSteps() {
             eyebrow: 'Admin',
             title: 'Kelola user dan data kontrakan',
             body: 'Admin panel dipakai untuk reset password, edit user, cek transaksi, hapus data bermasalah, dan monitoring jastip.',
-            action: 'Gunakan hati-hati karena beberapa aksi menghapus data.'
+            action: 'Admin panel muncul di Profil khusus akun admin.',
+            target: ['#adminSection a', 'a[href="admin.html"]']
         });
     }
 
@@ -190,8 +199,26 @@ function queueAutoFeatureTour() {
     }, 1100);
 }
 
+function queuePendingManualFeatureTour() {
+    if (!state.user || state.user.must_change_password) return false;
+    if (sessionStorage.getItem('kontrakan_start_feature_tour') !== '1') return false;
+    sessionStorage.removeItem('kontrakan_start_feature_tour');
+    setTimeout(() => {
+        if (state.user && !document.querySelector('.feature-tour-overlay.active')) {
+            startFeatureTour({ manual: true, stayOnPage: true });
+        }
+    }, 700);
+    return true;
+}
+
 function startFeatureTour(options = {}) {
     featureTourManual = Boolean(options.manual);
+    const page = getCurrentPageName();
+    if (featureTourManual && !options.stayOnPage && !['dashboard.html', ''].includes(page)) {
+        sessionStorage.setItem('kontrakan_start_feature_tour', '1');
+        window.location.href = 'dashboard.html?tour=1';
+        return;
+    }
     featureTourSteps = getFeatureTourSteps();
     featureTourIndex = 0;
     renderFeatureTour();
@@ -201,6 +228,7 @@ function finishFeatureTour(markDone = true) {
     const overlay = document.getElementById('featureTourOverlay');
     if (overlay) overlay.classList.remove('active');
     document.body.classList.remove('tour-open');
+    removeFeatureTourListeners();
     if (markDone && state.user) {
         localStorage.setItem(getFeatureTourKey(), 'done');
     }
@@ -226,9 +254,15 @@ function renderFeatureTour() {
         document.body.appendChild(overlay);
     }
 
+    const target = resolveFeatureTourTarget(step);
+    if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }
+
     const isFirst = featureTourIndex === 0;
     const isLast = featureTourIndex === featureTourSteps.length - 1;
     overlay.innerHTML = `
+        <div class="feature-tour-spotlight" aria-hidden="true"></div>
         <div class="feature-tour-card" role="dialog" aria-modal="true" aria-labelledby="featureTourTitle">
             <div class="feature-tour-top">
                 <span class="feature-tour-kicker">${escapeHtml(step.eyebrow)}</span>
@@ -252,6 +286,110 @@ function renderFeatureTour() {
     `;
     overlay.classList.add('active');
     document.body.classList.add('tour-open');
+    addFeatureTourListeners();
+    scheduleFeatureTourLayout();
+}
+
+function getFeatureTourSelectorList(step) {
+    if (!step?.target) return [];
+    return Array.isArray(step.target) ? step.target : [step.target];
+}
+
+function isFeatureTourElementVisible(element) {
+    if (!element) return false;
+    const rect = element.getBoundingClientRect();
+    const style = window.getComputedStyle(element);
+    return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+}
+
+function resolveFeatureTourTarget(step) {
+    for (const selector of getFeatureTourSelectorList(step)) {
+        const matches = document.querySelectorAll(selector);
+        for (const element of matches) {
+            if (isFeatureTourElementVisible(element)) return element;
+        }
+    }
+    return null;
+}
+
+function scheduleFeatureTourLayout() {
+    if (featureTourLayoutQueued) return;
+    featureTourLayoutQueued = true;
+    requestAnimationFrame(() => {
+        featureTourLayoutQueued = false;
+        positionFeatureTour();
+        setTimeout(positionFeatureTour, 260);
+    });
+}
+
+function clampNumber(value, min, max) {
+    if (max < min) return min;
+    return Math.min(Math.max(value, min), max);
+}
+
+function positionFeatureTour() {
+    const overlay = document.getElementById('featureTourOverlay');
+    if (!overlay?.classList.contains('active')) return;
+
+    const step = featureTourSteps[featureTourIndex];
+    const card = overlay.querySelector('.feature-tour-card');
+    const spotlight = overlay.querySelector('.feature-tour-spotlight');
+    if (!card || !spotlight || !step) return;
+
+    const target = resolveFeatureTourTarget(step);
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const gap = 14;
+    const edge = 16;
+    const cardWidth = Math.min(460, viewportWidth - edge * 2);
+
+    card.style.width = `${cardWidth}px`;
+    card.style.left = `${edge}px`;
+    card.style.top = '';
+    card.style.bottom = `calc(${edge}px + env(safe-area-inset-bottom))`;
+
+    if (!target) {
+        spotlight.classList.remove('active');
+        return;
+    }
+
+    const rect = target.getBoundingClientRect();
+    const padding = Math.min(12, Math.max(7, Math.round(Math.min(rect.width, rect.height) * 0.16)));
+    const highlightTop = clampNumber(rect.top - padding, 8, viewportHeight - 20);
+    const highlightLeft = clampNumber(rect.left - padding, 8, viewportWidth - 20);
+    const highlightRight = clampNumber(rect.right + padding, 20, viewportWidth - 8);
+    const highlightBottom = clampNumber(rect.bottom + padding, 20, viewportHeight - 8);
+    const highlightWidth = Math.max(24, highlightRight - highlightLeft);
+    const highlightHeight = Math.max(24, highlightBottom - highlightTop);
+
+    spotlight.style.top = `${highlightTop}px`;
+    spotlight.style.left = `${highlightLeft}px`;
+    spotlight.style.width = `${highlightWidth}px`;
+    spotlight.style.height = `${highlightHeight}px`;
+    spotlight.classList.add('active');
+
+    const cardHeight = card.offsetHeight || 260;
+    const availableBelow = viewportHeight - highlightBottom - gap - edge;
+    const availableAbove = highlightTop - gap - edge;
+    const cardTop = availableBelow >= cardHeight || availableBelow >= availableAbove
+        ? clampNumber(highlightBottom + gap, edge, viewportHeight - cardHeight - edge)
+        : clampNumber(highlightTop - cardHeight - gap, edge, viewportHeight - cardHeight - edge);
+    const targetCenter = highlightLeft + (highlightWidth / 2);
+    const cardLeft = clampNumber(targetCenter - (cardWidth / 2), edge, viewportWidth - cardWidth - edge);
+
+    card.style.left = `${cardLeft}px`;
+    card.style.top = `${cardTop}px`;
+    card.style.bottom = 'auto';
+}
+
+function addFeatureTourListeners() {
+    window.addEventListener('resize', scheduleFeatureTourLayout);
+    window.addEventListener('scroll', scheduleFeatureTourLayout, true);
+}
+
+function removeFeatureTourListeners() {
+    window.removeEventListener('resize', scheduleFeatureTourLayout);
+    window.removeEventListener('scroll', scheduleFeatureTourLayout, true);
 }
 
 document.addEventListener('keydown', (event) => {
@@ -392,7 +530,7 @@ async function checkAuth() {
             }
             setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
             setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
-            queueAutoFeatureTour();
+            if (!queuePendingManualFeatureTour()) queueAutoFeatureTour();
             return true;
         }
         // Fallback: verifikasi ke server
@@ -405,7 +543,7 @@ async function checkAuth() {
             }
             setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
             setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
-            queueAutoFeatureTour();
+            if (!queuePendingManualFeatureTour()) queueAutoFeatureTour();
             return true;
         }
         return false;
@@ -432,7 +570,7 @@ async function login(username, password) {
     }
     setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
     setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
-    queueAutoFeatureTour();
+    if (!queuePendingManualFeatureTour()) queueAutoFeatureTour();
     return data;
 }
 

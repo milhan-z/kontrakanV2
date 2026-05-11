@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kontrakan-v24';
+const CACHE_NAME = 'kontrakan-v25';
 const STATIC_ASSETS = [
     '/',
     '/login.html',

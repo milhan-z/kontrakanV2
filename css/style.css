@@ -888,13 +888,7 @@ body.tour-open {
     position: fixed;
     inset: 0;
     z-index: 3200;
-    display: flex;
-    align-items: flex-end;
-    justify-content: center;
-    padding: var(--space-md);
-    padding-bottom: calc(var(--space-md) + env(safe-area-inset-bottom));
-    background: rgba(0, 0, 0, 0.68);
-    backdrop-filter: blur(10px);
+    pointer-events: auto;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.2s ease, visibility 0.2s ease;
@@ -905,15 +899,32 @@ body.tour-open {
     visibility: visible;
 }
 
+.feature-tour-spotlight {
+    position: fixed;
+    border: 2px solid var(--green);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.68), 0 0 0 8px rgba(34, 197, 94, 0.14), var(--glow-green, 0 18px 45px rgba(34, 197, 94, 0.18));
+    opacity: 0;
+    transition: top 0.24s ease, left 0.24s ease, width 0.24s ease, height 0.24s ease, opacity 0.18s ease;
+}
+
+.feature-tour-spotlight.active {
+    opacity: 1;
+}
+
 .feature-tour-card {
-    width: min(100%, 460px);
+    position: fixed;
+    width: min(calc(100vw - 32px), 460px);
+    max-height: min(74vh, 560px);
+    overflow: auto;
+    pointer-events: auto;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     background: var(--bg-card);
     box-shadow: var(--shadow-lg);
     padding: var(--space-lg);
-    transform: translateY(18px);
-    transition: transform 0.24s ease;
+    transform: translateY(10px);
+    transition: top 0.24s ease, left 0.24s ease, transform 0.24s ease;
 }
 
 .feature-tour-overlay.active .feature-tour-card {
@@ -1001,8 +1012,8 @@ body.tour-open {
 }
 
 @media (min-width: 720px) {
-    .feature-tour-overlay {
-        align-items: center;
+    .feature-tour-card {
+        max-height: min(70vh, 560px);
     }
 }
 

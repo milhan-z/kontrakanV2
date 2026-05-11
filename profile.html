@@ -46,6 +46,7 @@
             <div style="flex: 1;">
                 <h3 id="profileName" style="margin: 0; font-size: 1rem;">Loading...</h3>
                 <p class="text-muted" id="profileRole" style="font-size: 0.75rem; margin: 0;">-</p>
+                <p class="text-muted" id="profileWaSummary" style="font-size: 0.75rem; margin: 2px 0 0;">WA belum diisi</p>
             </div>
             <button class="btn btn-danger" style="padding: var(--space-xs) var(--space-sm); font-size: 0.75rem;"
                 id="logoutBtn">Keluar</button>
@@ -288,6 +289,7 @@
             document.getElementById('profileRole').textContent = state.user.role === 'admin' ? 'Administrator' : 'Member';
             document.getElementById('displayName').value = state.user.display_name;
             document.getElementById('phoneWa').value = state.user.phone_wa || '';
+            renderProfileSummary();
 
             if (state.user.must_change_password) {
                 showToast('Password sementara aktif. Ubah password sebelum lanjut pakai aplikasi.', 'info');
@@ -465,13 +467,27 @@
         // Profile settings
         document.getElementById('saveProfileBtn').addEventListener('click', async () => {
             try {
+                const displayName = document.getElementById('displayName').value.trim();
+                const phoneWa = document.getElementById('phoneWa').value.trim();
                 await apiPut('users', {
-                    display_name: document.getElementById('displayName').value.trim(),
-                    phone_wa: document.getElementById('phoneWa').value.trim()
+                    display_name: displayName,
+                    phone_wa: phoneWa
                 });
+                state.user.display_name = displayName;
+                state.user.phone_wa = phoneWa;
+                localStorage.setItem('kontrakan_user', JSON.stringify(state.user));
+                renderProfileSummary();
                 showToast('Tersimpan', 'success');
             } catch { showToast('Gagal', 'error'); }
         });
+
+        function renderProfileSummary() {
+            const name = state.user?.display_name || '-';
+            const phone = state.user?.phone_wa || '';
+            document.getElementById('profileName').textContent = name;
+            document.getElementById('profileAvatar').textContent = getUserInitials(name);
+            document.getElementById('profileWaSummary').textContent = phone ? `WA: ${phone}` : 'WA belum diisi';
+        }
 
         // Password change
         document.getElementById('passwordForm').addEventListener('submit', async (e) => {
