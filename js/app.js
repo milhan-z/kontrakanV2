@@ -114,7 +114,7 @@ const _cacheTTL = {
   'info':          60 * 1000,
   'notifications': 20 * 1000,
   'settlements':   45 * 1000,
-  'jastip':         20 * 1000,
+  'jastip':         5 * 1000,
   'payment_info':  60 * 1000,
 };
 
@@ -156,9 +156,14 @@ function _invalidateCache(endpoints = []) {
 async function api(endpoint, options = {}) {
     const url = `${API_BASE}/${endpoint}`;
     const method = (options.method || 'GET').toUpperCase();
+    const skipCache = !!options.skipCache;
+    if ('skipCache' in options) {
+        options = { ...options };
+        delete options.skipCache;
+    }
 
     // Serve GET requests from cache
-    if (method === 'GET') {
+    if (method === 'GET' && !skipCache) {
         const cached = _getCache(url);
         if (cached) return cached;
     }
@@ -188,7 +193,7 @@ async function api(endpoint, options = {}) {
         if (!response.ok) throw new Error(data.error || 'Request failed');
 
         // Cache successful GET responses
-        if (method === 'GET') _setCache(url, data);
+        if (method === 'GET' && !skipCache) _setCache(url, data);
 
         // Invalidate related caches on mutations
         if (['POST','PUT','DELETE'].includes(method)) {
@@ -209,6 +214,7 @@ async function api(endpoint, options = {}) {
 }
 
 async function apiGet(endpoint) { return api(endpoint); }
+async function apiGetFresh(endpoint) { return api(endpoint, { skipCache: true }); }
 async function apiPost(endpoint, body) { return api(endpoint, { method: 'POST', body: JSON.stringify(body) }); }
 async function apiPut(endpoint, body) { return api(endpoint, { method: 'PUT', body: JSON.stringify(body) }); }
 async function apiDelete(endpoint) { return api(endpoint, { method: 'DELETE' }); }
@@ -600,7 +606,7 @@ let activeJastipRefreshInFlight = null;
 
 function shouldShowActiveJastipBanner() {
     const currentPage = window.location.pathname.split('/').pop() || 'dashboard.html';
-    if (['login.html', 'index.html', 'maintenance.html', 'admin.html'].includes(currentPage)) return false;
+    if (currentPage !== 'dashboard.html') return false;
     if (!localStorage.getItem('kontrakan_token')) return false;
     return !!document.querySelector('.bottom-nav');
 }
@@ -690,7 +696,7 @@ function initActiveJastipBanner() {
     if (!activeJastipRefreshTimer) {
         activeJastipRefreshTimer = setInterval(() => {
             if (document.visibilityState === 'visible') refreshActiveJastipBanner();
-        }, 25000);
+        }, 12000);
     }
 
     document.addEventListener('visibilitychange', () => {

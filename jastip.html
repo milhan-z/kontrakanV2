@@ -22,6 +22,55 @@
             padding: var(--space-md);
             margin-bottom: var(--space-md);
             box-shadow: var(--shadow-sm);
+            position: relative;
+            overflow: hidden;
+        }
+        .jastip-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: var(--border-color);
+        }
+        .jastip-card.open {
+            border-color: rgba(34, 197, 94, 0.34);
+            box-shadow: 0 12px 32px rgba(34, 197, 94, 0.08);
+        }
+        .jastip-card.open::before { background: var(--green); }
+        .jastip-card.closed {
+            border-color: rgba(245, 158, 11, 0.28);
+        }
+        .jastip-card.closed::before { background: #f59e0b; }
+        .jastip-card.completed,
+        .jastip-card.cancelled {
+            opacity: 0.72;
+        }
+        .jastip-card.completed::before { background: #3b82f6; }
+        .jastip-card.cancelled::before { background: var(--red); }
+        .section-subtitle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 22px 0 12px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 800;
+        }
+        .section-subtitle span {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+        .active-strip {
+            margin: -2px 0 12px;
+            padding: 10px 12px;
+            border-radius: var(--radius-md);
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--green);
+            font-size: 0.78rem;
+            font-weight: 700;
         }
         .jastip-top {
             display: flex;
@@ -71,6 +120,9 @@
             border-radius: var(--radius-sm);
             padding: 9px 8px;
             min-width: 0;
+        }
+        .jastip-card.open .jastip-metric {
+            background: rgba(34, 197, 94, 0.08);
         }
         .metric-value {
             font-weight: 800;
@@ -155,6 +207,14 @@
             padding: 36px 16px;
             text-align: center;
             color: var(--text-muted);
+        }
+        .history-jastip .jastip-card {
+            margin-bottom: var(--space-sm);
+        }
+        .history-jastip .jastip-metrics,
+        .history-jastip .result-grid,
+        .history-jastip .result-note {
+            display: none;
         }
         @media (max-width: 520px) {
             .result-grid { grid-template-columns: 1fr; }
@@ -256,22 +316,43 @@
     <script src="js/app.js"></script>
     <script>
         let jastipOrders = [];
+        let lastJastipSignature = '';
+        let jastipRefreshTimer = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
             await Promise.all([loadNotifications().catch(() => {}), loadJastip()]);
+            startJastipRealtimeRefresh();
         });
 
-        async function loadJastip() {
+        async function loadJastip({ silent = false } = {}) {
             const container = document.getElementById('jastipList');
+            if (!silent && jastipOrders.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>';
+            }
             try {
-                const data = await apiGet('jastip');
-                jastipOrders = data.orders || [];
-                renderJastip();
+                const data = await apiGetFresh('jastip');
+                const nextOrders = data.orders || [];
+                const signature = JSON.stringify(nextOrders);
+                if (signature !== lastJastipSignature) {
+                    jastipOrders = nextOrders;
+                    lastJastipSignature = signature;
+                    renderJastip();
+                }
             } catch (err) {
                 console.error(err);
-                container.innerHTML = '<div class="empty-state">Gagal memuat jastip</div>';
+                if (!silent) container.innerHTML = '<div class="empty-state">Gagal memuat jastip</div>';
             }
+        }
+
+        function startJastipRealtimeRefresh() {
+            if (jastipRefreshTimer) return;
+            jastipRefreshTimer = setInterval(() => {
+                if (document.visibilityState === 'visible') loadJastip({ silent: true });
+            }, 8000);
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') loadJastip({ silent: true });
+            });
         }
 
         function renderJastip() {
@@ -281,7 +362,9 @@
                 return;
             }
 
-            container.innerHTML = jastipOrders.map(order => {
+            const activeOrders = jastipOrders.filter(order => ['open', 'closed'].includes(order.status));
+            const historyOrders = jastipOrders.filter(order => !['open', 'closed'].includes(order.status));
+            const renderGroup = (orders, className = '') => orders.map(order => {
                 const items = order.items || [];
                 const canAdd = order.status === 'open';
                 const canManage = !!order.can_manage;
@@ -295,7 +378,7 @@
                 const canComplete = canManage && ['open','closed'].includes(order.status) && pendingCount === 0 && boughtCount > 0;
 
                 return `
-                    <div class="jastip-card">
+                    <div class="jastip-card ${order.status}">
                         <div class="jastip-top">
                             <div>
                                 <div class="jastip-title">${escapeHtml(order.title)}${order.opened_by === state.user.id ? '<span class="owner-chip">Kamu owner</span>' : ''}</div>
@@ -304,6 +387,9 @@
                             </div>
                             <span class="status-pill ${order.status}">${statusLabel(order.status)}</span>
                         </div>
+
+                        ${order.status === 'open' ? '<div class="active-strip">Masih bisa titip sekarang</div>' : ''}
+                        ${order.status === 'closed' ? '<div class="active-strip" style="background:rgba(245,158,11,0.1); color:#f59e0b;">Ditutup, owner sedang isi hasil belanja</div>' : ''}
 
                         <div class="jastip-metrics">
                             <div class="jastip-metric"><div class="metric-value">${items.length}</div><div class="metric-label">Nitipan</div></div>
@@ -327,6 +413,17 @@
                     </div>
                 `;
             }).join('');
+
+            container.innerHTML = `
+                ${activeOrders.length ? `
+                    <div class="section-subtitle">Sedang Aktif <span>${activeOrders.length} jastip</span></div>
+                    ${renderGroup(activeOrders)}
+                ` : '<div class="empty-jastip">Tidak ada jastip aktif sekarang.</div>'}
+                ${historyOrders.length ? `
+                    <div class="section-subtitle">Riwayat Jastip <span>${historyOrders.length} selesai/batal</span></div>
+                    <div class="history-jastip">${renderGroup(historyOrders, 'history')}</div>
+                ` : ''}
+            `;
         }
 
         function renderJastipItem(order, item, canManage) {
