@@ -35,14 +35,15 @@ function toTimestamp(value) {
 }
 
 /**
- * Port of api/debt_details.php from v1.
- *
- * Builds a bidirectional timeline between creditor and debtor, calculates the
- * running net balance from the requested creditor perspective, then only shows
- * transactions after the last point where the pair became clear again.
+ * Bidirectional debt details with reset detection.
  *
  * Positive running balance = debtor owes creditor.
  * Negative running balance = creditor owes debtor.
+ *
+ * UI semantics:
+ * - total_settled is ONLY real transfer/payment settlements from debtor to creditor.
+ * - reverse_expenses are shown as transaction offsets, not as "Sudah Dibayar".
+ * - remaining = forward expenses - real settlements - reverse transaction offsets.
  */
 async function getDebtDetailsSummary(db, debtorId, creditorId) {
   const [expenseResult, settlementResult] = await Promise.all([
@@ -140,8 +141,12 @@ async function getDebtDetailsSummary(db, debtorId, creditorId) {
 
   const activeExpenses = [];
   const activeSettlements = [];
+  const activeReverseExpenses = [];
+  const activeReverseSettlements = [];
   let totalExpenses = 0;
   let totalSettled = 0;
+  let totalOffset = 0;
+  let totalReverseSettled = 0;
 
   for (let i = lastResetIndex + 1; i < transactions.length; i++) {
     const t = transactions[i];
@@ -153,19 +158,32 @@ async function getDebtDetailsSummary(db, debtorId, creditorId) {
     } else if (t.type === 'settlement' && t.direction === 'debtor_paid') {
       activeSettlements.push(t.data);
       totalSettled += t.amount;
+    } else if (t.type === 'expense' && t.direction === 'debtor_paid') {
+      const row = { ...t.data, offset_amount: t.amount };
+      activeReverseExpenses.push(row);
+      totalOffset += t.amount;
+    } else if (t.type === 'settlement' && t.direction === 'creditor_paid') {
+      activeReverseSettlements.push(t.data);
+      totalReverseSettled += t.amount;
     }
   }
 
   activeExpenses.reverse();
   activeSettlements.reverse();
+  activeReverseExpenses.reverse();
+  activeReverseSettlements.reverse();
 
-  const netRemaining = roundMoney(totalExpenses - totalSettled);
+  const netRemaining = roundMoney(totalExpenses - totalSettled - totalOffset + totalReverseSettled);
 
   return {
     expenses: activeExpenses.slice(0, 10),
     settlements: activeSettlements.slice(0, 5),
+    reverse_expenses: activeReverseExpenses.slice(0, 10),
+    reverse_settlements: activeReverseSettlements.slice(0, 5),
     total_expenses: roundMoney(totalExpenses),
     total_settled: roundMoney(totalSettled),
+    total_offset: roundMoney(totalOffset),
+    total_reverse_settled: roundMoney(totalReverseSettled),
     remaining: roundMoney(Math.max(0, netRemaining)),
     is_clear: netRemaining <= 0.01,
     last_reset_date: lastResetDate,
@@ -175,6 +193,8 @@ async function getDebtDetailsSummary(db, debtorId, creditorId) {
       total_transactions: transactions.length,
       active_expense_count: activeExpenses.length,
       active_settlement_count: activeSettlements.length,
+      active_reverse_expense_count: activeReverseExpenses.length,
+      active_reverse_settlement_count: activeReverseSettlements.length,
       log: debugLog,
     },
   };
