@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kontrakan-v16';
+const CACHE_NAME = 'kontrakan-v17';
 const STATIC_ASSETS = [
     '/',
     '/login.html',
@@ -17,43 +17,6 @@ const STATIC_ASSETS = [
     '/icons/icon-512.png',
     '/apple-touch-icon.png'
 ];
-
-function getPageFixScript(url) {
-    if (url.pathname === '/settle.html' || url.pathname.endsWith('/settle.html')) {
-        return '<script src="/js/settle-click-fix.js?v=15"></scr' + 'ipt>';
-    }
-    if (url.pathname === '/jastip.html' || url.pathname.endsWith('/jastip.html')) {
-        return '<script src="/js/jastip-ux-fix.js?v=1"></scr' + 'ipt>';
-    }
-    return '';
-}
-
-async function injectPageFix(request, response, url) {
-    if (!response || response.status !== 200) return response;
-
-    const contentType = response.headers.get('content-type') || '';
-    if (!contentType.includes('text/html')) return response;
-
-    const scriptTag = getPageFixScript(url);
-    if (!scriptTag) return response;
-
-    const html = await response.clone().text();
-    let fixedHtml = html
-        .replace(/<script\s+src=["']\/js\/settle-click-fix\.js(?:\?v=\d+)?["']><\/script>/g, '')
-        .replace(/<script\s+src=["']js\/settle-click-fix\.js(?:\?v=\d+)?["']><\/script>/g, '')
-        .replace(/<script\s+src=["']\/js\/jastip-ux-fix\.js(?:\?v=\d+)?["']><\/script>/g, '')
-        .replace(/<script\s+src=["']js\/jastip-ux-fix\.js(?:\?v=\d+)?["']><\/script>/g, '');
-
-    fixedHtml = fixedHtml.includes('</body>')
-        ? fixedHtml.replace('</body>', scriptTag + '\n</body>')
-        : fixedHtml + '\n' + scriptTag;
-
-    return new Response(fixedHtml, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers
-    });
-}
 
 self.addEventListener('install', event => {
     event.waitUntil(
@@ -84,23 +47,19 @@ self.addEventListener('fetch', event => {
 
     event.respondWith(
         fetch(request)
-            .then(async response => {
-                let responseToReturn = response;
-                if (getPageFixScript(url)) {
-                    responseToReturn = await injectPageFix(request, response, url);
-                }
+            .then(response => {
                 if (
-                    responseToReturn &&
-                    responseToReturn.status === 200 &&
-                    responseToReturn.type === 'basic' &&
+                    response &&
+                    response.status === 200 &&
+                    response.type === 'basic' &&
                     ['http:', 'https:'].includes(url.protocol)
                 ) {
-                    const responseClone = responseToReturn.clone();
+                    const responseClone = response.clone();
                     caches.open(CACHE_NAME)
                         .then(cache => cache.put(request, responseClone))
                         .catch(err => console.warn('Failed to cache response:', err));
                 }
-                return responseToReturn;
+                return response;
             })
             .catch(() => caches.match(request).then(cached => cached || Response.error()))
     );
