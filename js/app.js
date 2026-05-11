@@ -114,6 +114,7 @@ const _cacheTTL = {
   'info':          60 * 1000,
   'notifications': 20 * 1000,
   'settlements':   45 * 1000,
+  'jastip':         20 * 1000,
   'payment_info':  60 * 1000,
 };
 

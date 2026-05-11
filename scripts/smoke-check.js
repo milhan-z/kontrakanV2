@@ -9,6 +9,7 @@ const filesToCheck = [
   'api/expenses.js',
   'api/push.js',
   'api/test-push.js',
+  'api/jastip.js',
   'api/admin.js',
   'api/users.js',
 ];

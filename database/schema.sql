@@ -93,6 +93,39 @@ CREATE INDEX IF NOT EXISTS idx_settlements_to      ON settlements(to_user);
 CREATE INDEX IF NOT EXISTS idx_notifications_user  ON notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read  ON notifications(user_id, is_read);
 
+-- Jastip / Titip Belanja
+CREATE TABLE IF NOT EXISTS jastip_orders (
+    id SERIAL PRIMARY KEY,
+    opened_by INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(120) NOT NULL,
+    note TEXT DEFAULT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'open',
+    closes_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    expense_id INT REFERENCES expenses(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    closed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
+    completed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS jastip_items (
+    id SERIAL PRIMARY KEY,
+    jastip_id INT NOT NULL REFERENCES jastip_orders(id) ON DELETE CASCADE,
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    item_name VARCHAR(160) NOT NULL,
+    requested_qty INT NOT NULL DEFAULT 1,
+    note TEXT DEFAULT NULL,
+    estimated_price DECIMAL(12,2) DEFAULT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'requested',
+    final_qty INT DEFAULT NULL,
+    final_price DECIMAL(12,2) DEFAULT NULL,
+    final_note TEXT DEFAULT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_jastip_orders_status ON jastip_orders(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_jastip_items_order ON jastip_items(jastip_id);
+CREATE INDEX IF NOT EXISTS idx_jastip_items_user ON jastip_items(user_id);
+
 -- Push Notifications Subscriptions
 CREATE TABLE IF NOT EXISTS push_subscriptions (
     id SERIAL PRIMARY KEY,
