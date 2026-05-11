@@ -77,6 +77,29 @@
             font-size: 0.75rem;
         }
 
+        .filter-scroll {
+            display: flex;
+            gap: 8px;
+            margin-bottom: var(--space-sm);
+            overflow-x: auto;
+            padding: 0 2px var(--space-xs);
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .filter-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-scroll .filter-btn {
+            flex: 0 0 auto;
+            min-width: max-content;
+            min-height: 40px;
+            padding: 9px 12px;
+            border-radius: var(--radius-full);
+            line-height: 1;
+        }
+
         .jastip-detail-meta {
             color: var(--text-muted);
             font-size: 0.75rem;
@@ -145,22 +168,14 @@
             </div>
 
             <!-- Filter -->
-            <div class="filter-scroll"
-                style="display: flex; gap: var(--space-sm); margin-bottom: var(--space-sm); overflow-x: auto; padding-bottom: var(--space-xs); -webkit-overflow-scrolling: touch;">
-                <button class="btn filter-btn active" data-category=""
-                    style="border-radius: var(--radius-full);">Semua</button>
-                <button class="btn filter-btn" data-category="Listrik"
-                    style="border-radius: var(--radius-full);">Listrik</button>
-                <button class="btn filter-btn" data-category="Galon"
-                    style="border-radius: var(--radius-full);">Galon</button>
-                <button class="btn filter-btn" data-category="Air"
-                    style="border-radius: var(--radius-full);">Air</button>
-                <button class="btn filter-btn" data-category="Keamanan & Kebersihan"
-                    style="border-radius: var(--radius-full);">Keamanan</button>
-                <button class="btn filter-btn" data-category="Titip Makanan"
-                    style="border-radius: var(--radius-full);">Makanan</button>
-                <button class="btn filter-btn" data-category="Jastip"
-                    style="border-radius: var(--radius-full);">Jastip</button>
+            <div class="filter-scroll">
+                <button class="btn filter-btn active" data-category="">Semua</button>
+                <button class="btn filter-btn" data-category="Listrik">Listrik</button>
+                <button class="btn filter-btn" data-category="Galon">Galon</button>
+                <button class="btn filter-btn" data-category="Air">Air</button>
+                <button class="btn filter-btn" data-category="Keamanan & Kebersihan">Keamanan</button>
+                <button class="btn filter-btn" data-category="Titip Makanan">Makanan</button>
+                <button class="btn filter-btn" data-category="Jastip">Jastip</button>
             </div>
 
             <!-- Search -->

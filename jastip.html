@@ -257,16 +257,18 @@
 
         .history-grid {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: var(--space-sm);
         }
 
         .history-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: start;
+            gap: var(--space-sm);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-md);
             background: var(--bg-card);
-            padding: 12px;
-            min-height: 92px;
+            padding: var(--space-md);
             cursor: pointer;
             transition: transform 0.15s ease, border-color 0.15s ease;
         }
@@ -283,7 +285,15 @@
             color: var(--text-primary);
             font-weight: 800;
             line-height: 1.25;
+            margin-bottom: var(--space-xs);
             overflow-wrap: anywhere;
+        }
+
+        .history-amount {
+            color: var(--green);
+            font-weight: 850;
+            white-space: nowrap;
+            text-align: right;
         }
 
         .history-meta {
@@ -642,13 +652,19 @@
             const total = items
                 .filter(item => item.status === 'bought')
                 .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
+            const date = order.completed_at || order.closed_at || order.created_at;
             return `
                 <div class="history-card" onclick="openHistoryDetail(${order.id})">
-                    <div class="history-title">${escapeHtml(order.title)}</div>
-                    <div class="history-meta">${escapeHtml(order.opened_by_name)} - ${formatDateShort(order.completed_at || order.closed_at || order.created_at)}</div>
-                    <div class="history-meta"><span class="status-pill ${order.status}">${statusLabel(order.status)}</span></div>
-                    <div class="history-meta">${items.length} item${total ? ' - Rp ' + total.toLocaleString('id-ID') : ''}</div>
-                    <div class="history-meta">Ketuk untuk detail</div>
+                    <div>
+                        <div class="history-title">${escapeHtml(order.title)}</div>
+                        <div class="transaction-meta">
+                            <span class="transaction-tag piutang">Jastip</span>
+                            <span class="transaction-tag">${escapeHtml(order.opened_by_name)}</span>
+                            <span class="transaction-tag">${formatDateShort(date)}</span>
+                            <span class="transaction-tag">${statusLabel(order.status)}</span>
+                        </div>
+                    </div>
+                    <div class="history-amount">${total ? 'Rp ' + total.toLocaleString('id-ID') : '-'}</div>
                 </div>
             `;
         }
