@@ -181,6 +181,9 @@ async function addItem(req, res, user, db) {
   const order = await getOrder(db, jastipId);
   if (!order) return jsonResponse(res, { error: 'Jastip tidak ditemukan' }, 404);
   if (order.status !== 'open') return jsonResponse(res, { error: 'Jastip sudah ditutup' }, 409);
+  if (order.opened_by === user.user_id && user.role !== 'admin') {
+    return jsonResponse(res, { error: 'Pembuka jastip tidak perlu titip ke diri sendiri' }, 403);
+  }
 
   const result = await db.query(
     `INSERT INTO jastip_items (jastip_id, user_id, item_name, requested_qty, note, estimated_price)
