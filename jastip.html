@@ -162,6 +162,7 @@
         }
         .result-grid select,
         .result-grid input,
+        .result-note,
         .modal input,
         .modal textarea {
             width: 100%;
@@ -174,6 +175,13 @@
         }
         .result-note {
             margin-top: 8px;
+            display: block;
+            outline: none;
+        }
+        .result-grid select:focus,
+        .result-grid input:focus,
+        .result-note:focus {
+            border-color: var(--text-primary);
         }
         .item-total {
             font-weight: 700;
