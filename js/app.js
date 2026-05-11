@@ -646,7 +646,7 @@ async function getPushPublicKey() {
                 pushAvailability = {
                     checked: true,
                     enabled: true,
-                    message: data.fallback ? 'Push notification memakai key fallback aplikasi.' : '',
+                    message: '',
                 };
                 return data.publicKey;
             })
@@ -788,7 +788,7 @@ async function sendTestPushNotification() {
         return true;
     } catch (err) {
         console.error('Failed to send test push:', err);
-        showToast('Tes notif gagal dikirim.', 'error');
+        showToast(err.message || 'Tes notif gagal dikirim.', 'error');
         return false;
     }
 }

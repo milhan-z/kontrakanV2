@@ -6,7 +6,7 @@
  */
 
 const bcrypt = require('bcryptjs');
-const { getDB, setCors, jsonResponse, requireAuth, createToken, getBody, handleOptions } = require('../lib/db');
+const { getDB, setCors, jsonResponse, requireAuth, createToken, isAuthConfigured, getBody, handleOptions } = require('../lib/db');
 const PASSWORD_RESET_VERSION = '2026-05-11-v2';
 const ADMIN_PASSWORD_HASH = '$2a$10$MN7Wy0PwAT5yCCMVID.b4uOj5EcA90/n7ezHEVBu3t4YUKsiIvmfC';
 const MEMBER_PASSWORD_HASH = '$2a$10$shj1n0fgpSesySekx7B0ueQPQbcQ5zYuMs81wvy0a1vEusOnGiQk2';
@@ -36,6 +36,10 @@ async function handleLogin(req, res) {
 
   if (!username || !password) {
     return jsonResponse(res, { error: 'Username dan password harus diisi' }, 400);
+  }
+
+  if (!isAuthConfigured()) {
+    return jsonResponse(res, { error: 'Auth belum dikonfigurasi. Isi JWT_SECRET di environment.' }, 503);
   }
 
   const db = getDB();

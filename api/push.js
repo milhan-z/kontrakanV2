@@ -1,5 +1,5 @@
 const { getDB, requireAuth, jsonResponse, getBody, setCors, handleOptions } = require('../lib/db');
-const { vapidPublicKey, isPushConfigured, pushConfigError, usesFallbackKeys } = require('../lib/webpush');
+const { vapidPublicKey, isPushConfigured, pushConfigError } = require('../lib/webpush');
 
 module.exports = async (req, res) => {
   setCors(res);
@@ -19,7 +19,6 @@ module.exports = async (req, res) => {
     }
     return jsonResponse(res, {
       publicKey: vapidPublicKey,
-      fallback: usesFallbackKeys,
     });
   }
 
@@ -43,7 +42,7 @@ module.exports = async (req, res) => {
       try { subscription = JSON.parse(subscription); } catch { subscription = null; }
     }
 
-    if (!subscription || typeof subscription !== 'object' || !subscription.endpoint) {
+    if (!isValidSubscription(subscription)) {
       return jsonResponse(res, { error: 'Invalid subscription' }, 400);
     }
 
@@ -105,6 +104,7 @@ async function ensurePushTable(db) {
   `);
 
   await db.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS endpoint TEXT`);
+  await db.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS subscription JSONB`);
   await db.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS user_agent TEXT NULL`);
   await db.query(`
     ALTER TABLE push_subscriptions
@@ -121,7 +121,9 @@ async function ensurePushTable(db) {
   `);
 
   await db.query(`DELETE FROM push_subscriptions WHERE endpoint IS NULL OR endpoint = ''`);
+  await db.query(`DELETE FROM push_subscriptions WHERE subscription IS NULL`);
   await db.query(`ALTER TABLE push_subscriptions ALTER COLUMN endpoint SET NOT NULL`);
+  await db.query(`ALTER TABLE push_subscriptions ALTER COLUMN subscription SET NOT NULL`);
 
   await db.query(`
     DELETE FROM push_subscriptions a
@@ -147,4 +149,16 @@ async function ensurePushTable(db) {
       END IF;
     END $$;
   `);
+}
+
+function isValidSubscription(subscription) {
+  return Boolean(
+    subscription &&
+    typeof subscription === 'object' &&
+    typeof subscription.endpoint === 'string' &&
+    subscription.endpoint.startsWith('https://') &&
+    subscription.keys &&
+    typeof subscription.keys.p256dh === 'string' &&
+    typeof subscription.keys.auth === 'string'
+  );
 }

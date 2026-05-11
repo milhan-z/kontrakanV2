@@ -67,40 +67,32 @@ Di Vercel Dashboard → Project → **Settings → Environment Variables**, tamb
 
 | Key | Value |
 |-----|-------|
-| `SUPABASE_DB_HOST` | `db.xxxxxx.supabase.co` |
-| `SUPABASE_DB_PORT` | `5432` |
-| `SUPABASE_DB_NAME` | `postgres` |
-| `SUPABASE_DB_USER` | `postgres` |
-| `SUPABASE_DB_PASSWORD` | `your_password` |
+| `DATABASE_URL` | `postgresql://user:password@host:5432/postgres` |
 | `JWT_SECRET` | `random_string_min_32_chars` |
 | `CLOUDINARY_CLOUD_NAME` | `your_cloud_name` |
 | `CLOUDINARY_API_KEY` | `your_api_key` |
 | `CLOUDINARY_API_SECRET` | `your_api_secret` |
+| `VAPID_PUBLIC_KEY` | `your_web_push_public_key` |
+| `VAPID_PRIVATE_KEY` | `your_web_push_private_key` |
+| `VAPID_SUBJECT` | `mailto:admin@example.com` |
 
 > 💡 Generate JWT_SECRET:
 > ```bash
 > node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 > ```
 
----
-
-## 📋 Langkah 5: Update Frontend HTML
-
-Di setiap file HTML, tambahkan sebelum `</head>`:
-
-```html
-<script src="/js/config.js"></script>
-<script src="/js/api-helper.js"></script>
-```
-
-Ganti semua `fetch('/api/xxx.php')` → `API.fetch('/api/xxx')` di file JS lama.
+> Generate VAPID key untuk push notification:
+> ```bash
+> npx web-push generate-vapid-keys
+> ```
 
 ---
 
 ## ✅ Setelah Deploy
 
 - URL seperti: `https://kont-v2.vercel.app`
-- Login: `hilman` / `kontrakan123`
+- Login admin: `admin` / `adminkont123`
+- Login member: username member masing-masing / `kontrakan123`
 - Auto-deploy setiap push ke GitHub!
 
 ---

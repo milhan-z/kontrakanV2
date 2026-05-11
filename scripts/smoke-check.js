@@ -8,12 +8,16 @@ const filesToCheck = [
   'api/auth.js',
   'api/expenses.js',
   'api/push.js',
+  'api/test-push.js',
   'api/admin.js',
   'api/users.js',
 ];
 
 const forbiddenSnippets = [
   'fallback_secret_change_in_prod',
+  'kontrakan_legacy_jwt_secret_v2',
+  'legacyVapidPrivateKey',
+  'ICtQK62UwsqaAZyJ-ca1a20MtKQTYAd5Wsuws6YiRFM',
   'kontrakan123',
   "../../lib/db",
 ];
