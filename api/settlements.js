@@ -25,6 +25,70 @@ module.exports = async function handler(req, res) {
   return jsonResponse(res, { error: 'Method not allowed' }, 405);
 };
 
+function roundMoney(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+async function getPairSummary(db, debtorId, creditorId) {
+  const [forwardExpResult, forwardSetResult, reverseExpResult, reverseSetResult] = await Promise.all([
+    db.query(`
+      SELECT e.id, e.description, e.category, e.amount as total_amount,
+             es.amount as split_amount, e.created_at
+      FROM expenses e
+      JOIN expense_splits es ON es.expense_id = e.id
+      WHERE e.paid_by = $1 AND es.user_id = $2 AND e.category != 'Listrik'
+      ORDER BY e.created_at DESC
+    `, [creditorId, debtorId]),
+    db.query(`
+      SELECT id, amount, created_at, receipt_image
+      FROM settlements
+      WHERE from_user = $1 AND to_user = $2
+      ORDER BY created_at DESC
+    `, [debtorId, creditorId]),
+    db.query(`
+      SELECT e.id, e.description, e.category, e.amount as total_amount,
+             es.amount as split_amount, e.created_at
+      FROM expenses e
+      JOIN expense_splits es ON es.expense_id = e.id
+      WHERE e.paid_by = $1 AND es.user_id = $2 AND e.category != 'Listrik'
+      ORDER BY e.created_at DESC
+    `, [debtorId, creditorId]),
+    db.query(`
+      SELECT id, amount, created_at, receipt_image
+      FROM settlements
+      WHERE from_user = $1 AND to_user = $2
+      ORDER BY created_at DESC
+    `, [creditorId, debtorId]),
+  ]);
+
+  const forwardExpenses = forwardExpResult.rows.reduce((s, e) => s + parseFloat(e.split_amount), 0);
+  const forwardSettled  = forwardSetResult.rows.reduce((s, r) => s + parseFloat(r.amount), 0);
+  const reverseExpenses = reverseExpResult.rows.reduce((s, e) => s + parseFloat(e.split_amount), 0);
+  const reverseSettled  = reverseSetResult.rows.reduce((s, r) => s + parseFloat(r.amount), 0);
+
+  // Net debt from debtor → creditor.
+  // Example:
+  // - creditor paid 100 split debtor 50 = debtor owes creditor 50
+  // - debtor paid 10 split creditor 5 = creditor owes debtor 5
+  // Net debtor owes creditor = 50 - 5 = 45
+  const forwardOutstanding = forwardExpenses - forwardSettled;
+  const reverseOutstanding = reverseExpenses - reverseSettled;
+  const netRemaining = roundMoney(forwardOutstanding - reverseOutstanding);
+
+  return {
+    expenses: forwardExpResult.rows,
+    settlements: forwardSetResult.rows,
+    reverse_expenses: reverseExpResult.rows,
+    reverse_settlements: reverseSetResult.rows,
+    raw_forward_expenses: roundMoney(forwardExpenses),
+    raw_forward_settled: roundMoney(forwardSettled),
+    raw_reverse_expenses: roundMoney(reverseExpenses),
+    raw_reverse_settled: roundMoney(reverseSettled),
+    net_offset: roundMoney(reverseOutstanding),
+    remaining: netRemaining > 0 ? netRemaining : 0,
+  };
+}
+
 async function listSettlements(req, res, user) {
   const db = getDB();
   const limit = parseInt(req.query.limit || '50');
@@ -82,6 +146,15 @@ async function createSettlement(req, res, user) {
   }
   const userMap = {};
   usersResult.rows.forEach(u => { userMap[u.id] = u.display_name; });
+
+  const pairSummary = await getPairSummary(db, fromUser, toUser);
+  const remaining = pairSummary.remaining;
+  if (remaining <= 0) {
+    return jsonResponse(res, { error: 'Tidak ada sisa hutang yang perlu dibayar' }, 400);
+  }
+  if (amount > remaining + 0.01) {
+    return jsonResponse(res, { error: `Nominal melebihi sisa hutang Rp ${remaining.toLocaleString('id-ID')}` }, 400);
+  }
 
   const client = await db.connect();
   const pushJobs = [];
@@ -158,30 +231,21 @@ async function debtDetails(req, res, user) {
     return jsonResponse(res, { error: 'creditor_id and debtor_id required' }, 400);
 
   const db = getDB();
-  const [expResult, setResult] = await Promise.all([
-    db.query(`
-      SELECT e.id, e.description, e.category, e.amount as total_amount,
-             es.amount as split_amount, e.created_at
-      FROM expenses e
-      JOIN expense_splits es ON es.expense_id = e.id
-      WHERE e.paid_by = $1 AND es.user_id = $2 AND e.category != 'Listrik'
-      ORDER BY e.created_at DESC
-    `, [creditorId, debtorId]),
-    db.query(`
-      SELECT id, amount, created_at, receipt_image
-      FROM settlements WHERE from_user = $1 AND to_user = $2
-      ORDER BY created_at DESC
-    `, [debtorId, creditorId]),
-  ]);
+  const summary = await getPairSummary(db, debtorId, creditorId);
 
-  const totalExpenses = expResult.rows.reduce((s, e) => s + parseFloat(e.split_amount), 0);
-  const totalSettled  = setResult.rows.reduce((s, r) => s + parseFloat(r.amount), 0);
+  // Keep old frontend fields compatible, but make the math net-aware.
+  // total_settled here means "paid/offset", so reverse outstanding debt is counted as offset.
+  const totalExpenses = summary.raw_forward_expenses;
+  const totalSettledOrOffset = roundMoney(totalExpenses - summary.remaining);
 
   return jsonResponse(res, {
-    expenses:       expResult.rows,
-    settlements:    setResult.rows,
-    total_expenses: Math.round(totalExpenses * 100) / 100,
-    total_settled:  Math.round(totalSettled  * 100) / 100,
-    remaining:      Math.round((totalExpenses - totalSettled) * 100) / 100,
+    expenses: summary.expenses,
+    settlements: summary.settlements,
+    reverse_expenses: summary.reverse_expenses,
+    reverse_settlements: summary.reverse_settlements,
+    total_expenses: totalExpenses,
+    total_settled: totalSettledOrOffset < 0 ? 0 : totalSettledOrOffset,
+    net_offset: summary.net_offset,
+    remaining: summary.remaining,
   });
 }
