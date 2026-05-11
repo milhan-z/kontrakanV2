@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kontrakan-v12';
+const CACHE_NAME = 'kontrakan-v13';
 const STATIC_ASSETS = [
     '/',
     '/login.html',
@@ -28,12 +28,15 @@ async function injectSettleFix(request, response) {
     if (!contentType.includes('text/html')) return response;
 
     const html = await response.clone().text();
-    if (html.includes('/js/settle-click-fix.js')) return response;
+    const scriptTag = '<script src="/js/settle-click-fix.js?v=13"></scr' + 'ipt>';
 
-    const scriptTag = '<script src="/js/settle-click-fix.js?v=12"></scr' + 'ipt>';
-    const fixedHtml = html.includes('</body>')
-        ? html.replace('</body>', scriptTag + '\n</body>')
-        : html + '\n' + scriptTag;
+    let fixedHtml = html
+        .replace(/<script\s+src=["']\/js\/settle-click-fix\.js(?:\?v=\d+)?["']><\/script>/g, '')
+        .replace(/<script\s+src=["']js\/settle-click-fix\.js(?:\?v=\d+)?["']><\/script>/g, '');
+
+    fixedHtml = fixedHtml.includes('</body>')
+        ? fixedHtml.replace('</body>', scriptTag + '\n</body>')
+        : fixedHtml + '\n' + scriptTag;
 
     return new Response(fixedHtml, {
         status: response.status,
