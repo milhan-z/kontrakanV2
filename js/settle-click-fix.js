@@ -1,10 +1,12 @@
 (function () {
     if (!/settle\.html$/.test(window.location.pathname)) return;
-    if (window.__settleClickFixV14Loaded) return;
-    window.__settleClickFixV14Loaded = true;
+    if (window.__settleClickFixV15Loaded) return;
+    window.__settleClickFixV15Loaded = true;
 
     let currentDebtContext = null;
-    let patchInFlight = null;
+    let currentCreditContext = null;
+    let debtPatchInFlight = null;
+    let creditPatchInFlight = null;
 
     function getAppState() {
         try {
@@ -55,6 +57,14 @@
         };
     }
 
+    function findUserByDisplayName(name) {
+        const appState = getAppState();
+        if (!name || !appState || !Array.isArray(appState.users)) return null;
+        return appState.users.find(function (u) {
+            return String(u.display_name || '').trim() === String(name || '').trim();
+        }) || null;
+    }
+
     function inferDebtContextFromOpenModal() {
         if (currentDebtContext && currentDebtContext.creditorId) return currentDebtContext;
 
@@ -64,12 +74,7 @@
         const label = content.querySelector('.amount-label');
         const labelText = label ? label.textContent.trim() : '';
         const name = labelText.replace(/^ke\s+/i, '').trim();
-        const appState = getAppState();
-        if (!name || !appState || !Array.isArray(appState.users)) return null;
-
-        const user = appState.users.find(function (u) {
-            return String(u.display_name || '').trim() === name;
-        });
+        const user = findUserByDisplayName(name);
         if (!user) return null;
 
         const amountHeader = content.querySelector('.amount-value');
@@ -82,6 +87,28 @@
         return currentDebtContext;
     }
 
+    function inferCreditContextFromOpenModal() {
+        if (currentCreditContext && currentCreditContext.debtorId) return currentCreditContext;
+
+        const content = document.getElementById('creditDetailContent');
+        if (!content || !content.textContent.includes('Total Ditalangin')) return null;
+
+        const label = content.querySelector('.amount-label');
+        const labelText = label ? label.textContent.trim() : '';
+        const name = labelText.replace(/^dari\s+/i, '').trim();
+        const user = findUserByDisplayName(name);
+        if (!user) return null;
+
+        const amountHeader = content.querySelector('.amount-value');
+        const amount = rupiahToNumber(amountHeader ? amountHeader.textContent : '0');
+        currentCreditContext = {
+            debtorId: parseInt(user.id, 10),
+            debtorName: name,
+            amount: amount
+        };
+        return currentCreditContext;
+    }
+
     function activateItem(item) {
         const data = getItemData(item);
         if (!data || !data.userId || !data.amount) return;
@@ -91,7 +118,9 @@
             window.showDebtDetail(data.userId, data.name, data.amount);
             scheduleDebtDetailPatch();
         } else if (data.type === 'credit' && typeof window.showCreditDetail === 'function') {
+            currentCreditContext = { debtorId: data.userId, debtorName: data.name, amount: data.amount };
             window.showCreditDetail(data.userId, data.name, data.amount);
+            scheduleCreditDetailPatch();
         }
     }
 
@@ -147,26 +176,39 @@
         });
     }
 
-    function installDebtDetailWrapper() {
-        if (typeof window.showDebtDetail !== 'function' || window.showDebtDetail.__offsetWrapped) return;
-
-        const original = window.showDebtDetail;
-        window.showDebtDetail = function (creditorId, creditorName, amount) {
-            currentDebtContext = {
-                creditorId: parseInt(creditorId, 10),
-                creditorName: creditorName,
-                amount: Number(amount) || 0
+    function installWrappers() {
+        if (typeof window.showDebtDetail === 'function' && !window.showDebtDetail.__offsetWrapped) {
+            const originalDebt = window.showDebtDetail;
+            window.showDebtDetail = function (creditorId, creditorName, amount) {
+                currentDebtContext = { creditorId: parseInt(creditorId, 10), creditorName, amount: Number(amount) || 0 };
+                const result = originalDebt.apply(this, arguments);
+                scheduleDebtDetailPatch();
+                return result;
             };
-            const result = original.apply(this, arguments);
-            scheduleDebtDetailPatch();
-            return result;
-        };
-        window.showDebtDetail.__offsetWrapped = true;
+            window.showDebtDetail.__offsetWrapped = true;
+        }
+
+        if (typeof window.showCreditDetail === 'function' && !window.showCreditDetail.__offsetWrapped) {
+            const originalCredit = window.showCreditDetail;
+            window.showCreditDetail = function (debtorId, debtorName, amount) {
+                currentCreditContext = { debtorId: parseInt(debtorId, 10), debtorName, amount: Number(amount) || 0 };
+                const result = originalCredit.apply(this, arguments);
+                scheduleCreditDetailPatch();
+                return result;
+            };
+            window.showCreditDetail.__offsetWrapped = true;
+        }
     }
 
     function scheduleDebtDetailPatch() {
         [80, 180, 350, 700, 1200, 2000].forEach(function (delay) {
             setTimeout(patchDebtDetailWithOffsets, delay);
+        });
+    }
+
+    function scheduleCreditDetailPatch() {
+        [80, 180, 350, 700, 1200, 2000].forEach(function (delay) {
+            setTimeout(patchCreditDetailWithOffsets, delay);
         });
     }
 
@@ -184,16 +226,30 @@
         return data;
     }
 
-    function findHeader(text) {
-        return Array.from(document.querySelectorAll('#debtDetailContent div')).find(function (el) {
+    async function fetchCreditDetails() {
+        const ctx = inferCreditContextFromOpenModal();
+        const appState = getAppState();
+        if (!ctx || !ctx.debtorId || !appState || !appState.user) return null;
+        const endpoint = `debt_details?creditor_id=${appState.user.id}&debtor_id=${ctx.debtorId}`;
+        if (typeof window.apiGetFresh === 'function') return window.apiGetFresh(endpoint);
+
+        const apiBase = (typeof API_BASE !== 'undefined') ? API_BASE : (window.API_BASE || '/api');
+        const res = await fetch(`${apiBase}/${endpoint}&_=${Date.now()}`, { cache: 'no-store' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Gagal memuat detail piutang');
+        return data;
+    }
+
+    function findHeaderIn(rootId, text) {
+        return Array.from(document.querySelectorAll(`#${rootId} div`)).find(function (el) {
             return (el.textContent || '').trim() === text;
         });
     }
 
-    function findSummaryBlock(content) {
+    function findSummaryBlock(content, requiredLabels) {
         return Array.from(content.querySelectorAll('div')).find(function (el) {
             const text = el.textContent || '';
-            return text.includes('Total Pengeluaran') && text.includes('Sudah Dibayar') && text.includes('Sisa Hutang');
+            return requiredLabels.every(function (label) { return text.includes(label); });
         });
     }
 
@@ -211,79 +267,80 @@
         if (colorVar) target.style.color = colorVar;
     }
 
-    function getFirstExpenseBlock(content) {
-        const header = findHeader('YANG HARUS DIBAYAR:') || findHeader('DETAIL:');
+    function getFirstExpenseBlock(content, rootId, labels) {
+        let header = null;
+        for (const label of labels) {
+            header = findHeaderIn(rootId, label);
+            if (header) break;
+        }
         if (!header) return null;
         return header.parentElement;
     }
 
-    function ensureOffsetSection(content, data) {
-        const reverseExpenses = Array.isArray(data.reverse_expenses) ? data.reverse_expenses : [];
-        let section = content.querySelector('#reverseExpenseOffsetSection');
-
-        if (!reverseExpenses.length) {
-            if (section) section.remove();
-            return;
-        }
-
-        const items = reverseExpenses.slice(0, 10).map(function (e) {
-            const amount = parseFloat(e.offset_amount || e.split_amount || 0);
+    function buildOffsetItems(expenses, amountField, sign, colorVar) {
+        return expenses.slice(0, 10).map(function (e) {
+            const amount = parseFloat(e[amountField] || e.split_amount || 0);
             return `
                 <div class="expense-item">
                     <div style="display: flex; justify-content: space-between;">
                         <span>${safeText(e.description)}</span>
-                        <span style="color: var(--green);">+${formatRupiah(amount)}</span>
+                        <span style="color: ${colorVar};">${sign}${formatRupiah(amount)}</span>
                     </div>
                     <div class="text-muted" style="font-size: 0.6875rem;">${safeText(e.category)} · ${safeText(displayDate(e.created_at))}</div>
                 </div>
             `;
         }).join('');
+    }
+
+    function ensureDebtOffsetSection(content, data) {
+        const reverseExpenses = Array.isArray(data.reverse_expenses) ? data.reverse_expenses : [];
+        let section = content.querySelector('#reverseExpenseOffsetSection');
+        if (!reverseExpenses.length) { if (section) section.remove(); return; }
 
         const html = `
             <div id="reverseExpenseOffsetSection" style="margin-bottom: var(--space-md);">
                 <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">TRANSAKSI PENGURANG:</div>
-                ${items}
+                ${buildOffsetItems(reverseExpenses, 'offset_amount', '+', 'var(--green)')}
                 ${reverseExpenses.length > 10 ? `<div class="text-muted" style="font-size: 0.75rem; text-align: center;">+${reverseExpenses.length - 10} lainnya</div>` : ''}
             </div>
         `;
-
-        if (section) {
-            section.outerHTML = html;
-            return;
-        }
-
-        const firstBlock = getFirstExpenseBlock(content);
-        if (firstBlock) {
-            firstBlock.insertAdjacentHTML('afterend', html);
-        }
+        if (section) { section.outerHTML = html; return; }
+        const firstBlock = getFirstExpenseBlock(content, 'debtDetailContent', ['YANG HARUS DIBAYAR:', 'DETAIL:']);
+        if (firstBlock) firstBlock.insertAdjacentHTML('afterend', html);
     }
 
-    function ensureOffsetSummaryRow(summary, data) {
-        if (!summary) return;
-        const offset = Number(data.total_offset || 0);
-        let row = summary.querySelector('#totalOffsetRow');
-
-        if (offset <= 0) {
-            if (row) row.remove();
-            return;
-        }
+    function ensureCreditOffsetSection(content, data) {
+        const reverseExpenses = Array.isArray(data.reverse_expenses) ? data.reverse_expenses : [];
+        let section = content.querySelector('#creditReverseExpenseOffsetSection');
+        if (!reverseExpenses.length) { if (section) section.remove(); return; }
 
         const html = `
-            <div id="totalOffsetRow" style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
-                <span>Transaksi Pengurang</span>
-                <span style="color: var(--green);">${formatRupiah(offset)}</span>
+            <div id="creditReverseExpenseOffsetSection" style="margin-bottom: var(--space-md);">
+                <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">TRANSAKSI PENGURANG:</div>
+                ${buildOffsetItems(reverseExpenses, 'offset_amount', '- ', 'var(--red)')}
+                ${reverseExpenses.length > 10 ? `<div class="text-muted" style="font-size: 0.75rem; text-align: center;">+${reverseExpenses.length - 10} lainnya</div>` : ''}
             </div>
         `;
+        if (section) { section.outerHTML = html; return; }
+        const firstBlock = getFirstExpenseBlock(content, 'creditDetailContent', ['YANG KAMU TALANGIN:', 'DETAIL:']);
+        if (firstBlock) firstBlock.insertAdjacentHTML('afterend', html);
+    }
 
-        if (row) {
-            row.outerHTML = html;
-            return;
-        }
-
-        const paidRow = Array.from(summary.children).find(function (el) {
-            return (el.textContent || '').includes('Sudah Dibayar');
+    function ensureSummaryRow(summary, id, label, amount, colorVar, afterLabel) {
+        if (!summary) return;
+        let row = summary.querySelector(`#${id}`);
+        if ((Number(amount) || 0) <= 0) { if (row) row.remove(); return; }
+        const html = `
+            <div id="${id}" style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                <span>${label}</span>
+                <span style="color: ${colorVar};">${formatRupiah(amount)}</span>
+            </div>
+        `;
+        if (row) { row.outerHTML = html; return; }
+        const afterRow = Array.from(summary.children).find(function (el) {
+            return (el.textContent || '').includes(afterLabel);
         });
-        if (paidRow) paidRow.insertAdjacentHTML('afterend', html);
+        if (afterRow) afterRow.insertAdjacentHTML('afterend', html);
     }
 
     async function patchDebtDetailWithOffsets() {
@@ -292,51 +349,68 @@
         inferDebtContextFromOpenModal();
         if (!currentDebtContext) return;
         if (!content.textContent.includes('Total Pengeluaran') || content.querySelector('.spinner')) return;
-        if (patchInFlight) return patchInFlight;
+        if (debtPatchInFlight) return debtPatchInFlight;
 
-        patchInFlight = (async function () {
+        debtPatchInFlight = (async function () {
             try {
                 const data = await fetchDebtDetails();
                 if (!data) return;
-
-                const detailHeader = findHeader('YANG HARUS DIBAYAR:');
+                const detailHeader = findHeaderIn('debtDetailContent', 'YANG HARUS DIBAYAR:');
                 if (detailHeader) detailHeader.textContent = 'DETAIL:';
-
-                ensureOffsetSection(content, data);
-
-                const summary = findSummaryBlock(content);
+                ensureDebtOffsetSection(content, data);
+                const summary = findSummaryBlock(content, ['Total Pengeluaran', 'Sudah Dibayar', 'Sisa Hutang']);
                 setSummaryAmount(summary, 'Total Pengeluaran', data.total_expenses || 0, 'var(--red)');
                 setSummaryAmount(summary, 'Sudah Dibayar', data.total_settled || 0, 'var(--green)');
-                ensureOffsetSummaryRow(summary, data);
+                ensureSummaryRow(summary, 'totalOffsetRow', 'Transaksi Pengurang', data.total_offset || 0, 'var(--green)', 'Sudah Dibayar');
                 setSummaryAmount(summary, 'Sisa Hutang', data.remaining || 0, 'var(--red)');
-
                 const amountHeader = content.querySelector('.amount-value');
                 if (amountHeader) amountHeader.textContent = formatRupiah(data.remaining || 0);
-
-                const confirmAmount = document.getElementById('confirmAmount');
-                if (confirmAmount) confirmAmount.max = data.remaining || 0;
-
-                content.querySelectorAll('[onclick]').forEach(function (el) {
-                    const raw = el.getAttribute('onclick') || '';
-                    if (raw.includes('openSettleFromDebt(') || raw.includes('confirmFullPayment(')) {
-                        el.setAttribute('onclick', raw.replace(/,\s*\d+(?:\.\d+)?\s*\)/, ', ' + (data.remaining || 0) + ')'));
-                    }
-                });
             } catch (err) {
-                console.warn('Gagal menampilkan transaksi pengurang:', err);
+                console.warn('Gagal menampilkan transaksi pengurang hutang:', err);
             } finally {
-                patchInFlight = null;
+                debtPatchInFlight = null;
             }
         })();
+        return debtPatchInFlight;
+    }
 
-        return patchInFlight;
+    async function patchCreditDetailWithOffsets() {
+        const content = document.getElementById('creditDetailContent');
+        if (!content) return;
+        inferCreditContextFromOpenModal();
+        if (!currentCreditContext) return;
+        if (!content.textContent.includes('Total Ditalangin') || content.querySelector('.spinner')) return;
+        if (creditPatchInFlight) return creditPatchInFlight;
+
+        creditPatchInFlight = (async function () {
+            try {
+                const data = await fetchCreditDetails();
+                if (!data) return;
+                const detailHeader = findHeaderIn('creditDetailContent', 'YANG KAMU TALANGIN:');
+                if (detailHeader) detailHeader.textContent = 'DETAIL:';
+                ensureCreditOffsetSection(content, data);
+                const summary = findSummaryBlock(content, ['Total Ditalangin', 'Sudah Diterima', 'Sisa Piutang']);
+                setSummaryAmount(summary, 'Total Ditalangin', data.total_expenses || 0, 'var(--green)');
+                setSummaryAmount(summary, 'Sudah Diterima', data.total_settled || 0, 'var(--red)');
+                ensureSummaryRow(summary, 'creditTotalOffsetRow', 'Transaksi Pengurang', data.total_offset || 0, 'var(--red)', 'Sudah Diterima');
+                setSummaryAmount(summary, 'Sisa Piutang', data.remaining || 0, 'var(--green)');
+                const amountHeader = content.querySelector('.amount-value');
+                if (amountHeader) amountHeader.textContent = formatRupiah(data.remaining || 0);
+            } catch (err) {
+                console.warn('Gagal menampilkan transaksi pengurang piutang:', err);
+            } finally {
+                creditPatchInFlight = null;
+            }
+        })();
+        return creditPatchInFlight;
     }
 
     function runFix() {
-        installDebtDetailWrapper();
+        installWrappers();
         enhanceList('myDebtsList', 'Bayar');
         enhanceList('myCreditsList', 'Tagih');
         patchDebtDetailWithOffsets();
+        patchCreditDetailWithOffsets();
     }
 
     if (document.readyState === 'loading') {
@@ -345,9 +419,9 @@
         runFix();
     }
 
-    window.addEventListener('focus', scheduleDebtDetailPatch);
+    window.addEventListener('focus', function () { scheduleDebtDetailPatch(); scheduleCreditDetailPatch(); });
     document.addEventListener('visibilitychange', function () {
-        if (document.visibilityState === 'visible') scheduleDebtDetailPatch();
+        if (document.visibilityState === 'visible') { scheduleDebtDetailPatch(); scheduleCreditDetailPatch(); }
     });
 
     const observer = new MutationObserver(runFix);
