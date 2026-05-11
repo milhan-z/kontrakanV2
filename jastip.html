@@ -49,6 +49,42 @@
         .status-pill.closed { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
         .status-pill.completed { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
         .status-pill.cancelled { background: rgba(239, 68, 68, 0.12); color: var(--red); }
+        .owner-chip {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 3px 8px;
+            margin-left: 6px;
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            font-size: 0.65rem;
+            font-weight: 700;
+        }
+        .jastip-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            margin-top: var(--space-md);
+        }
+        .jastip-metric {
+            background: var(--bg-secondary);
+            border-radius: var(--radius-sm);
+            padding: 9px 8px;
+            min-width: 0;
+        }
+        .metric-value {
+            font-weight: 800;
+            color: var(--text-primary);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+        .metric-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .jastip-actions {
             display: flex;
             gap: var(--space-sm);
@@ -92,6 +128,29 @@
             color: var(--text-primary);
             white-space: nowrap;
         }
+        .item-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 3px;
+        }
+        .item-status::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text-muted);
+        }
+        .item-status.bought::before { background: var(--green); }
+        .item-status.unavailable::before,
+        .item-status.cancelled::before { background: var(--red); }
+        .item-status.requested::before { background: #f59e0b; }
+        .btn[disabled] {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
         .empty-jastip {
             padding: 36px 16px;
             text-align: center;
@@ -99,6 +158,7 @@
         }
         @media (max-width: 520px) {
             .result-grid { grid-template-columns: 1fr; }
+            .jastip-metrics { grid-template-columns: repeat(2, 1fr); }
             .jastip-actions .btn { flex: 1; }
         }
     </style>
@@ -225,19 +285,31 @@
                 const items = order.items || [];
                 const canAdd = order.status === 'open';
                 const canManage = !!order.can_manage;
+                const pendingCount = items.filter(item => item.status === 'requested').length;
+                const boughtCount = items.filter(item => item.status === 'bought').length;
+                const unavailableCount = items.filter(item => ['unavailable', 'cancelled'].includes(item.status)).length;
+                const participantCount = new Set(items.map(item => item.user_id)).size;
                 const total = items
                     .filter(item => item.status === 'bought')
                     .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
+                const canComplete = canManage && ['open','closed'].includes(order.status) && pendingCount === 0 && boughtCount > 0;
 
                 return `
                     <div class="jastip-card">
                         <div class="jastip-top">
                             <div>
-                                <div class="jastip-title">${escapeHtml(order.title)}</div>
+                                <div class="jastip-title">${escapeHtml(order.title)}${order.opened_by === state.user.id ? '<span class="owner-chip">Kamu owner</span>' : ''}</div>
                                 <div class="text-muted" style="font-size:0.78rem;">Dibuka oleh ${escapeHtml(order.opened_by_name)} · ${formatDate(order.created_at)}</div>
                                 ${order.note ? `<div class="text-muted" style="font-size:0.78rem; margin-top:6px;">${escapeHtml(order.note)}</div>` : ''}
                             </div>
                             <span class="status-pill ${order.status}">${statusLabel(order.status)}</span>
+                        </div>
+
+                        <div class="jastip-metrics">
+                            <div class="jastip-metric"><div class="metric-value">${items.length}</div><div class="metric-label">Nitipan</div></div>
+                            <div class="jastip-metric"><div class="metric-value">${participantCount}</div><div class="metric-label">Penitip</div></div>
+                            <div class="jastip-metric"><div class="metric-value">${pendingCount}</div><div class="metric-label">Belum dicek</div></div>
+                            <div class="jastip-metric"><div class="metric-value">${boughtCount}/${unavailableCount}</div><div class="metric-label">Ada/Kosong</div></div>
                         </div>
 
                         ${items.length > 0 ? items.map(item => renderJastipItem(order, item, canManage)).join('') : '<div class="text-muted" style="font-size:0.8rem; padding-top:8px;">Belum ada nitipan.</div>'}
@@ -247,10 +319,11 @@
                         <div class="jastip-actions">
                             ${canAdd ? `<button class="btn btn-primary" onclick="openAddItem(${order.id})">Titip</button>` : ''}
                             ${canManage && order.status === 'open' ? `<button class="btn" onclick="closeJastip(${order.id})">Tutup</button>` : ''}
-                            ${canManage && ['open','closed'].includes(order.status) ? `<button class="btn btn-success" onclick="completeJastip(${order.id})">Selesai</button>` : ''}
+                            ${canManage && ['open','closed'].includes(order.status) ? `<button class="btn btn-success" ${canComplete ? `onclick="completeJastip(${order.id})"` : 'disabled'}>Selesai</button>` : ''}
                             ${canManage && ['open','closed'].includes(order.status) ? `<button class="btn btn-danger" onclick="cancelJastip(${order.id})">Batal</button>` : ''}
                             ${order.expense_id ? `<a class="btn" href="history.html" style="text-decoration:none;">Lihat Tagihan</a>` : ''}
                         </div>
+                        ${canManage && ['open','closed'].includes(order.status) && !canComplete ? `<div class="text-muted" style="font-size:0.72rem; margin-top:8px;">Selesaikan setelah semua nitipan dicek dan minimal satu barang ditandai ada.</div>` : ''}
                     </div>
                 `;
             }).join('');
@@ -265,6 +338,7 @@
                         <div>
                             <div style="font-weight:700; color:var(--text-primary);">${escapeHtml(item.item_name)} <span class="text-muted" style="font-size:0.75rem;">x${item.requested_qty}</span></div>
                             <div class="text-muted" style="font-size:0.75rem;">${escapeHtml(item.user_name)}${item.note ? ' · ' + escapeHtml(item.note) : ''}</div>
+                            <div class="item-status ${item.status}">${itemStatusLabel(item.status)}</div>
                         </div>
                         <div class="item-total">${item.status === 'bought' ? 'Rp ' + finalPrice.toLocaleString('id-ID') : itemStatusLabel(item.status)}</div>
                     </div>
@@ -318,6 +392,7 @@
                 document.getElementById('jastipNote').value = '';
                 showToast('Jastip dibuka', 'success');
                 await loadJastip();
+                refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal buka jastip', 'error');
             }
@@ -342,6 +417,7 @@
                 closeModal('addJastipItemModal');
                 showToast('Nitipan masuk', 'success');
                 await loadJastip();
+                refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal nitip barang', 'error');
             }
@@ -373,6 +449,7 @@
                 await apiPut('jastip?action=close', { id });
                 showToast('Jastip ditutup', 'success');
                 await loadJastip();
+                refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal tutup jastip', 'error');
             }
@@ -384,6 +461,7 @@
                 await apiPut('jastip?action=cancel', { id });
                 showToast('Jastip dibatalkan', 'success');
                 await loadJastip();
+                refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal batalkan jastip', 'error');
             }
@@ -395,6 +473,7 @@
                 const result = await apiPut('jastip?action=complete', { id });
                 showToast('Jastip selesai: Rp ' + Number(result.amount || 0).toLocaleString('id-ID'), 'success');
                 await loadJastip();
+                refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal selesaikan jastip', 'error');
             }
@@ -406,6 +485,7 @@
                 await apiDelete('jastip?item_id=' + itemId);
                 showToast('Nitipan dihapus', 'success');
                 await loadJastip();
+                refreshActiveJastipBanner({ force: true });
             } catch (err) {
                 showToast(err.message || 'Gagal hapus nitipan', 'error');
             }

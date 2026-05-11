@@ -82,6 +82,7 @@ async function createSettlement(req, res, user) {
   usersResult.rows.forEach(u => { userMap[u.id] = u.display_name; });
 
   const client = await db.connect();
+  const pushJobs = [];
   try {
     await client.query('BEGIN');
 
@@ -100,7 +101,9 @@ async function createSettlement(req, res, user) {
          VALUES ($1, 'Pembayaran Diterima', $2, 'settlement', $3)`,
         [toUser, `${userMap[fromUser]} sudah membayar Rp ${amountFormatted} ke kamu`, settlementId]
       );
-      sendPushNotification(toUser, 'Pembayaran Diterima', `${userMap[fromUser]} sudah membayar Rp ${amountFormatted} ke kamu`, '/settle.html');
+      pushJobs.push(
+        sendPushNotification(toUser, 'Pembayaran Diterima', `${userMap[fromUser]} sudah membayar Rp ${amountFormatted} ke kamu`, '/settle.html')
+      );
     } else {
       // Creditor confirmed → notify debtor
       await client.query(
@@ -108,10 +111,13 @@ async function createSettlement(req, res, user) {
          VALUES ($1, 'Pembayaran Dikonfirmasi', $2, 'settlement', $3)`,
         [fromUser, `${userMap[toUser]} mengkonfirmasi pembayaran Rp ${amountFormatted} dari kamu`, settlementId]
       );
-      sendPushNotification(fromUser, 'Pembayaran Dikonfirmasi', `${userMap[toUser]} mengkonfirmasi pembayaran Rp ${amountFormatted} dari kamu`, '/settle.html');
+      pushJobs.push(
+        sendPushNotification(fromUser, 'Pembayaran Dikonfirmasi', `${userMap[toUser]} mengkonfirmasi pembayaran Rp ${amountFormatted} dari kamu`, '/settle.html')
+      );
     }
 
     await client.query('COMMIT');
+    await Promise.allSettled(pushJobs);
     return jsonResponse(res, { success: true, message: 'Settlement recorded', settlement_id: settlementId }, 201);
 
   } catch (err) {

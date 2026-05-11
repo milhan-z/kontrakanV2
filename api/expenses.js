@@ -158,6 +158,7 @@ async function createExpense(req, res, user) {
   }
   
   const client = await db.connect();
+  const pushJobs = [];
 
   try {
     await client.query('BEGIN');
@@ -208,15 +209,18 @@ async function createExpense(req, res, user) {
             ]
           );
 
-          sendPushNotification(splitUserId, notificationTitle, notificationMessage, '/notifications.html')
-            .catch(err => {
-              console.error('Failed to send expense push notification:', err);
-            });
+          pushJobs.push(
+            sendPushNotification(splitUserId, notificationTitle, notificationMessage, '/notifications.html')
+              .catch(err => {
+                console.error('Failed to send expense push notification:', err);
+              })
+          );
         }
       }
     }
 
     await client.query('COMMIT');
+    await Promise.allSettled(pushJobs);
     return jsonResponse(res, { success: true, message: 'Expense created', expense_id: expenseId }, 201);
 
   } catch (err) {

@@ -228,6 +228,7 @@ async function checkAuth() {
                 setTimeout(() => showToast('Password sementara terdeteksi. Ganti password dulu di halaman profil.', 'info'), 300);
             }
             setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
+            setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
             return true;
         }
         // Fallback: verifikasi ke server
@@ -239,6 +240,7 @@ async function checkAuth() {
                 setTimeout(() => showToast('Password sementara terdeteksi. Ganti password dulu di halaman profil.', 'info'), 300);
             }
             setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
+            setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
             return true;
         }
         return false;
@@ -264,6 +266,7 @@ async function login(username, password) {
         setTimeout(() => showToast('Password sementara terdeteksi. Ganti password dulu di halaman profil.', 'info'), 300);
     }
     setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
+    setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
     return data;
 }
 
@@ -591,6 +594,110 @@ function installPWA() {
     }
 }
 
+// ==================== Active Jastip Banner ====================
+let activeJastipRefreshTimer = null;
+let activeJastipRefreshInFlight = null;
+
+function shouldShowActiveJastipBanner() {
+    const currentPage = window.location.pathname.split('/').pop() || 'dashboard.html';
+    if (['login.html', 'index.html', 'maintenance.html', 'admin.html'].includes(currentPage)) return false;
+    if (!localStorage.getItem('kontrakan_token')) return false;
+    return !!document.querySelector('.bottom-nav');
+}
+
+function getActiveJastipBanner() {
+    let banner = document.getElementById('activeJastipBanner');
+    if (banner) return banner;
+
+    banner = document.createElement('div');
+    banner.id = 'activeJastipBanner';
+    banner.className = 'active-jastip-banner';
+    banner.innerHTML = `
+        <div class="active-jastip-icon">
+            <svg viewBox="0 0 24 24"><path d="M6 2l1 5h10l1-5"/><path d="M3 7h18l-2 14H5L3 7z"/><path d="M9 11a3 3 0 0 0 6 0"/></svg>
+        </div>
+        <div class="active-jastip-copy">
+            <div class="active-jastip-title">Jastip sedang open</div>
+            <div class="active-jastip-subtitle">Cek nitipan kontrakan</div>
+        </div>
+        <button type="button" class="active-jastip-cta">Pantau</button>
+    `;
+    banner.addEventListener('click', () => {
+        window.location.href = 'jastip.html';
+    });
+    document.body.appendChild(banner);
+    return banner;
+}
+
+function hideActiveJastipBanner() {
+    const banner = document.getElementById('activeJastipBanner');
+    if (banner) banner.classList.remove('show');
+    document.body.classList.remove('has-active-jastip-banner');
+}
+
+function renderActiveJastipBanner(orders = []) {
+    const openOrders = orders.filter(order => order.status === 'open');
+    if (!shouldShowActiveJastipBanner() || openOrders.length === 0) {
+        hideActiveJastipBanner();
+        return;
+    }
+
+    const first = openOrders[0];
+    const itemCount = (first.items || []).length;
+    const otherCount = openOrders.length - 1;
+    const title = openOrders.length > 1
+        ? `${openOrders.length} jastip sedang open`
+        : `${first.opened_by_name || 'Teman'} buka jastip`;
+    const subtitle = `${first.title}${itemCount ? ` · ${itemCount} nitipan` : ''}${otherCount ? ` · +${otherCount} lainnya` : ''}`;
+
+    const banner = getActiveJastipBanner();
+    banner.querySelector('.active-jastip-title').textContent = title;
+    banner.querySelector('.active-jastip-subtitle').textContent = subtitle;
+    banner.classList.add('show');
+    document.body.classList.add('has-active-jastip-banner');
+}
+
+async function refreshActiveJastipBanner({ force = false } = {}) {
+    if (!shouldShowActiveJastipBanner()) {
+        hideActiveJastipBanner();
+        return;
+    }
+    if (activeJastipRefreshInFlight && !force) return activeJastipRefreshInFlight;
+
+    activeJastipRefreshInFlight = fetch(`${API_BASE}/jastip?status=open&limit=3&_=${Date.now()}`, {
+        method: 'GET',
+        cache: 'no-store',
+    })
+        .then(async (res) => {
+            if (!res.ok) throw new Error('Gagal memuat jastip aktif');
+            const data = await res.json();
+            renderActiveJastipBanner(data.orders || []);
+        })
+        .catch(() => {
+            hideActiveJastipBanner();
+        })
+        .finally(() => {
+            activeJastipRefreshInFlight = null;
+        });
+
+    return activeJastipRefreshInFlight;
+}
+
+function initActiveJastipBanner() {
+    if (!shouldShowActiveJastipBanner()) return;
+    refreshActiveJastipBanner({ force: true });
+
+    if (!activeJastipRefreshTimer) {
+        activeJastipRefreshTimer = setInterval(() => {
+            if (document.visibilityState === 'visible') refreshActiveJastipBanner();
+        }, 25000);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') refreshActiveJastipBanner({ force: true });
+    }, { once: false });
+}
+
 
 // ==================== Background Prefetch ====================
 // Prefetch common API data so next pages load from cache
@@ -607,6 +714,7 @@ function prefetchCommonData() {
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     updateActiveNav();
+    setTimeout(initActiveJastipBanner, 350);
 
     if ('serviceWorker' in navigator) {
         const swPath = window.location.hostname === 'localhost' ? '/Kontrakan/sw.js' : '/sw.js';
@@ -848,3 +956,4 @@ document.addEventListener('DOMContentLoaded', () => {
 window.escapeHtml = escapeHtml;
 window.escapeAttribute = escapeAttribute;
 window.safeJsonForAttr = safeJsonForAttr;
+window.refreshActiveJastipBanner = refreshActiveJastipBanner;

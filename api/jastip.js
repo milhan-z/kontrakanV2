@@ -197,7 +197,7 @@ async function addItem(req, res, user, db) {
       `${user.display_name} nitip ${itemName} di jastip ${order.title}`,
       order.id
     );
-    sendPushNotification(order.opened_by, 'Nitipan Baru', `${user.display_name} nitip ${itemName}`, '/jastip.html')
+    await sendPushNotification(order.opened_by, 'Nitipan Baru', `${user.display_name} nitip ${itemName}`, '/jastip.html')
       .catch(err => console.error('Failed to send jastip item push:', err));
   }
 
@@ -293,6 +293,7 @@ async function completeOrder(req, res, user, db) {
   if (order.status === 'cancelled') return jsonResponse(res, { error: 'Jastip sudah dibatalkan' }, 409);
 
   const client = await db.connect();
+  const pushJobs = [];
   try {
     await client.query('BEGIN');
 
@@ -377,8 +378,10 @@ async function completeOrder(req, res, user, db) {
            VALUES ($1, 'Jastip Selesai', $2, 'expense', $3)`,
           [split.user_id, `Jastip ${currentOrder.title} selesai. Tagihan kamu Rp ${formatted}`, expenseId]
         );
-        sendPushNotification(split.user_id, 'Jastip Selesai', `Tagihan jastip kamu Rp ${formatted}`, '/history.html')
-          .catch(err => console.error('Failed to send completed jastip push:', err));
+        pushJobs.push(
+          sendPushNotification(split.user_id, 'Jastip Selesai', `Tagihan jastip kamu Rp ${formatted}`, '/history.html')
+            .catch(err => console.error('Failed to send completed jastip push:', err))
+        );
       }
     }
 
@@ -390,6 +393,7 @@ async function completeOrder(req, res, user, db) {
     );
 
     await client.query('COMMIT');
+    await Promise.allSettled(pushJobs);
     return jsonResponse(res, { success: true, expense_id: expenseId, amount: Math.round(totalAmount * 100) / 100 });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -438,7 +442,7 @@ async function notifyUsers(db, exceptUserId, title, message, relatedId) {
   const users = await db.query('SELECT id FROM users WHERE id != $1', [exceptUserId]);
   await Promise.all(users.rows.map(async (row) => {
     await createNotification(db, row.id, title, message, relatedId);
-    sendPushNotification(row.id, title, message, '/jastip.html')
+    await sendPushNotification(row.id, title, message, '/jastip.html')
       .catch(err => console.error('Failed to send jastip broadcast push:', err));
   }));
 }
@@ -450,7 +454,7 @@ async function notifyParticipants(db, jastipId, exceptUserId, title, message) {
   );
   await Promise.all(result.rows.map(async (row) => {
     await createNotification(db, row.user_id, title, message, jastipId);
-    sendPushNotification(row.user_id, title, message, '/jastip.html')
+    await sendPushNotification(row.user_id, title, message, '/jastip.html')
       .catch(err => console.error('Failed to send jastip participant push:', err));
   }));
 }
