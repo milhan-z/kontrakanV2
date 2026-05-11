@@ -6,6 +6,7 @@
  */
 
 const { getDB, setCors, jsonResponse, requireAuth, getBody, handleOptions } = require('../lib/db');
+const { sendPushNotification } = require('../lib/webpush');
 
 module.exports = async function handler(req, res) {
   setCors(res);
@@ -92,9 +93,13 @@ async function listExpenses(req, res, user) {
 
 async function createExpense(req, res, user) {
   const input = await getBody(req);
-  const { amount, description, category, splits = [], receipt_image = null } = input;
+  const amountValue = Number(input.amount);
+  const description = String(input.description || '').trim();
+  const category = String(input.category || '').trim();
+  const receipt_image = input.receipt_image || null;
+  const splits = Array.isArray(input.splits) ? input.splits : [];
 
-  if (!amount || !description || !category) {
+  if (!amountValue || !description || !category) {
     return jsonResponse(res, { error: 'amount, description, category harus diisi' }, 400);
   }
 
@@ -102,8 +107,44 @@ async function createExpense(req, res, user) {
     return jsonResponse(res, { error: "Field 'splits' is required" }, 400);
   }
 
-  if (parseFloat(amount) <= 0) {
+  if (amountValue <= 0) {
     return jsonResponse(res, { error: 'Amount must be greater than 0' }, 400);
+  }
+
+  const normalizedSplits = [];
+  if (category !== 'Listrik' && category !== 'Galon') {
+    let splitTotal = 0;
+    const seenUserIds = new Set();
+
+    for (const split of splits) {
+      const splitUserId = parseInt(split.user_id, 10);
+      const splitAmount = Number(split.amount);
+
+      if (!splitUserId || !Number.isFinite(splitAmount) || splitAmount <= 0) {
+        return jsonResponse(res, { error: 'Setiap split harus punya user_id dan amount yang valid' }, 400);
+      }
+      if (seenUserIds.has(splitUserId)) {
+        return jsonResponse(res, { error: 'User pada split tidak boleh duplikat' }, 400);
+      }
+
+      seenUserIds.add(splitUserId);
+      splitTotal += splitAmount;
+      normalizedSplits.push({
+        user_id: splitUserId,
+        amount: Math.round(splitAmount * 100) / 100,
+        items: Array.isArray(split.items) ? split.items : [],
+      });
+    }
+
+    const roundedTotal = Math.round(amountValue * 100) / 100;
+    const roundedSplitTotal = Math.round(splitTotal * 100) / 100;
+    if (Math.abs(roundedSplitTotal - roundedTotal) > 0.01) {
+      return jsonResponse(
+        res,
+        { error: `Total split harus sama dengan total pengeluaran. Split: ${roundedSplitTotal}, total: ${roundedTotal}` },
+        400
+      );
+    }
   }
 
   const db = getDB();
@@ -122,18 +163,27 @@ async function createExpense(req, res, user) {
     await client.query('BEGIN');
 
     // Insert expense
-    const qty = input.qty ? parseInt(input.qty) : 1;
+    const qty = input.qty ? parseInt(input.qty, 10) : 1;
     const expResult = await client.query(
       'INSERT INTO expenses (paid_by, amount, description, category, receipt_image, qty) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
-      [user.user_id, parseFloat(amount), description, category, receipt_image, qty]
+      [user.user_id, amountValue, description, category, receipt_image, qty]
     );
     const expenseId = expResult.rows[0].id;
 
     // Insert splits & notifications
     if (category !== 'Listrik' && category !== 'Galon') {
-      for (const split of splits) {
-        const splitUserId = parseInt(split.user_id);
-        const splitAmount = parseFloat(split.amount);
+      const splitUserIds = normalizedSplits.map(split => split.user_id);
+      const usersResult = await client.query(
+        'SELECT id FROM users WHERE id = ANY($1::int[])',
+        [splitUserIds]
+      );
+      if (usersResult.rows.length !== splitUserIds.length) {
+        throw new Error('Ada user split yang tidak ditemukan');
+      }
+
+      for (const split of normalizedSplits) {
+        const splitUserId = split.user_id;
+        const splitAmount = split.amount;
 
         const itemsJson = split.items && split.items.length > 0 ? JSON.stringify(split.items) : null;
         await client.query(
@@ -158,9 +208,10 @@ async function createExpense(req, res, user) {
             ]
           );
 
-          sendPushNotification(splitUserId, notificationTitle, notificationMessage, '/notifications.html').catch(err => {
-            console.error('Failed to send expense push notification:', err);
-          });
+          sendPushNotification(splitUserId, notificationTitle, notificationMessage, '/notifications.html')
+            .catch(err => {
+              console.error('Failed to send expense push notification:', err);
+            });
         }
       }
     }

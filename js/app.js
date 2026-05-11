@@ -46,6 +46,27 @@ function imageUrl(path) {
     return '/' + cleanPath;
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeAttribute(value) {
+    return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
+function safeJsonForAttr(value) {
+    return JSON.stringify(value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
 // ==================== State ====================
 const state = {
     user: null,
@@ -202,6 +223,9 @@ async function checkAuth() {
         // Parse user dari localStorage
         if (savedUser) {
             state.user = JSON.parse(savedUser);
+            if (state.user.must_change_password) {
+                setTimeout(() => showToast('Password sementara terdeteksi. Ganti password dulu di halaman profil.', 'info'), 300);
+            }
             setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
             return true;
         }
@@ -209,6 +233,10 @@ async function checkAuth() {
         const data = await apiGet('auth?action=me');
         if (data && data.user) {
             state.user = data.user;
+            localStorage.setItem('kontrakan_user', JSON.stringify(data.user));
+            if (state.user.must_change_password) {
+                setTimeout(() => showToast('Password sementara terdeteksi. Ganti password dulu di halaman profil.', 'info'), 300);
+            }
             setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
             return true;
         }
@@ -231,6 +259,9 @@ async function login(username, password) {
     localStorage.setItem('kontrakan_token', data.token);
     localStorage.setItem('kontrakan_user', JSON.stringify(data.user));
     state.user = data.user;
+    if (state.user.must_change_password) {
+        setTimeout(() => showToast('Password sementara terdeteksi. Ganti password dulu di halaman profil.', 'info'), 300);
+    }
     setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
     return data;
 }
@@ -779,3 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
         syncPushSubscription();
     }
 });
+
+window.escapeHtml = escapeHtml;
+window.escapeAttribute = escapeAttribute;
+window.safeJsonForAttr = safeJsonForAttr;

@@ -279,6 +279,10 @@
             document.getElementById('displayName').value = state.user.display_name;
             document.getElementById('phoneWa').value = state.user.phone_wa || '';
 
+            if (state.user.must_change_password) {
+                showToast('Password sementara aktif. Ubah password sebelum lanjut pakai aplikasi.', 'info');
+            }
+
             if (state.user.role === 'admin') document.getElementById('adminSection').classList.remove('hidden');
 
             // Payment methods already loaded above
@@ -313,7 +317,7 @@
             } else {
                 banksList.innerHTML = paymentMethods.banks.map((b, i) => `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: var(--bg-card); border-radius: var(--radius-sm); margin-bottom: 4px;">
-                        <div><strong>${b.name}</strong> - ${b.account}</div>
+                        <div><strong>${escapeHtml(b.name)}</strong> - ${escapeHtml(b.account)}</div>
                         <button onclick="removeBank(${i})" style="background: none; border: none; color: var(--red); cursor: pointer; font-size: 0.8rem;">✕</button>
                     </div>
                 `).join('');
@@ -326,7 +330,7 @@
             } else {
                 ewalletsList.innerHTML = paymentMethods.ewallets.map((e, i) => `
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; background: var(--bg-card); border-radius: var(--radius-sm); margin-bottom: 4px;">
-                        <div><strong>${e.type}</strong> - ${e.number}</div>
+                        <div><strong>${escapeHtml(e.type)}</strong> - ${escapeHtml(e.number)}</div>
                         <button onclick="removeEwallet(${i})" style="background: none; border: none; color: var(--red); cursor: pointer; font-size: 0.8rem;">✕</button>
                     </div>
                 `).join('');
@@ -339,7 +343,7 @@
             } else {
                 qrisList.innerHTML = paymentMethods.qris.map((q, i) => `
                     <div style="position: relative; display: inline-block;">
-                        <img src="${imageUrl(q)}" style="width: 60px; height: 60px; object-fit: cover; border-radius: var(--radius-sm);">
+                        <img src="${escapeAttribute(imageUrl(q))}" style="width: 60px; height: 60px; object-fit: cover; border-radius: var(--radius-sm);">
                         <button onclick="removeQris(${i})" style="position: absolute; top: -5px; right: -5px; background: var(--red); color: white; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 10px; cursor: pointer;">✕</button>
                     </div>
                 `).join('');

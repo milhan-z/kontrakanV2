@@ -1,11 +1,22 @@
 const { getDB, requireAuth, jsonResponse, getBody, setCors, handleOptions } = require('../lib/db');
-const { vapidPublicKey } = require('../lib/webpush');
+const { vapidPublicKey, isPushConfigured, pushConfigError } = require('../lib/webpush');
 
 module.exports = async (req, res) => {
   setCors(res);
   if (handleOptions(req, res)) return;
 
   if (req.method === 'GET') {
+    if (!isPushConfigured()) {
+      return jsonResponse(
+        res,
+        {
+          error: pushConfigError
+            ? `Konfigurasi push tidak valid: ${pushConfigError.message}`
+            : 'Push notification belum dikonfigurasi. Isi VAPID_PUBLIC_KEY dan VAPID_PRIVATE_KEY.',
+        },
+        503
+      );
+    }
     return jsonResponse(res, { publicKey: vapidPublicKey });
   }
 
@@ -90,44 +101,14 @@ async function ensurePushTable(db) {
     )
   `);
 
+  await db.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS endpoint TEXT`);
+  await db.query(`ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS user_agent TEXT NULL`);
+  await db.query(`
+    ALTER TABLE push_subscriptions
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+  `);
+
   await db.query(`CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id)`);
-
-  await db.query(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'push_subscriptions' AND column_name = 'user_agent'
-      ) THEN
-        ALTER TABLE push_subscriptions ADD COLUMN user_agent TEXT NULL;
-      END IF;
-
-      IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'push_subscriptions' AND column_name = 'updated_at'
-      ) THEN
-        ALTER TABLE push_subscriptions ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP;
-      END IF;
-    END $$;
-  `);
-
-
-  await db.query(`
-    DO $$
-    BEGIN
-      IF NOT EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'push_subscriptions'
-          AND column_name = 'endpoint'
-      ) THEN
-        ALTER TABLE push_subscriptions ADD COLUMN endpoint TEXT;
-        UPDATE push_subscriptions
-        SET endpoint = subscription->>'endpoint'
-        WHERE endpoint IS NULL;
-      END IF;
-    END $$;
-  `);
 
   await db.query(`
     UPDATE push_subscriptions
@@ -137,6 +118,7 @@ async function ensurePushTable(db) {
   `);
 
   await db.query(`DELETE FROM push_subscriptions WHERE endpoint IS NULL OR endpoint = ''`);
+  await db.query(`ALTER TABLE push_subscriptions ALTER COLUMN endpoint SET NOT NULL`);
 
   await db.query(`
     DELETE FROM push_subscriptions a

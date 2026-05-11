@@ -41,17 +41,25 @@ async function updateProfile(req, res, user) {
   const input = await getBody(req);
   const db = getDB();
 
+  await db.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+
   if (input.display_name !== undefined) {
-    await db.query('UPDATE users SET display_name = $1 WHERE id = $2', [input.display_name, user.user_id]);
+    await db.query('UPDATE users SET display_name = $1 WHERE id = $2', [String(input.display_name || '').trim(), user.user_id]);
   }
 
   if (input.phone_wa !== undefined) {
-    await db.query('UPDATE users SET phone_wa = $1 WHERE id = $2', [input.phone_wa, user.user_id]);
+    await db.query('UPDATE users SET phone_wa = $1 WHERE id = $2', [String(input.phone_wa || '').trim(), user.user_id]);
   }
 
   if (input.new_password && input.new_password.length > 0) {
     const hash = await bcrypt.hash(input.new_password, 10);
-    await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, user.user_id]);
+    await db.query(
+      'UPDATE users SET password_hash = $1, must_change_password = FALSE WHERE id = $2',
+      [hash, user.user_id]
+    );
   }
 
   return jsonResponse(res, { success: true, message: 'Profile updated' });

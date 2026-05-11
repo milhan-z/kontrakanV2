@@ -346,7 +346,7 @@
             container.innerHTML = filtered.map(s => {
                 const isOutgoing = s.from_user === currentUserId;
                 const otherName = isOutgoing ? s.to_name : s.from_name;
-                const direction = isOutgoing ? `Kamu → ${otherName}` : `${s.from_name} → Kamu`;
+                const direction = isOutgoing ? `Kamu → ${escapeHtml(otherName)}` : `${escapeHtml(s.from_name)} → Kamu`;
                 const amountClass = isOutgoing ? 'out' : '';
                 const prefix = isOutgoing ? '-' : '+';
                 const receiptIcon = s.receipt_image ? `<span style="font-size: 0.7rem; color: var(--green); margin-left: 4px;">📎</span>` : '';

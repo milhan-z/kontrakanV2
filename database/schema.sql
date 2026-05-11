@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS users (
     display_name  VARCHAR(100) NOT NULL,
     phone_wa      VARCHAR(20) DEFAULT NULL,
     role          VARCHAR(10) DEFAULT 'member' CHECK (role IN ('admin', 'member')),
+    must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
     -- Legacy payment fields
     bank_name     VARCHAR(100) DEFAULT NULL,
     bank_account  VARCHAR(100) DEFAULT NULL,
@@ -35,6 +36,7 @@ CREATE TABLE IF NOT EXISTS expenses (
     description   VARCHAR(255) NOT NULL,
     category      VARCHAR(50) NOT NULL,
     receipt_image VARCHAR(255) DEFAULT NULL, -- Cloudinary URL
+    qty           INT NOT NULL DEFAULT 1,
     created_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -44,6 +46,7 @@ CREATE TABLE IF NOT EXISTS expense_splits (
     expense_id  INT NOT NULL REFERENCES expenses(id) ON DELETE CASCADE,
     user_id     INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     amount      DECIMAL(12, 2) NOT NULL,
+    items       JSONB DEFAULT NULL,
     is_paid     BOOLEAN DEFAULT FALSE
 );
 
@@ -94,15 +97,17 @@ CREATE INDEX IF NOT EXISTS idx_notifications_read  ON notifications(user_id, is_
 CREATE TABLE IF NOT EXISTS push_subscriptions (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
     subscription JSONB NOT NULL,
+    user_agent TEXT DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, subscription->>'endpoint')
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- =========================================
--- Default Users (password: kontrakan123)
--- Hash dibuat dengan bcrypt cost 10
--- Generate baru: node -e "const b=require('bcryptjs');console.log(b.hashSync('kontrakan123',10))"
+-- Default Users
+-- Setelah import schema, ganti password tiap user dari admin panel
+-- atau set hash milikmu sendiri sebelum dipakai di production.
 -- =========================================
 INSERT INTO users (username, password_hash, display_name, role) VALUES
 ('hilman', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Hilman', 'admin'),

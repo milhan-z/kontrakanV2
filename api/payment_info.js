@@ -22,7 +22,7 @@ module.exports = async function handler(req, res) {
 };
 
 async function getPaymentInfo(req, res, user) {
-  const userId = req.query.user_id;
+  const userId = parseInt(req.query.user_id || '0', 10);
   if (!userId) return jsonResponse(res, { error: 'user_id required' }, 400);
 
   const db = getDB();
@@ -30,7 +30,7 @@ async function getPaymentInfo(req, res, user) {
     SELECT id, display_name, phone_wa, payment_methods,
            bank_name, bank_account, ewallet_type, ewallet_number, qris_image
     FROM users WHERE id = $1
-  `, [parseInt(userId)]);
+  `, [userId]);
 
   const u = result.rows[0];
   if (!u) return jsonResponse(res, { error: 'User not found' }, 404);
@@ -66,12 +66,23 @@ async function handlePaymentAction(req, res, user) {
 
   if (action === 'add') {
     if (type === 'bank') {
-      methods.banks.push({ name: input.name || '', account: input.account || '' });
+      const name = String(input.name || '').trim();
+      const account = String(input.account || '').trim();
+      if (!name || !account) return jsonResponse(res, { error: 'Nama bank dan nomor rekening wajib diisi' }, 400);
+      methods.banks.push({ name, account });
     } else if (type === 'ewallet') {
-      methods.ewallets.push({ type: input.ewallet_type || '', number: input.number || '' });
+      const ewalletType = String(input.ewallet_type || '').trim();
+      const number = String(input.number || '').trim();
+      if (!ewalletType || !number) return jsonResponse(res, { error: 'Jenis dan nomor e-wallet wajib diisi' }, 400);
+      methods.ewallets.push({ type: ewalletType, number });
     } else if (type === 'qris' && input.qris_url) {
-      // Frontend upload ke Cloudinary, kirim URL
-      methods.qris.push(input.qris_url);
+      const qrisUrl = String(input.qris_url || '').trim();
+      if (!/^https?:\/\//i.test(qrisUrl)) {
+        return jsonResponse(res, { error: 'URL QRIS tidak valid' }, 400);
+      }
+      methods.qris.push(qrisUrl);
+    } else {
+      return jsonResponse(res, { error: 'Data payment method tidak valid' }, 400);
     }
   } else if (action === 'remove') {
     const index = parseInt(input.index ?? -1);

@@ -408,9 +408,9 @@
                 if (myDebts.length > 0) {
                     debtsSection.style.display = 'block';
                     debtsList.innerHTML = myDebts.map(s => `
-                        <div class="transaction-item" onclick="showDebtDetail(${s.to_user_id}, '${s.to_name}', ${s.amount})" style="cursor: pointer;">
+                        <div class="transaction-item" onclick="showDebtDetail(${s.to_user_id}, ${JSON.stringify(s.to_name)}, ${s.amount})" style="cursor: pointer;">
                             <div class="transaction-info">
-                                <div class="transaction-title">${s.to_name}</div>
+                                <div class="transaction-title">${escapeHtml(s.to_name)}</div>
                                 <div class="text-muted" style="font-size: 0.75rem;">Tap untuk lihat detail & bayar</div>
                             </div>
                             <div class="transaction-amount hutang">Rp ${s.amount.toLocaleString('id-ID')}</div>
@@ -426,9 +426,9 @@
                 if (myCredits.length > 0) {
                     creditsSection.style.display = 'block';
                     creditsList.innerHTML = myCredits.map(s => `
-                        <div class="transaction-item" onclick="showCreditDetail(${s.from_user_id}, '${s.from_name}', ${s.amount})" style="cursor: pointer;">
+                        <div class="transaction-item" onclick="showCreditDetail(${s.from_user_id}, ${JSON.stringify(s.from_name)}, ${s.amount})" style="cursor: pointer;">
                             <div class="transaction-info">
-                                <div class="transaction-title">${s.from_name}</div>
+                                <div class="transaction-title">${escapeHtml(s.from_name)}</div>
                                 <div class="text-muted" style="font-size: 0.75rem;">Tap untuk konfirmasi pembayaran</div>
                             </div>
                             <div class="transaction-amount piutang">Rp ${s.amount.toLocaleString('id-ID')}</div>
@@ -457,7 +457,7 @@
                     historyEl.innerHTML = mySettlements.slice(0, 5).map(s => {
                         const isFromMe = parseInt(s.from_user) === currentUserId;
                         const isToMe = parseInt(s.to_user) === currentUserId;
-                        const direction = `${s.from_name} → ${s.to_name}`;
+                        const direction = `${escapeHtml(s.from_name)} → ${escapeHtml(s.to_name)}`;
                         const receiptIcon = s.receipt_image ? '<span style="font-size: 0.7rem; color: var(--green); margin-left: 4px;">📎</span>' : '';
                         return `
                             <div class="transaction-item" style="cursor: pointer;" 

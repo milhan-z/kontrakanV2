@@ -37,7 +37,7 @@ async function handleLogin(req, res) {
 
   const db = getDB();
   const result = await db.query(
-    'SELECT id, username, password_hash, display_name, role FROM users WHERE username = $1',
+    'SELECT id, username, password_hash, display_name, role, COALESCE(must_change_password, FALSE) AS must_change_password FROM users WHERE username = $1',
     [username]
   );
   const user = result.rows[0];
@@ -64,6 +64,7 @@ async function handleLogin(req, res) {
       username: user.username,
       display_name: user.display_name,
       role: user.role,
+      must_change_password: user.must_change_password,
     },
   });
 }
@@ -80,7 +81,7 @@ async function handleMe(req, res) {
 
   const db = getDB();
   const result = await db.query(
-    'SELECT id, username, display_name, phone_wa, role FROM users WHERE id = $1',
+    'SELECT id, username, display_name, phone_wa, role, COALESCE(must_change_password, FALSE) AS must_change_password FROM users WHERE id = $1',
     [user.user_id]
   );
   const userData = result.rows[0];

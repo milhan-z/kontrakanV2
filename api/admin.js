@@ -8,6 +8,7 @@
  */
 
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const { getDB, setCors, jsonResponse, requireAdmin, getBody, handleOptions } = require('../lib/db');
 
 module.exports = async function handler(req, res) {
@@ -68,6 +69,7 @@ async function addUser(req, res) {
   if (password.length < 6) return jsonResponse(res, { error: 'Password minimal 6 karakter' }, 400);
 
   const db = getDB();
+  await ensureUserSecurityColumns(db);
   const existing = await db.query('SELECT id FROM users WHERE username = $1', [username]);
   if (existing.rows.length > 0) {
     return jsonResponse(res, { error: 'Username sudah digunakan' }, 400);
@@ -75,7 +77,7 @@ async function addUser(req, res) {
 
   const hash = await bcrypt.hash(password, 10);
   const result = await db.query(
-    "INSERT INTO users (username, password_hash, display_name, role) VALUES ($1, $2, $3, 'member') RETURNING id",
+    "INSERT INTO users (username, password_hash, display_name, role, must_change_password) VALUES ($1, $2, $3, 'member', TRUE) RETURNING id",
     [username, hash, display_name]
   );
 
@@ -91,11 +93,22 @@ async function resetPassword(req, res) {
   const userId = parseInt(input.user_id || '0');
   if (!userId) return jsonResponse(res, { error: 'User ID required' }, 400);
 
-  const hash = await bcrypt.hash('kontrakan123', 10);
   const db = getDB();
-  await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, userId]);
+  await ensureUserSecurityColumns(db);
 
-  return jsonResponse(res, { success: true, message: 'Password reset to: kontrakan123' });
+  const temporaryPassword = generateTemporaryPassword();
+  const hash = await bcrypt.hash(temporaryPassword, 10);
+  await db.query(
+    'UPDATE users SET password_hash = $1, must_change_password = TRUE WHERE id = $2',
+    [hash, userId]
+  );
+
+  return jsonResponse(res, {
+    success: true,
+    message: 'Password berhasil direset',
+    temporary_password: temporaryPassword,
+    must_change_password: true,
+  });
 }
 
 async function deleteUser(req, res) {
@@ -137,7 +150,7 @@ async function clearExpenses(req, res) {
 // Reset specific data (served via /api/reset → /api/admin.js)
 async function resetData(req, res) {
   const input = req.method === 'POST' ? await require('../lib/db').getBody(req) : {};
-  const { target } = input;
+  const target = input.target || input.type;
   const db = getDB();
 
   try {
@@ -161,4 +174,15 @@ async function resetData(req, res) {
   } catch (err) {
     return jsonResponse(res, { error: err.message }, 500);
   }
+}
+
+async function ensureUserSecurityColumns(db) {
+  await db.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+}
+
+function generateTemporaryPassword() {
+  return crypto.randomBytes(6).toString('base64url');
 }

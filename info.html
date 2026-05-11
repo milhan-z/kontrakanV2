@@ -109,16 +109,16 @@
                 }
 
                 container.innerHTML = data.info.map(i => `
-                    <div class="info-item" onclick="showInfoDetail(${JSON.stringify(i).replace(/"/g, '&quot;')})">
+                    <div class="info-item" onclick="showInfoDetail(${safeJsonForAttr(i)})">
                         <div class="info-bullet"></div>
                         <div class="info-content">
                             <div class="info-header">
-                                <div class="info-title">${i.author_name} - ${i.title}</div>
+                                <div class="info-title">${escapeHtml(i.author_name)} - ${escapeHtml(i.title)}</div>
                                 <div class="info-date">${formatDateShort(i.created_at)}</div>
                             </div>
-                            <div class="info-desc">${i.content || ''}</div>
+                            <div class="info-desc">${escapeHtml(i.content || '')}</div>
                         </div>
-                        ${i.image_path ? `<img src="${imageUrl(i.image_path)}" class="info-image" alt="">` : ''}
+                        ${i.image_path ? `<img src="${escapeAttribute(imageUrl(i.image_path))}" class="info-image" alt="">` : ''}
                     </div>
                 `).join('');
             } catch {
@@ -134,10 +134,10 @@
         function showInfoDetail(info) {
             const content = document.getElementById('infoDetailContent');
             content.innerHTML = `
-                ${info.image_path ? `<img src="${imageUrl(info.image_path)}" class="info-detail-image" alt="">` : ''}
-                <h2 style="margin-bottom: var(--space-sm);">${info.title}</h2>
-                <div class="info-detail-meta">${info.author_name} · ${formatDateShort(info.created_at)}</div>
-                <div class="info-detail-content">${info.content || 'Tidak ada deskripsi'}</div>
+                ${info.image_path ? `<img src="${escapeAttribute(imageUrl(info.image_path))}" class="info-detail-image" alt="">` : ''}
+                <h2 style="margin-bottom: var(--space-sm);">${escapeHtml(info.title)}</h2>
+                <div class="info-detail-meta">${escapeHtml(info.author_name)} · ${formatDateShort(info.created_at)}</div>
+                <div class="info-detail-content">${escapeHtml(info.content || 'Tidak ada deskripsi')}</div>
                 ${(info.user_id == state.user.id || state.user.role === 'admin') ? `
                     <button class="btn btn-danger btn-full mt-md" onclick="deleteInfo(${info.id})">Hapus Info</button>
                 ` : ''}
@@ -188,7 +188,8 @@
                 const file = imageInput.files[0];
                 if (file) {
                     submitBtn.textContent = 'Mengupload gambar...';
-                    imagePath = await uploadReceipt(file);
+                    const uploaded = await uploadReceipt(file);
+                    imagePath = uploaded.url || uploaded.path || null;
                 }
 
                 // 2. Kirim JSON ke API

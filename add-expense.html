@@ -451,7 +451,7 @@
                 const isMe = u.id == state.user.id;
                 return '<label class="user-checkbox ' + (isMe ? 'selected' : '') + '" data-user-id="' + u.id + '">' +
                     '<input type="checkbox" value="' + u.id + '" ' + (isMe ? 'checked' : '') + '>' +
-                    '<span class="user-name">' + u.display_name + (isMe ? ' (kamu)' : '') + '</span>' +
+                    '<span class="user-name">' + escapeHtml(u.display_name) + (isMe ? ' (kamu)' : '') + '</span>' +
                     '<div class="user-amount hidden"><input type="number" placeholder="0" min="0" inputmode="numeric" onchange="updateManualSplit()" onclick="event.stopPropagation()"></div>' +
                     '</label>';
             }).join('');
@@ -683,7 +683,7 @@
                 const isMe = u.id == state.user.id;
                 return '<label class="user-checkbox ' + (isMe ? 'selected' : '') + '" data-user-id="' + u.id + '">' +
                     '<input type="checkbox" value="' + u.id + '" ' + (isMe ? 'checked' : '') + '>' +
-                    '<span class="user-name">' + u.display_name + (isMe ? ' (kamu)' : '') + '</span>' +
+                    '<span class="user-name">' + escapeHtml(u.display_name) + (isMe ? ' (kamu)' : '') + '</span>' +
                     '</label>';
             }).join('');
 
@@ -714,7 +714,7 @@
             document.getElementById('aiAssignList').innerHTML = aiItems.map((item, index) =>
                 '<div class="ai-item-card">' +
                 '<div style="display:flex; justify-content:space-between; margin-bottom:12px; align-items:flex-start;">' +
-                '<div style="font-weight:600; line-height:1.3; padding-right:12px; flex:1;">' + (item.item || item.name || 'Unknown').toUpperCase() + '</div>' +
+                '<div style="font-weight:600; line-height:1.3; padding-right:12px; flex:1;">' + escapeHtml((item.item || item.name || 'Unknown').toUpperCase()) + '</div>' +
                 '<div style="color:var(--text-muted); font-size:0.8rem; padding:0 12px;">x' + (item.qty || 1) + '</div>' +
                 '<div style="font-weight:700; white-space:nowrap;">Rp ' + (item.price || 0).toLocaleString('id-ID') + '</div>' +
                 '</div>' +

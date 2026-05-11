@@ -455,8 +455,8 @@
         <div class="modal">
             <div class="modal-handle"></div>
             <h3 class="modal-title">Reset Password</h3>
-            <p style="margin-bottom: var(--space-md);">Reset password <strong id="resetUserName">-</strong> ke:
-                <code>kontrakan123</code>
+            <p style="margin-bottom: var(--space-md);">Reset password <strong id="resetUserName">-</strong>.
+                Sistem akan membuat password sementara acak dan user wajib menggantinya saat login berikutnya.
             </p>
             <input type="hidden" id="resetUserId">
             <div style="display: flex; gap: var(--space-sm);">
@@ -604,15 +604,15 @@
             container.innerHTML = state.users.map(u => `
                 <div class="data-item">
                     <div class="data-info">
-                        <div class="data-title">${u.display_name}</div>
+                        <div class="data-title">${escapeHtml(u.display_name)}</div>
                         <div class="data-meta">
-                            <span class="data-tag">@${u.username}</span>
-                            <span class="data-tag ${u.role === 'admin' ? 'admin' : ''}">${u.role}</span>
+                            <span class="data-tag">@${escapeHtml(u.username)}</span>
+                            <span class="data-tag ${u.role === 'admin' ? 'admin' : ''}">${escapeHtml(u.role)}</span>
                         </div>
                     </div>
                     <div style="display: flex; gap: 4px;">
-                        ${u.role !== 'admin' ? `<button class="btn-sm btn-reset" onclick="openResetModal(${u.id}, '${u.display_name}')">Reset PW</button>` : ''}
-                        ${u.role !== 'admin' ? `<button class="btn-sm btn-delete" onclick="openDeleteUserModal(${u.id}, '${u.display_name}')">Hapus</button>` : ''}
+                        ${u.role !== 'admin' ? `<button class="btn-sm btn-reset" onclick="openResetModal(${u.id}, ${JSON.stringify(u.display_name)})">Reset PW</button>` : ''}
+                        ${u.role !== 'admin' ? `<button class="btn-sm btn-delete" onclick="openDeleteUserModal(${u.id}, ${JSON.stringify(u.display_name)})">Hapus</button>` : ''}
                     </div>
                 </div>
             `).join('');
@@ -644,10 +644,10 @@
             container.innerHTML = filtered.map(e => `
                 <div class="data-item" style="cursor: pointer;" onclick="showTransactionDetail(${e.id})">
                     <div class="data-info">
-                        <div class="data-title">${e.description}</div>
+                        <div class="data-title">${escapeHtml(e.description)}</div>
                         <div class="data-meta">
-                            <span class="data-tag category">${e.category}</span>
-                            <span class="data-tag">${e.paid_by_name}</span>
+                            <span class="data-tag category">${escapeHtml(e.category)}</span>
+                            <span class="data-tag">${escapeHtml(e.paid_by_name)}</span>
                             <span class="data-tag">${formatDateShort(e.created_at)}</span>
                             <span class="data-tag" style="background: var(--text-secondary); color: var(--bg-card);">${e.splits ? e.splits.length : 0} orang</span>
                         </div>
@@ -684,7 +684,7 @@
             container.innerHTML = filtered.map(s => `
                 <div class="data-item">
                     <div class="data-info">
-                        <div class="data-title">${s.from_name} → ${s.to_name}</div>
+                        <div class="data-title">${escapeHtml(s.from_name)} → ${escapeHtml(s.to_name)}</div>
                         <div class="data-meta">
                             <span class="data-tag">${formatDateShort(s.created_at)}</span>
                         </div>
@@ -706,9 +706,9 @@
             container.innerHTML = allInfo.map(i => `
                 <div class="data-item">
                     <div class="data-info">
-                        <div class="data-title">${i.title}</div>
+                        <div class="data-title">${escapeHtml(i.title)}</div>
                         <div class="data-meta">
-                            <span class="data-tag">${i.author_name}</span>
+                            <span class="data-tag">${escapeHtml(i.author_name)}</span>
                             <span class="data-tag">${formatDateShort(i.created_at)}</span>
                         </div>
                     </div>
@@ -755,8 +755,8 @@
 
         document.getElementById('confirmResetBtn').addEventListener('click', async () => {
             try {
-                await apiPut('admin?action=reset-password', { user_id: parseInt(document.getElementById('resetUserId').value) });
-                showToast('Password direset ke kontrakan123', 'success');
+                const data = await apiPut('admin?action=reset-password', { user_id: parseInt(document.getElementById('resetUserId').value) });
+                showToast(`Password sementara: ${data.temporary_password}`, 'success');
                 closeModal('resetModal');
             } catch { showToast('Gagal reset password', 'error'); }
         });
@@ -776,7 +776,7 @@
                         ${expense.splits.map(s => `
                             <div class="data-item">
                                 <div class="data-info">
-                                    <div class="data-title">${s.display_name}</div>
+                                    <div class="data-title">${escapeHtml(s.display_name)}</div>
                                 </div>
                                 <div class="data-amount">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
                             </div>
@@ -791,8 +791,8 @@
                 <div style="text-align: center; margin-bottom: var(--space-lg);">
                     <div style="font-size: 1.5rem; font-weight: 700; color: var(--green);">Rp ${parseFloat(expense.amount).toLocaleString('id-ID')}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: var(--space-xs);">
-                        <span class="data-tag category">${expense.category}</span>
-                        <span class="data-tag">${expense.paid_by_name}</span>
+                        <span class="data-tag category">${escapeHtml(expense.category)}</span>
+                        <span class="data-tag">${escapeHtml(expense.paid_by_name)}</span>
                         <span class="data-tag">${formatDateShort(expense.created_at)}</span>
                     </div>
                 </div>

@@ -99,8 +99,8 @@
 
                 container.innerHTML = notifications.map(n => `
                     <div class="notification-item ${n.is_read ? '' : 'unread'}">
-                        <div class="notification-title">${n.title}</div>
-                        <div class="notification-message">${n.message}</div>
+                        <div class="notification-title">${escapeHtml(n.title)}</div>
+                        <div class="notification-message">${escapeHtml(n.message)}</div>
                         <div class="notification-time">${formatDate(n.created_at)}</div>
                     </div>
                 `).join('');
