@@ -83,6 +83,96 @@
             margin-top: 12px; padding-top: 12px;
             font-weight: 700; color: var(--text-primary); font-size: 1rem;
         }
+        .ai-item-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .ai-edit-btn {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .ai-edit-panel {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed var(--border-color);
+        }
+        .ai-edit-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 80px 110px;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .ai-edit-grid input {
+            width: 100%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 0.85rem;
+        }
+        .ai-member-allocations {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .ai-member-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            background: var(--bg-secondary);
+            border-radius: 14px;
+            padding: 10px 12px;
+        }
+        .ai-member-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+        .ai-stepper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ai-stepper-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ai-stepper-value {
+            min-width: 18px;
+            text-align: center;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        .ai-helper-text {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 520px) {
+            .ai-edit-grid {
+                grid-template-columns: 1fr;
+            }
+        }
 
         .main-tabs { display: flex; gap: 8px; margin-bottom: 24px; background: var(--bg-secondary); padding: 4px; border-radius: var(--radius-md); }
         .main-tab { flex: 1; text-align: center; padding: 10px; font-weight: 600; font-size: 0.9rem; color: var(--text-muted); border-radius: var(--radius-sm); cursor: pointer; transition: 0.2s; }
@@ -619,7 +709,8 @@
                         quantity: Number(i.quantity || i.qty || 1) || 1,
                         qty: Number(i.quantity || i.qty || 1) || 1,
                         price: Number(i.price || 0) || 0,
-                        assignedTo: []
+                        allocations: {},
+                        isEditing: false
                     }));
 
                     const sumItems = aiItems.reduce((s, i) => s + (i.price * i.qty), 0);
@@ -702,9 +793,7 @@
                 document.querySelectorAll('#aiMembersGrid input:checked')
             ).map(i => parseInt(i.value));
             if (aiSelectedMemberIds.length === 0) { showToast('Pilih minimal 1 orang', 'error'); return; }
-            aiItems.forEach(item => {
-                item.assignedTo = item.assignedTo.filter(id => aiSelectedMemberIds.includes(id));
-            });
+            aiItems.forEach(syncAiItemState);
             renderAiAssign();
             goToStep('stepAiAssign');
         }
@@ -720,49 +809,70 @@
                 '</div>' +
                 '<div style="display:flex; flex-wrap:wrap; gap:16px; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border-color);">' +
                 members.map(u => {
-                    const isSelected = item.assignedTo.includes(u.id);
+                    const qtyForUser = getAiAllocatedQty(item, u.id);
+                    const isSelected = qtyForUser > 0;
                     return '<div class="member-avatar-wrapper" onclick="toggleAiAssign(' + index + ', ' + u.id + ')">' +
                         '<div class="member-avatar ' + (isSelected ? 'selected' : '') + '">' + u.display_name.charAt(0).toUpperCase() + '</div>' +
-                        '<div class="member-name-small" style="color:' + (isSelected ? 'var(--text-primary)' : 'var(--text-muted)') + '">' + u.display_name.split(' ')[0] + '</div>' +
+                        '<div class="member-name-small" style="color:' + (isSelected ? 'var(--text-primary)' : 'var(--text-muted)') + '">' + u.display_name.split(' ')[0] + (qtyForUser > 0 ? ' x' + qtyForUser : '') + '</div>' +
                         '</div>';
                 }).join('') +
-                '</div></div>'
+                '</div>' +
+                '<div class="ai-item-actions">' +
+                '<button type="button" class="ai-edit-btn" onclick="toggleAiItemEditor(' + index + ')">' + (item.isEditing ? 'Selesai' : 'Edit') + '</button>' +
+                '<div class="ai-helper-text">Terbagi ' + getAiAssignedQty(item) + '/' + getAiItemQty(item) + ' pcs</div>' +
+                '</div>' +
+                (item.isEditing ? renderAiItemEditor(index, item, members) : '') +
+                '</div>'
             ).join('');
             calcAiTotals();
         }
 
         function toggleAiAssign(itemIndex, userId) {
             const item = aiItems[itemIndex];
-            if (item.assignedTo.includes(userId)) {
-                item.assignedTo = item.assignedTo.filter(id => id !== userId);
+            syncAiItemState(item);
+            if (getAiAllocatedQty(item, userId) > 0) {
+                item.allocations[userId] = 0;
+            } else if (getAiAssignedQty(item) < getAiItemQty(item)) {
+                item.allocations[userId] = 1;
             } else {
-                item.assignedTo.push(userId);
+                const firstAllocatedUserId = aiSelectedMemberIds.find(id => getAiAllocatedQty(item, id) > 0);
+                if (firstAllocatedUserId) item.allocations[firstAllocatedUserId] -= 1;
+                item.allocations[userId] = 1;
             }
+            normalizeAiAllocations(item);
             renderAiAssign();
         }
 
         function bagiRataSemuaAi() {
-            aiItems.forEach(item => { item.assignedTo = [...aiSelectedMemberIds]; });
+            aiItems.forEach(item => distributeAiItemEvenly(item));
             renderAiAssign();
         }
 
         function calcAiTotals() {
             let totals = {};
             aiSelectedMemberIds.forEach(id => { totals[id] = 0; });
-            let selectedItemsTotal = 0;
+            let selectedItemsSubtotal = 0;
+            let unassignedQtyTotal = 0;
 
             aiItems.forEach(item => {
-                if (item.assignedTo.length > 0) {
-                    const splitPrice = (item.price || 0) / item.assignedTo.length;
-                    item.assignedTo.forEach(id => { totals[id] += splitPrice; });
-                    selectedItemsTotal += (item.price || 0);
-                }
+                syncAiItemState(item);
+                const qty = getAiItemQty(item);
+                const assignedQty = getAiAssignedQty(item);
+                unassignedQtyTotal += Math.max(0, qty - assignedQty);
+                if (qty <= 0 || assignedQty <= 0) return;
+
+                const unitPrice = getAiItemUnitPrice(item);
+                aiSelectedMemberIds.forEach(id => {
+                    const userQty = getAiAllocatedQty(item, id);
+                    if (userQty > 0) totals[id] += unitPrice * userQty;
+                });
+                selectedItemsSubtotal += unitPrice * assignedQty;
             });
 
             const sumAllItems = aiItems.reduce((s, i) => s + (i.price || 0), 0);
             const ratio = (sumAllItems > 0 && aiGrandTotal > 0) ? (aiGrandTotal / sumAllItems) : 1;
 
-            finalAiGrandTotal = Math.round(selectedItemsTotal * ratio);
+            finalAiGrandTotal = Math.round(selectedItemsSubtotal * ratio);
             finalAiSplits = [];
             let allocatedTotal = 0;
 
@@ -771,10 +881,13 @@
                     const finalShare = Math.round(totals[id] * ratio);
                     const userItems = [];
                     aiItems.forEach(item => {
-                        if (item.assignedTo.includes(id)) {
+                        const userQty = getAiAllocatedQty(item, id);
+                        if (userQty > 0) {
+                            const baseShare = getAiItemUnitPrice(item) * userQty;
                             userItems.push({
                                 item: item.item || item.name || 'Unknown',
-                                price: Math.round(((item.price || 0) / item.assignedTo.length) * ratio)
+                                qty: userQty,
+                                price: Math.round(baseShare * ratio)
                             });
                         }
                     });
@@ -796,12 +909,140 @@
             }).join('');
 
             document.getElementById('aiFinalTotals').innerHTML = finalAiSplits.length > 0
-                ? summaryHtml
+                ? summaryHtml + (unassignedQtyTotal > 0
+                    ? '<div class="ai-helper-text" style="margin-top:12px; color:var(--red);">Masih ada ' + unassignedQtyTotal + ' pcs yang belum dibagi.</div>'
+                    : '')
                 : '<div class="text-muted text-center">Belum ada item yang dibagi</div>';
 
             const btn = document.getElementById('btnSubmitAi');
-            btn.disabled = finalAiSplits.length === 0;
+            btn.disabled = finalAiSplits.length === 0 || unassignedQtyTotal > 0;
             btn.textContent = 'Kirim Tagihan (Rp ' + finalAiGrandTotal.toLocaleString('id-ID') + ')';
+        }
+
+        function getAiItemQty(item) {
+            return Math.max(1, parseInt(item.qty || item.quantity || 1, 10) || 1);
+        }
+
+        function getAiItemUnitPrice(item) {
+            const qty = getAiItemQty(item);
+            return qty > 0 ? ((Number(item.price || 0) || 0) / qty) : 0;
+        }
+
+        function getAiAllocatedQty(item, userId) {
+            const value = item.allocations && item.allocations[userId] ? Number(item.allocations[userId]) : 0;
+            return Number.isFinite(value) && value > 0 ? value : 0;
+        }
+
+        function getAiAssignedQty(item) {
+            return aiSelectedMemberIds.reduce((sum, id) => sum + getAiAllocatedQty(item, id), 0);
+        }
+
+        function syncAiItemState(item) {
+            if (!item.allocations || typeof item.allocations !== 'object') item.allocations = {};
+            aiSelectedMemberIds.forEach(id => {
+                if (!Number.isFinite(Number(item.allocations[id]))) item.allocations[id] = 0;
+            });
+            Object.keys(item.allocations).forEach(id => {
+                if (!aiSelectedMemberIds.includes(parseInt(id, 10))) delete item.allocations[id];
+            });
+            normalizeAiAllocations(item);
+        }
+
+        function normalizeAiAllocations(item) {
+            const maxQty = getAiItemQty(item);
+            aiSelectedMemberIds.forEach(id => {
+                const normalized = Math.max(0, Math.floor(Number(item.allocations[id]) || 0));
+                item.allocations[id] = normalized;
+            });
+
+            let overflow = getAiAssignedQty(item) - maxQty;
+            if (overflow > 0) {
+                [...aiSelectedMemberIds].reverse().forEach(id => {
+                    if (overflow <= 0) return;
+                    const current = getAiAllocatedQty(item, id);
+                    const reduced = Math.min(current, overflow);
+                    item.allocations[id] = current - reduced;
+                    overflow -= reduced;
+                });
+            }
+        }
+
+        function distributeAiItemEvenly(item) {
+            syncAiItemState(item);
+            aiSelectedMemberIds.forEach(id => { item.allocations[id] = 0; });
+            const qty = getAiItemQty(item);
+            if (aiSelectedMemberIds.length === 0 || qty <= 0) return;
+            for (let i = 0; i < qty; i++) {
+                const targetId = aiSelectedMemberIds[i % aiSelectedMemberIds.length];
+                item.allocations[targetId] += 1;
+            }
+        }
+
+        function toggleAiItemEditor(index) {
+            aiItems[index].isEditing = !aiItems[index].isEditing;
+            renderAiAssign();
+        }
+
+        function renderAiItemEditor(index, item, members) {
+            const remainingQty = getAiItemQty(item) - getAiAssignedQty(item);
+            const unitPrice = getAiItemUnitPrice(item);
+            return '<div class="ai-edit-panel">' +
+                '<div class="ai-edit-grid">' +
+                '<input type="text" value="' + escapeHtml(item.item || item.name || '') + '" oninput="updateAiItemField(' + index + ', \'item\', this.value)" placeholder="Nama item">' +
+                '<input type="number" min="1" step="1" value="' + getAiItemQty(item) + '" oninput="updateAiItemField(' + index + ', \'qty\', this.value)" placeholder="Qty">' +
+                '<input type="number" min="0" step="100" value="' + Math.round(Number(item.price || 0)) + '" oninput="updateAiItemField(' + index + ', \'price\', this.value)" placeholder="Harga">' +
+                '</div>' +
+                '<div class="ai-helper-text" style="margin-bottom:12px;">Sisa belum dibagi: ' + remainingQty + ' pcs. Harga per pcs sekitar Rp ' + Math.round(unitPrice).toLocaleString('id-ID') + '.</div>' +
+                '<div class="ai-member-allocations">' +
+                members.map(u => {
+                    const userQty = getAiAllocatedQty(item, u.id);
+                    return '<div class="ai-member-row">' +
+                        '<div class="ai-member-meta">' +
+                        '<div class="member-avatar ' + (userQty > 0 ? 'selected' : '') + '">' + u.display_name.charAt(0).toUpperCase() + '</div>' +
+                        '<div>' +
+                        '<div style="font-weight:600; color:var(--text-primary);">' + escapeHtml(u.display_name) + '</div>' +
+                        '<div class="ai-helper-text">Rp ' + Math.round(unitPrice * userQty).toLocaleString('id-ID') + '</div>' +
+                        '</div>' +
+                        '</div>' +
+                        '<div class="ai-stepper">' +
+                        '<button type="button" class="ai-stepper-btn" onclick="changeAiAllocation(' + index + ', ' + u.id + ', -1)">-</button>' +
+                        '<div class="ai-stepper-value">' + userQty + '</div>' +
+                        '<button type="button" class="ai-stepper-btn" onclick="changeAiAllocation(' + index + ', ' + u.id + ', 1)">+</button>' +
+                        '</div>' +
+                        '</div>';
+                }).join('') +
+                '</div>' +
+                '</div>';
+        }
+
+        function updateAiItemField(index, field, value) {
+            const item = aiItems[index];
+            if (field === 'item') {
+                const text = String(value || '').trimStart();
+                item.item = text || 'Unknown';
+                item.name = item.item;
+            } else if (field === 'qty') {
+                item.qty = Math.max(1, parseInt(value, 10) || 1);
+                item.quantity = item.qty;
+                normalizeAiAllocations(item);
+            } else if (field === 'price') {
+                item.price = Math.max(0, Number(value) || 0);
+            }
+            renderAiAssign();
+        }
+
+        function changeAiAllocation(index, userId, delta) {
+            const item = aiItems[index];
+            syncAiItemState(item);
+            const current = getAiAllocatedQty(item, userId);
+            if (delta < 0) {
+                item.allocations[userId] = Math.max(0, current + delta);
+            } else {
+                const remainingQty = getAiItemQty(item) - getAiAssignedQty(item);
+                if (remainingQty <= 0) return;
+                item.allocations[userId] = current + 1;
+            }
+            renderAiAssign();
         }
 
         async function submitAi() {
