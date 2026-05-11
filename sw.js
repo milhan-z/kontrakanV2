@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kontrakan-v5';
+const CACHE_NAME = 'kontrakan-v6';
 const STATIC_ASSETS = [
     '/',
     '/login.html',
@@ -83,8 +83,9 @@ self.addEventListener('push', event => {
         icon: data.icon || '/icons/icon-512.png',
         badge: data.badge || '/apple-touch-icon.png',
         vibrate: [100, 50, 100],
-        tag: data.tag || 'kontrakan-notification',
+        tag: data.tag || `kontrakan-${Date.now()}`,
         renotify: true,
+        requireInteraction: false,
         data: {
             dateOfArrival: Date.now(),
             url: data.url || '/notifications.html'

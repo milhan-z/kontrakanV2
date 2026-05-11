@@ -780,7 +780,7 @@ async function syncPushSubscription(silent = true) {
 
 async function sendTestPushNotification() {
     try {
-        const res = await fetch(`${API_BASE}/test-push`, { method: 'POST' });
+        const res = await fetch(`${API_BASE}/push?action=test`, { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
             throw new Error(data.error || 'Gagal kirim tes notifikasi');

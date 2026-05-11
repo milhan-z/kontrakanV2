@@ -423,8 +423,8 @@
                                         `<div id="items-${tx.id}-${s.user_id}" class="hidden" style="margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.03); border-radius: 4px; font-size: 0.75rem;">
                                             ${itemsArr.map(i => `
                                                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                                    <span style="color: var(--text-muted); flex:1; padding-right:8px;">${i.item.toUpperCase()}${i.qty ? ` <span style="font-size:0.7rem;">x${i.qty}</span>` : ''}</span>
-                                                    <span style="font-weight: 500;">Rp ${i.price.toLocaleString('id-ID')}</span>
+                                                    <span style="color: var(--text-muted); flex:1; padding-right:8px;">${escapeHtml(String(i.item || 'Item')).toUpperCase()}${i.qty ? ` <span style="font-size:0.7rem;">x${escapeHtml(i.qty)}</span>` : ''}</span>
+                                                    <span style="font-weight: 500;">Rp ${Number(i.price || 0).toLocaleString('id-ID')}</span>
                                                 </div>
                                             `).join('')}
                                         </div>` 

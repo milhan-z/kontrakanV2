@@ -437,10 +437,28 @@
                         <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">DIBAGI KE:</div>
                         ${tx.splits.map(s => {
                     const userName = state.users.find(u => u.id == s.user_id)?.display_name || 'Unknown';
+                    let itemsArr = [];
+                    try {
+                        let parsed = s.items;
+                        while (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                        if (Array.isArray(parsed)) itemsArr = parsed;
+                    } catch(e) {}
                     return `
-                                <div style="display: flex; justify-content: space-between; padding: var(--space-sm) 0; border-bottom: 1px solid var(--border-color);">
-                                    <span>${userName}</span>
-                                    <span style="font-weight: 600;">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</span>
+                                <div style="padding: var(--space-sm) 0; border-bottom: 1px solid var(--border-color);">
+                                    <div style="display: flex; justify-content: space-between; gap: var(--space-sm);">
+                                        <span>${escapeHtml(userName)}</span>
+                                        <span style="font-weight: 600;">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</span>
+                                    </div>
+                                    ${itemsArr.length > 0 ? `
+                                        <div style="margin-top: 8px; padding: 8px; background: var(--bg-secondary); border-radius: var(--radius-sm); font-size: 0.75rem;">
+                                            ${itemsArr.map(i => `
+                                                <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
+                                                    <span style="color: var(--text-muted); flex:1;">${escapeHtml(String(i.item || 'Item')).toUpperCase()}${i.qty ? ` <span style="font-size:0.7rem;">x${escapeHtml(i.qty)}</span>` : ''}</span>
+                                                    <span style="font-weight: 500;">Rp ${Number(i.price || 0).toLocaleString('id-ID')}</span>
+                                                </div>
+                                            `).join('')}
+                                        </div>
+                                    ` : ''}
                                 </div>
                             `;
                 }).join('')}

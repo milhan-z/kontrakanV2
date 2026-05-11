@@ -8,7 +8,6 @@ const filesToCheck = [
   'api/auth.js',
   'api/expenses.js',
   'api/push.js',
-  'api/test-push.js',
   'api/jastip.js',
   'api/admin.js',
   'api/users.js',

@@ -1,5 +1,5 @@
 const { getDB, requireAuth, jsonResponse, getBody, setCors, handleOptions } = require('../lib/db');
-const { vapidPublicKey, isPushConfigured, pushConfigError } = require('../lib/webpush');
+const { vapidPublicKey, isPushConfigured, pushConfigError, sendPushNotification } = require('../lib/webpush');
 
 module.exports = async (req, res) => {
   setCors(res);
@@ -35,6 +35,30 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
+    if (req.query.action === 'test') {
+      const result = await sendPushNotification(
+        user.user_id,
+        'Tes Notifikasi',
+        'Kalau ini muncul, push notification di HP kamu sudah aktif.',
+        '/notifications.html'
+      );
+
+      if (!result || result.skipped || result.sent === 0) {
+        return jsonResponse(
+          res,
+          {
+            error: result?.reason === 'no_subscription'
+              ? 'Belum ada perangkat yang terdaftar untuk push notification'
+              : 'Push notification belum siap dikirim',
+            detail: result || null,
+          },
+          409
+        );
+      }
+
+      return jsonResponse(res, { success: true, message: 'Push test sent', result });
+    }
+
     const input = await getBody(req);
     let { subscription } = input || {};
 
