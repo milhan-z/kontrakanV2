@@ -3,68 +3,143 @@
 
 <head>
     <script>
-        // Set theme ASAP to prevent white flash
         (function(){var t=localStorage.getItem('theme');if(t)document.documentElement.setAttribute('data-theme',t);else if(window.matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.setAttribute('data-theme','dark');})();
     </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
     <meta name="theme-color" content="#fafafa">
-    <title>Admin Panel - Catatan Kontrakan</title>
+    <title>Admin - Catatan Kontrakan</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="icons/icon-512.png">
     <link rel="stylesheet" href="css/style.css">
     <style>
         body { animation: pageFadeIn 0.15s ease; }
         @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .admin-header {
+
+        .admin-container {
+            max-width: 760px;
+            padding-bottom: 48px;
+        }
+
+        .admin-topbar {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            padding: var(--space-md) 0;
-            margin-bottom: var(--space-md);
+            justify-content: space-between;
+            gap: var(--space-md);
+            padding: var(--space-lg) 0 var(--space-md);
         }
 
-        .admin-title {
-            font-size: 1.25rem;
-            font-weight: 700;
+        .admin-brand {
+            display: flex;
+            align-items: center;
+            gap: var(--space-md);
+            min-width: 0;
+        }
+
+        .admin-mark {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-md);
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+        }
+
+        .admin-mark svg,
+        .admin-icon svg,
+        .tab-icon svg,
+        .icon-action svg {
+            width: 20px;
+            height: 20px;
+            stroke: currentColor;
+            stroke-width: 1.8;
+            fill: none;
+        }
+
+        .admin-heading {
+            min-width: 0;
+        }
+
+        .admin-heading h1 {
+            font-size: 1.55rem;
+            letter-spacing: 0;
+            line-height: 1.1;
+        }
+
+        .admin-heading p {
+            color: var(--text-muted);
+            font-size: 0.8125rem;
+            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: var(--space-sm);
+            flex: 0 0 auto;
+        }
+
+        .icon-action {
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
             color: var(--text-primary);
-        }
-
-        .admin-title span {
-            color: var(--red);
-        }
-
-        .btn-logout {
-            background: var(--red);
-            color: #fff;
-            border: none;
-            padding: var(--space-sm) var(--space-md);
-            border-radius: var(--radius-full);
-            font-size: 0.75rem;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             cursor: pointer;
+            transition: background 0.15s ease, transform 0.15s ease;
+        }
+
+        .icon-action:hover {
+            background: var(--bg-hover);
+        }
+
+        .icon-action:active {
+            transform: scale(0.96);
+        }
+
+        .icon-action.danger {
+            color: var(--red);
+            background: var(--red-light);
+            border-color: var(--red-medium);
         }
 
         .admin-tabs {
+            position: sticky;
+            top: 0;
+            z-index: 20;
             display: flex;
             gap: var(--space-xs);
             overflow-x: auto;
-            padding-bottom: var(--space-sm);
-            margin-bottom: var(--space-lg);
+            padding: var(--space-sm) 0 var(--space-md);
+            margin-bottom: var(--space-sm);
+            background: var(--bg-primary);
             -webkit-overflow-scrolling: touch;
         }
 
         .tab-btn {
-            flex-shrink: 0;
-            padding: var(--space-sm) var(--space-md);
-            background: var(--bg-card);
-            border: 1px solid var(--border-color);
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 38px;
+            padding: 8px 12px;
             border-radius: var(--radius-full);
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
             color: var(--text-secondary);
-            font-size: 0.8125rem;
-            font-weight: 500;
+            font-family: inherit;
+            font-size: 0.78rem;
+            font-weight: 650;
             cursor: pointer;
-            transition: all 0.2s;
         }
 
         .tab-btn.active {
@@ -73,9 +148,17 @@
             color: var(--bg-primary);
         }
 
-        .tab-btn:hover:not(.active) {
-            background: var(--bg-hover);
-            color: var(--text-primary);
+        .tab-icon {
+            width: 16px;
+            height: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tab-icon svg {
+            width: 16px;
+            height: 16px;
         }
 
         .tab-content {
@@ -86,430 +169,749 @@
             display: block;
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
+        .section {
+            margin-bottom: var(--space-lg);
+        }
+
+        .section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             gap: var(--space-md);
+            margin-bottom: var(--space-md);
         }
 
-        .stat-card {
-            background: var(--bg-card);
-            padding: var(--space-md);
-            border-radius: var(--radius-lg);
-            text-align: center;
-            border: 1px solid var(--border-color);
-        }
-
-        .stat-value {
-            font-size: 1.25rem;
-            font-weight: 700;
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+            font-weight: 750;
             color: var(--text-primary);
         }
 
-        .stat-label {
-            font-size: 0.6875rem;
+        .section-title .admin-icon {
+            width: 22px;
+            height: 22px;
             color: var(--text-muted);
-            margin-top: var(--space-xs);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .data-list {
-            background: var(--bg-card);
-            border-radius: var(--radius-lg);
+        .section-meta {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            flex: 0 0 auto;
+        }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: var(--space-sm);
+            margin-bottom: var(--space-lg);
+        }
+
+        .kpi-card {
+            min-height: 104px;
             border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            padding: var(--space-md);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .kpi-label {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+        }
+
+        .kpi-value {
+            margin-top: var(--space-sm);
+            color: var(--text-primary);
+            font-size: 1.35rem;
+            line-height: 1.05;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .kpi-note {
+            margin-top: var(--space-sm);
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            line-height: 1.35;
+        }
+
+        .admin-panel {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: var(--bg-card);
             overflow: hidden;
         }
 
-        .data-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .panel-pad {
             padding: var(--space-md);
-            border-bottom: 1px solid var(--border-light);
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: var(--space-sm);
         }
 
-        .data-item:last-child {
-            border-bottom: none;
+        .status-tile {
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            background: var(--bg-primary);
         }
 
-        .data-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .data-title {
-            font-weight: 600;
-            font-size: 0.875rem;
+        .status-tile strong {
+            display: block;
             color: var(--text-primary);
-            margin-bottom: 2px;
+            font-size: 0.95rem;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
         }
 
-        .data-meta {
-            display: flex;
-            gap: var(--space-xs);
-            flex-wrap: wrap;
+        .status-tile span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            margin-top: 4px;
         }
 
-        .data-tag {
-            font-size: 0.625rem;
-            font-weight: 500;
-            padding: 2px 8px;
-            border-radius: var(--radius-full);
-            background: var(--bg-hover);
-            color: var(--text-secondary);
-        }
-
-        .data-tag.admin {
-            background: var(--red-medium);
-            color: var(--red);
-        }
-
-        .data-tag.category {
-            background: var(--green-medium);
-            color: var(--green);
-        }
-
-        .data-amount {
-            font-weight: 700;
-            font-size: 0.875rem;
-            color: var(--text-primary);
-        }
-
-        .btn-sm {
-            padding: 4px 12px;
-            font-size: 0.6875rem;
-            border-radius: var(--radius-full);
-            border: none;
-            cursor: pointer;
-            font-weight: 500;
-        }
-
-        .btn-reset {
-            background: var(--yellow);
-            color: #000;
-        }
-
-        .btn-delete {
-            background: var(--red);
-            color: #fff;
-        }
-
-        .search-bar {
-            display: flex;
+        .toolbar {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
             gap: var(--space-sm);
             margin-bottom: var(--space-md);
-            flex-wrap: wrap;
         }
 
-        .search-input {
-            flex: 1;
-            min-width: 100px;
-            padding: var(--space-sm) var(--space-md);
-            background: var(--bg-card);
+        .toolbar.inline {
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+        }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: var(--space-sm);
+            margin-bottom: var(--space-md);
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            min-height: 44px;
+            border-radius: var(--radius-sm);
             border: 1px solid var(--border-color);
-            border-radius: var(--radius-full);
+            background: var(--bg-card);
             color: var(--text-primary);
-            font-size: 0.8125rem;
-            font-family: inherit;
+            padding: 10px 12px;
+            font: inherit;
+            font-size: 0.875rem;
         }
 
-        .search-input:focus {
+        .form-input:focus,
+        .form-select:focus {
             outline: none;
             border-color: var(--text-primary);
         }
 
-        .empty-state {
-            text-align: center;
-            padding: var(--space-xl);
-            color: var(--text-muted);
+        .data-list {
+            display: flex;
+            flex-direction: column;
         }
 
-        .section-title {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: var(--space-md);
-            display: flex;
+        .data-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-md);
             align-items: center;
+            padding: var(--space-md);
+            border-top: 1px solid var(--border-light);
+        }
+
+        .data-row:first-child {
+            border-top: 0;
+        }
+
+        .data-row.clickable {
+            cursor: pointer;
+        }
+
+        .data-row.clickable:hover {
+            background: var(--bg-hover);
+        }
+
+        .data-main {
+            min-width: 0;
+        }
+
+        .data-title {
+            color: var(--text-primary);
+            font-size: 0.94rem;
+            font-weight: 750;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        .data-subtitle {
+            margin-top: 3px;
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .data-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            min-height: 24px;
+            padding: 3px 8px;
+            border-radius: var(--radius-full);
+            background: var(--bg-hover);
+            color: var(--text-secondary);
+            font-size: 0.68rem;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+
+        .chip.green {
+            background: var(--green-medium);
+            color: var(--green);
+        }
+
+        .chip.red {
+            background: var(--red-medium);
+            color: var(--red);
+        }
+
+        .chip.yellow {
+            background: var(--yellow-medium);
+            color: var(--yellow);
+        }
+
+        .chip.blue {
+            background: rgba(59, 130, 246, 0.14);
+            color: #3b82f6;
+        }
+
+        .amount {
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-weight: 800;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .row-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .mini-btn {
+            min-height: 32px;
+            padding: 5px 10px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 0.72rem;
+            font-weight: 750;
+            cursor: pointer;
+        }
+
+        .mini-btn:hover {
+            background: var(--bg-hover);
+        }
+
+        .mini-btn.green {
+            background: var(--green-medium);
+            color: var(--green);
+            border-color: transparent;
+        }
+
+        .mini-btn.red {
+            background: var(--red-medium);
+            color: var(--red);
+            border-color: transparent;
+        }
+
+        .mini-btn.yellow {
+            background: var(--yellow-medium);
+            color: var(--yellow);
+            border-color: transparent;
+        }
+
+        .empty-state {
+            padding: var(--space-xl) var(--space-md);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .skeleton {
+            min-height: 76px;
+            border-radius: var(--radius-md);
+            background: var(--bg-hover);
+            opacity: 0.7;
+        }
+
+        .danger-zone {
+            border-color: var(--red-medium);
+            background: var(--red-light);
+        }
+
+        .reset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: var(--space-sm);
         }
 
-        .section-title svg {
-            width: 18px;
-            height: 18px;
-            stroke: var(--text-primary);
-            stroke-width: 2;
-            fill: none;
+        .reset-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            background: var(--bg-card);
         }
 
-        .section-gap {
-            margin-bottom: var(--space-lg);
+        .reset-card strong {
+            display: block;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            line-height: 1.25;
+        }
+
+        .reset-card p {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            line-height: 1.4;
+            margin: 6px 0 var(--space-md);
+        }
+
+        .detail-stack {
+            display: grid;
+            gap: var(--space-sm);
+        }
+
+        .detail-line {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: var(--space-md);
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .detail-line:last-child {
+            border-bottom: 0;
+        }
+
+        .detail-label {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+
+        .detail-value {
+            color: var(--text-primary);
+            text-align: right;
+            font-size: 0.86rem;
+            font-weight: 650;
+            overflow-wrap: anywhere;
+        }
+
+        .split-items {
+            margin-top: 8px;
+            display: grid;
+            gap: 4px;
+        }
+
+        .split-item {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            line-height: 1.35;
+        }
+
+        .password-result {
+            display: none;
+            margin-top: var(--space-md);
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            background: var(--green-light);
+            border: 1px solid var(--green-medium);
+        }
+
+        .password-result.active {
+            display: block;
+        }
+
+        .password-code {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-sm);
+            margin-top: var(--space-sm);
+            padding: 10px 12px;
+            border-radius: var(--radius-sm);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .admin-modal {
+            max-width: 560px;
+        }
+
+        @media (min-width: 680px) {
+            .kpi-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .status-grid,
+            .reset-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
+
+            .filter-row {
+                grid-template-columns: minmax(0, 1.4fr) 160px 160px;
+            }
+        }
+
+        @media (max-width: 520px) {
+            .admin-topbar {
+                align-items: flex-start;
+            }
+
+            .admin-mark {
+                width: 44px;
+                height: 44px;
+            }
+
+            .admin-heading h1 {
+                font-size: 1.35rem;
+            }
+
+            .status-grid,
+            .reset-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .data-row {
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .amount {
+                text-align: left;
+            }
+
+            .toolbar.inline {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
     <link rel="prefetch" href="dashboard.html">
 </head>
 
 <body>
-    <div class="container">
-        <div class="admin-header">
-            <div class="admin-title">🔐 <span>Admin</span> Panel</div>
-            <button class="btn-logout" onclick="logout()">Logout</button>
-        </div>
-
-        <!-- Tabs -->
-        <div class="admin-tabs">
-            <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
-            <button class="tab-btn" data-tab="users">👥 Users</button>
-            <button class="tab-btn" data-tab="transactions">📋 Transaksi</button>
-            <button class="tab-btn" data-tab="payments">💸 Pembayaran</button>
-            <button class="tab-btn" data-tab="info">📢 Info</button>
-            <button class="tab-btn" data-tab="reset">⚠️ Reset</button>
-        </div>
-
-        <!-- Dashboard Tab -->
-        <div class="tab-content active" id="tab-dashboard">
-            <div class="stats-grid section-gap">
-                <div class="stat-card">
-                    <div class="stat-value" id="statUsers">0</div>
-                    <div class="stat-label">Total Users</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statTransactions">0</div>
-                    <div class="stat-label">Total Transaksi</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statExpenses">Rp 0</div>
-                    <div class="stat-label">Total Pengeluaran</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="statSettlements">Rp 0</div>
-                    <div class="stat-label">Total Pelunasan</div>
+    <div class="container admin-container">
+        <header class="admin-topbar">
+            <div class="admin-brand">
+                <div class="admin-mark" data-icon="shield"></div>
+                <div class="admin-heading">
+                    <h1>Admin Kontrakan</h1>
+                    <p id="adminSubtitle">Memuat panel...</p>
                 </div>
             </div>
+            <div class="admin-actions">
+                <button class="icon-action" id="refreshBtn" title="Refresh" aria-label="Refresh"><span data-icon="list"></span></button>
+                <button class="icon-action" onclick="window.location.href='dashboard.html'" title="Dashboard" aria-label="Dashboard"><span data-icon="home"></span></button>
+                <button class="icon-action danger" id="logoutBtn" title="Logout" aria-label="Logout"><span data-icon="logOut"></span></button>
+            </div>
+        </header>
 
-            <div class="section-title">
-                <svg viewBox="0 0 24 24">
-                    <line x1="8" y1="6" x2="21" y2="6" />
-                    <line x1="8" y1="12" x2="21" y2="12" />
-                    <line x1="8" y1="18" x2="21" y2="18" />
-                    <line x1="3" y1="6" x2="3.01" y2="6" />
-                    <line x1="3" y1="12" x2="3.01" y2="12" />
-                    <line x1="3" y1="18" x2="3.01" y2="18" />
-                </svg>
-                Per Kategori
-            </div>
-            <div class="data-list" id="categoryStats">
-                <div class="empty-state">Loading...</div>
-            </div>
-        </div>
+        <nav class="admin-tabs" aria-label="Admin tabs">
+            <button class="tab-btn active" data-tab="dashboard"><span class="tab-icon" data-icon="list"></span>Dashboard</button>
+            <button class="tab-btn" data-tab="users"><span class="tab-icon" data-icon="users"></span>User</button>
+            <button class="tab-btn" data-tab="transactions"><span class="tab-icon" data-icon="fileText"></span>Transaksi</button>
+            <button class="tab-btn" data-tab="payments"><span class="tab-icon" data-icon="creditCard"></span>Bayar</button>
+            <button class="tab-btn" data-tab="jastip"><span class="tab-icon" data-icon="package"></span>Jastip</button>
+            <button class="tab-btn" data-tab="info"><span class="tab-icon" data-icon="info"></span>Info</button>
+            <button class="tab-btn" data-tab="reset"><span class="tab-icon" data-icon="alertTriangle"></span>Reset</button>
+        </nav>
 
-        <!-- Users Tab -->
-        <div class="tab-content" id="tab-users">
-            <div class="section-title" style="justify-content: space-between;">
-                <div style="display: flex; align-items: center; gap: var(--space-sm);">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                        <circle cx="9" cy="7" r="4" />
-                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                    Kelola User
-                </div>
-                <button class="btn-sm" style="background: var(--green); color: #fff;"
-                    onclick="openModal('addUserModal')">➕ Tambah</button>
-            </div>
-            <div class="data-list" id="userList">
-                <div class="empty-state">Loading...</div>
-            </div>
-        </div>
-
-        <!-- Transactions Tab -->
-        <div class="tab-content" id="tab-transactions">
-            <div class="section-title">
-                <svg viewBox="0 0 24 24">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                </svg>
-                Semua Transaksi
-            </div>
-            <div class="search-bar">
-                <input type="text" class="search-input" id="txSearch" placeholder="Cari transaksi...">
-                <input type="date" class="search-input" id="txFromDate" style="max-width: 130px;">
-                <input type="date" class="search-input" id="txToDate" style="max-width: 130px;">
-            </div>
-            <div class="data-list" id="txList">
-                <div class="empty-state">Loading...</div>
-            </div>
-        </div>
-
-        <!-- Payments Tab -->
-        <div class="tab-content" id="tab-payments">
-            <div class="section-title">
-                <svg viewBox="0 0 24 24">
-                    <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-                    <line x1="1" y1="10" x2="23" y2="10" />
-                </svg>
-                Semua Pembayaran
-            </div>
-            <div class="search-bar">
-                <input type="date" class="search-input" id="payFromDate">
-                <input type="date" class="search-input" id="payToDate">
-            </div>
-            <div class="data-list" id="payList">
-                <div class="empty-state">Loading...</div>
-            </div>
-        </div>
-
-        <!-- Info Tab -->
-        <div class="tab-content" id="tab-info">
-            <div class="section-title">
-                <svg viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="16" x2="12" y2="12" />
-                    <line x1="12" y1="8" x2="12.01" y2="8" />
-                </svg>
-                Semua Info
-            </div>
-            <div class="data-list" id="infoList">
-                <div class="empty-state">Loading...</div>
-            </div>
-        </div>
-
-        <!-- Reset Tab -->
-        <div class="tab-content" id="tab-reset">
-            <div class="section-title" style="color: var(--red);">
-                <svg viewBox="0 0 24 24">
-                    <path
-                        d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                Reset Data - HATI-HATI!
-            </div>
-            <p style="color: var(--text-secondary); margin-bottom: var(--space-lg); font-size: 0.875rem;">
-                ⚠️ Tindakan ini <strong>TIDAK BISA DIBATALKAN</strong>. Data yang dihapus tidak bisa dikembalikan.
-            </p>
-
-            <div class="card section-gap">
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
-                    <div>
-                        <strong>Reset Transaksi</strong>
-                        <p style="font-size: 0.75rem; color: var(--text-muted);">Hapus semua expenses & splits</p>
+        <main>
+            <section class="tab-content active" id="tab-dashboard">
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-label">User</div>
+                        <div class="kpi-value" id="statUsers">0</div>
+                        <div class="kpi-note">Member aktif</div>
                     </div>
-                    <button class="btn btn-danger" onclick="confirmReset('transaksi', 'Semua transaksi')">Reset</button>
-                </div>
-            </div>
-
-            <div class="card section-gap">
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
-                    <div>
-                        <strong>Reset Info</strong>
-                        <p style="font-size: 0.75rem; color: var(--text-muted);">Hapus semua info kontrakan</p>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Transaksi</div>
+                        <div class="kpi-value" id="statTransactions">0</div>
+                        <div class="kpi-note" id="statExpenseNote">Rp 0</div>
                     </div>
-                    <button class="btn btn-danger" onclick="confirmReset('info', 'Semua info')">Reset</button>
-                </div>
-            </div>
-
-            <div class="card section-gap">
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
-                    <div>
-                        <strong>Reset Riwayat Pembayaran</strong>
-                        <p style="font-size: 0.75rem; color: var(--text-muted);">Hapus semua settlements</p>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Pembayaran</div>
+                        <div class="kpi-value" id="statSettlements">Rp 0</div>
+                        <div class="kpi-note" id="statSettlementNote">0 catatan</div>
                     </div>
-                    <button class="btn btn-danger"
-                        onclick="confirmReset('settlements', 'Semua riwayat pembayaran')">Reset</button>
-                </div>
-            </div>
-
-            <div class="card section-gap">
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
-                    <div>
-                        <strong>Reset Notifikasi</strong>
-                        <p style="font-size: 0.75rem; color: var(--text-muted);">Hapus semua notifikasi</p>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Jastip Aktif</div>
+                        <div class="kpi-value" id="statActiveJastip">0</div>
+                        <div class="kpi-note" id="statJastipNote">0 ditutup</div>
                     </div>
-                    <button class="btn btn-danger"
-                        onclick="confirmReset('notifications', 'Semua notifikasi')">Reset</button>
-                </div>
-            </div>
-
-            <div class="card" style="border: 2px solid var(--red); background: var(--red-light);">
-                <div
-                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-sm);">
-                    <div>
-                        <strong style="color: var(--red);">🔥 Reset SEMUA SISTEM</strong>
-                        <p style="font-size: 0.75rem; color: var(--text-muted);">Hapus transaksi, info, payments,
-                            notifikasi (users tetap)</p>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Push Device</div>
+                        <div class="kpi-value" id="statPush">0</div>
+                        <div class="kpi-note">Subscription tersimpan</div>
                     </div>
-                    <button class="btn btn-danger" onclick="confirmReset('all', 'SEMUA DATA SISTEM')">RESET!</button>
+                    <div class="kpi-card">
+                        <div class="kpi-label">Notifikasi</div>
+                        <div class="kpi-value" id="statUnread">0</div>
+                        <div class="kpi-note">Belum dibaca</div>
+                    </div>
                 </div>
-            </div>
+
+                <div class="section">
+                    <div class="section-head">
+                        <div class="section-title"><span class="admin-icon" data-icon="shield"></span>Ringkasan Sistem</div>
+                        <span class="section-meta" id="lastUpdated">-</span>
+                    </div>
+                    <div class="admin-panel">
+                        <div class="panel-pad">
+                            <div class="status-grid" id="systemSummary"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-head">
+                        <div class="section-title"><span class="admin-icon" data-icon="list"></span>Per Kategori</div>
+                        <span class="section-meta" id="categoryCount">0 kategori</span>
+                    </div>
+                    <div class="admin-panel">
+                        <div class="data-list" id="categoryStats"><div class="empty-state">Memuat...</div></div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-head">
+                        <div class="section-title"><span class="admin-icon" data-icon="history"></span>Aktivitas Terbaru</div>
+                    </div>
+                    <div class="admin-panel">
+                        <div class="data-list" id="recentActivity"><div class="empty-state">Memuat...</div></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="tab-content" id="tab-users">
+                <div class="section-head">
+                    <div class="section-title"><span class="admin-icon" data-icon="users"></span>Kelola User</div>
+                    <button class="btn btn-primary" id="openAddUserBtn"><span data-icon="plus"></span>Tambah</button>
+                </div>
+                <div class="toolbar">
+                    <input class="form-input" id="userSearch" type="search" placeholder="Cari nama atau username">
+                </div>
+                <div class="admin-panel">
+                    <div class="data-list" id="userList"><div class="empty-state">Memuat...</div></div>
+                </div>
+            </section>
+
+            <section class="tab-content" id="tab-transactions">
+                <div class="section-head">
+                    <div class="section-title"><span class="admin-icon" data-icon="fileText"></span>Semua Transaksi</div>
+                    <span class="section-meta" id="txSummary">0 transaksi</span>
+                </div>
+                <div class="filter-row">
+                    <input class="form-input" id="txSearch" type="search" placeholder="Cari transaksi, kategori, user, item">
+                    <input class="form-input" id="txFromDate" type="date">
+                    <input class="form-input" id="txToDate" type="date">
+                </div>
+                <div class="admin-panel">
+                    <div class="data-list" id="txList"><div class="empty-state">Memuat...</div></div>
+                </div>
+            </section>
+
+            <section class="tab-content" id="tab-payments">
+                <div class="section-head">
+                    <div class="section-title"><span class="admin-icon" data-icon="creditCard"></span>Riwayat Pembayaran</div>
+                    <span class="section-meta" id="paySummary">0 catatan</span>
+                </div>
+                <div class="filter-row">
+                    <input class="form-input" id="paySearch" type="search" placeholder="Cari pengirim atau penerima">
+                    <input class="form-input" id="payFromDate" type="date">
+                    <input class="form-input" id="payToDate" type="date">
+                </div>
+                <div class="admin-panel">
+                    <div class="data-list" id="payList"><div class="empty-state">Memuat...</div></div>
+                </div>
+            </section>
+
+            <section class="tab-content" id="tab-jastip">
+                <div class="section-head">
+                    <div class="section-title"><span class="admin-icon" data-icon="package"></span>Jastip Kontrakan</div>
+                    <button class="btn" onclick="window.location.href='jastip.html'">Buka Jastip</button>
+                </div>
+                <div class="toolbar">
+                    <select class="form-select" id="jastipStatusFilter">
+                        <option value="all">Semua status</option>
+                        <option value="open">Open</option>
+                        <option value="closed">Ditutup</option>
+                        <option value="completed">Selesai</option>
+                        <option value="cancelled">Batal</option>
+                    </select>
+                </div>
+                <div class="admin-panel">
+                    <div class="data-list" id="jastipList"><div class="empty-state">Memuat...</div></div>
+                </div>
+            </section>
+
+            <section class="tab-content" id="tab-info">
+                <div class="section-head">
+                    <div class="section-title"><span class="admin-icon" data-icon="info"></span>Info Kontrakan</div>
+                    <span class="section-meta" id="infoSummary">0 info</span>
+                </div>
+                <div class="admin-panel">
+                    <div class="data-list" id="infoList"><div class="empty-state">Memuat...</div></div>
+                </div>
+            </section>
+
+            <section class="tab-content" id="tab-reset">
+                <div class="section-head">
+                    <div class="section-title"><span class="admin-icon" data-icon="alertTriangle"></span>Reset Data</div>
+                </div>
+                <div class="reset-grid">
+                    <div class="reset-card">
+                        <strong>Transaksi</strong>
+                        <p>Hapus expenses dan pembagian biaya.</p>
+                        <button class="btn btn-danger btn-full" onclick="openResetDataModal('expenses', 'Transaksi')">Reset</button>
+                    </div>
+                    <div class="reset-card">
+                        <strong>Pembayaran</strong>
+                        <p>Hapus semua riwayat pelunasan.</p>
+                        <button class="btn btn-danger btn-full" onclick="openResetDataModal('settlements', 'Pembayaran')">Reset</button>
+                    </div>
+                    <div class="reset-card">
+                        <strong>Info</strong>
+                        <p>Hapus semua info kontrakan.</p>
+                        <button class="btn btn-danger btn-full" onclick="openResetDataModal('info', 'Info')">Reset</button>
+                    </div>
+                    <div class="reset-card">
+                        <strong>Notifikasi</strong>
+                        <p>Hapus semua notifikasi aplikasi.</p>
+                        <button class="btn btn-danger btn-full" onclick="openResetDataModal('notifications', 'Notifikasi')">Reset</button>
+                    </div>
+                    <div class="reset-card">
+                        <strong>Jastip</strong>
+                        <p>Hapus semua order dan nitipan jastip.</p>
+                        <button class="btn btn-danger btn-full" onclick="openResetDataModal('jastip', 'Jastip')">Reset</button>
+                    </div>
+                    <div class="reset-card danger-zone">
+                        <strong>Semua Sistem</strong>
+                        <p>Hapus transaksi, pembayaran, info, notifikasi, dan jastip. User tetap ada.</p>
+                        <button class="btn btn-danger btn-full" onclick="openResetDataModal('all', 'Semua Sistem')">Reset Semua</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal-overlay" id="addUserModal">
+        <div class="modal admin-modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Tambah Member</h3>
+            <form id="addUserForm" class="detail-stack">
+                <input class="form-input" id="newUsername" name="username" type="text" autocomplete="off" placeholder="Username" minlength="3" required>
+                <input class="form-input" id="newDisplayName" name="display_name" type="text" autocomplete="name" placeholder="Nama tampilan" required>
+                <input class="form-input" id="newPassword" name="password" type="password" autocomplete="new-password" placeholder="Password sementara" minlength="6" required>
+                <div style="display:flex; gap:var(--space-sm); margin-top:var(--space-sm);">
+                    <button class="btn btn-full" type="button" onclick="closeModal('addUserModal')">Batal</button>
+                    <button class="btn btn-primary btn-full" id="addUserSubmit" type="submit">Tambah</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- Reset Password Modal -->
-    <div class="modal-overlay" id="resetModal">
-        <div class="modal">
+    <div class="modal-overlay" id="resetPasswordModal">
+        <div class="modal admin-modal">
             <div class="modal-handle"></div>
             <h3 class="modal-title">Reset Password</h3>
-            <p style="margin-bottom: var(--space-md);">Reset password <strong id="resetUserName">-</strong>.
-                Sistem akan membuat password sementara acak dan user wajib menggantinya saat login berikutnya.
+            <p style="color:var(--text-secondary); font-size:0.875rem; margin-bottom:var(--space-md);">
+                Reset password <strong id="resetUserName">-</strong>.
             </p>
             <input type="hidden" id="resetUserId">
-            <div style="display: flex; gap: var(--space-sm);">
-                <button class="btn btn-full" onclick="closeModal('resetModal')">Batal</button>
-                <button class="btn btn-danger btn-full" id="confirmResetBtn">Reset</button>
+            <div id="tempPasswordResult" class="password-result">
+                <div style="color:var(--green); font-size:0.8rem; font-weight:750;">Password sementara siap dipakai</div>
+                <div class="password-code">
+                    <span id="tempPasswordValue">-</span>
+                    <button class="mini-btn green" type="button" onclick="copyTempPassword()">Copy</button>
+                </div>
+            </div>
+            <div style="display:flex; gap:var(--space-sm); margin-top:var(--space-lg);">
+                <button class="btn btn-full" onclick="closeModal('resetPasswordModal')">Tutup</button>
+                <button class="btn btn-danger btn-full" id="confirmPasswordResetBtn">Reset</button>
             </div>
         </div>
     </div>
 
-    <!-- Transaction Detail Modal -->
-    <div class="modal-overlay" id="txDetailModal">
-        <div class="modal">
-            <div class="modal-handle"></div>
-            <h3 class="modal-title" id="txDetailTitle">Detail Transaksi</h3>
-            <div id="txDetailContent"></div>
-            <button class="btn btn-full" style="margin-top: var(--space-lg);"
-                onclick="closeModal('txDetailModal')">Tutup</button>
-        </div>
-    </div>
-
-    <!-- Add User Modal -->
-    <div class="modal-overlay" id="addUserModal">
-        <div class="modal">
-            <div class="modal-handle"></div>
-            <h3 class="modal-title">Tambah Member Baru</h3>
-            <div style="display: flex; flex-direction: column; gap: var(--space-md);">
-                <input type="text" class="search-input" id="newUsername" placeholder="Username (untuk login)"
-                    style="width: 100%;">
-                <input type="text" class="search-input" id="newDisplayName" placeholder="Nama Tampilan"
-                    style="width: 100%;">
-                <input type="password" class="search-input" id="newPassword" placeholder="Password"
-                    style="width: 100%;">
-            </div>
-            <div style="display: flex; gap: var(--space-sm); margin-top: var(--space-lg);">
-                <button class="btn btn-full" onclick="closeModal('addUserModal')">Batal</button>
-                <button class="btn btn-full" style="background: var(--green); color: #fff;"
-                    onclick="addNewMember()">Tambah</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Delete User Confirmation Modal -->
     <div class="modal-overlay" id="deleteUserModal">
-        <div class="modal">
+        <div class="modal admin-modal">
             <div class="modal-handle"></div>
             <h3 class="modal-title">Hapus Member</h3>
-            <p style="margin-bottom: var(--space-md);">Yakin hapus <strong id="deleteUserName">-</strong>?</p>
-            <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: var(--space-md);">⚠️ User tidak bisa
-                dihapus jika masih punya transaksi atau hutang.</p>
+            <p style="color:var(--text-secondary); font-size:0.875rem; margin-bottom:var(--space-md);">
+                Hapus <strong id="deleteUserName">-</strong> dari kontrakan?
+            </p>
             <input type="hidden" id="deleteUserId">
-            <div style="display: flex; gap: var(--space-sm);">
+            <div style="display:flex; gap:var(--space-sm);">
                 <button class="btn btn-full" onclick="closeModal('deleteUserModal')">Batal</button>
-                <button class="btn btn-danger btn-full" onclick="confirmDeleteMember()">Hapus</button>
+                <button class="btn btn-danger btn-full" id="confirmDeleteUserBtn">Hapus</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="detailModal">
+        <div class="modal admin-modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title" id="detailTitle">Detail</h3>
+            <div id="detailContent"></div>
+            <button class="btn btn-full" style="margin-top:var(--space-lg);" onclick="closeModal('detailModal')">Tutup</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="resetDataModal">
+        <div class="modal admin-modal">
+            <div class="modal-handle"></div>
+            <h3 class="modal-title">Konfirmasi Reset</h3>
+            <p style="color:var(--text-secondary); font-size:0.875rem; margin-bottom:var(--space-md);">
+                Reset <strong id="resetDataLabel">-</strong> tidak bisa dibatalkan.
+            </p>
+            <input type="hidden" id="resetDataType">
+            <input class="form-input" id="resetConfirmInput" type="text" autocomplete="off" placeholder="Ketik RESET">
+            <div style="display:flex; gap:var(--space-sm); margin-top:var(--space-lg);">
+                <button class="btn btn-full" onclick="closeModal('resetDataModal')">Batal</button>
+                <button class="btn btn-danger btn-full" id="confirmResetDataBtn" disabled>Reset</button>
             </div>
         </div>
     </div>
@@ -518,545 +920,665 @@
     <script src="js/config.js"></script>
     <script src="js/app.js"></script>
     <script>
-        let allExpenses = [];
-        let allSettlements = [];
-        let allInfo = [];
+        const adminState = {
+            stats: null,
+            expenses: [],
+            settlements: [],
+            info: [],
+            jastip: [],
+            refreshing: false,
+            refreshTimer: null
+        };
 
-        // Init
-        (async () => {
-            if (!await checkAuth()) { window.location.href = 'login.html'; return; }
-            if (state.user.role !== 'admin') { window.location.href = 'dashboard.html'; return; }
+        document.addEventListener('DOMContentLoaded', initAdmin);
 
-            await Promise.all([loadUsers(), loadAllData()]);
-            renderDashboard();
+        async function initAdmin() {
+            renderStaticIcons();
+            bindAdminEvents();
+
+            if (!await checkAuth()) {
+                window.location.href = 'login.html';
+                return;
+            }
+            if (!state.user || state.user.role !== 'admin') {
+                window.location.href = 'dashboard.html';
+                return;
+            }
+
+            document.getElementById('adminSubtitle').textContent = `${state.user.display_name || 'Admin'} mengelola sistem`;
+            await refreshAdmin();
+
+            adminState.refreshTimer = setInterval(() => {
+                if (!document.hidden) refreshAdmin({ silent: true });
+            }, 45000);
+        }
+
+        function bindAdminEvents() {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+            });
+
+            document.getElementById('refreshBtn').addEventListener('click', () => refreshAdmin());
+            document.getElementById('logoutBtn').addEventListener('click', logoutAdmin);
+            document.getElementById('openAddUserBtn').addEventListener('click', () => openModal('addUserModal'));
+            document.getElementById('addUserForm').addEventListener('submit', addNewMember);
+            document.getElementById('confirmPasswordResetBtn').addEventListener('click', resetMemberPassword);
+            document.getElementById('confirmDeleteUserBtn').addEventListener('click', confirmDeleteMember);
+            document.getElementById('confirmResetDataBtn').addEventListener('click', executeResetData);
+            document.getElementById('resetConfirmInput').addEventListener('input', event => {
+                document.getElementById('confirmResetDataBtn').disabled = event.target.value.trim().toUpperCase() !== 'RESET';
+            });
+
+            ['userSearch', 'txSearch', 'txFromDate', 'txToDate', 'paySearch', 'payFromDate', 'payToDate', 'jastipStatusFilter'].forEach(id => {
+                document.getElementById(id).addEventListener('input', renderActiveData);
+                document.getElementById(id).addEventListener('change', renderActiveData);
+            });
+
+            ['addUserModal', 'resetPasswordModal', 'deleteUserModal', 'detailModal', 'resetDataModal'].forEach(id => {
+                document.getElementById(id).addEventListener('click', event => {
+                    if (event.target.classList.contains('modal-overlay')) closeModal(id);
+                });
+            });
+        }
+
+        function renderStaticIcons() {
+            document.querySelectorAll('[data-icon]').forEach(el => {
+                const name = el.dataset.icon;
+                el.innerHTML = icons[name] || '';
+            });
+        }
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.toggle('active', tab.id === `tab-${tabName}`));
+        }
+
+        async function refreshAdmin(options = {}) {
+            if (adminState.refreshing) return;
+            adminState.refreshing = true;
+            const silent = Boolean(options.silent);
+
+            try {
+                if (!silent) showLoading();
+
+                const [usersData, statsData, expData, settleData, infoData, jastipData] = await Promise.all([
+                    apiGetFresh('users'),
+                    apiGetFresh('admin?action=stats'),
+                    apiGetFresh('expenses?limit=500'),
+                    apiGetFresh('settlements?limit=500'),
+                    apiGetFresh('info?limit=200'),
+                    apiGetFresh('jastip?limit=100')
+                ]);
+
+                state.users = usersData.users || [];
+                adminState.stats = statsData || null;
+                adminState.expenses = expData.expenses || [];
+                adminState.settlements = settleData.settlements || [];
+                adminState.info = infoData.info || [];
+                adminState.jastip = jastipData.orders || [];
+
+                renderDashboard();
+                renderUsers();
+                renderTransactions();
+                renderPayments();
+                renderInfo();
+                renderJastip();
+                document.getElementById('lastUpdated').textContent = `Update ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
+            } catch (err) {
+                console.error(err);
+                showToast(err.message || 'Gagal memuat admin', 'error');
+            } finally {
+                adminState.refreshing = false;
+                if (!silent) hideLoading();
+            }
+        }
+
+        function renderActiveData() {
             renderUsers();
             renderTransactions();
             renderPayments();
-            renderInfo();
-        })();
-
-        // Tab switching
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                btn.classList.add('active');
-                document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
-            });
-        });
-
-        // Load all data
-        async function loadAllData() {
-            try {
-                const [expData, setData, infoData] = await Promise.all([
-                    fetch(`${API_BASE}/expenses?limit=500`, { credentials: 'include' }).then(r => r.json()),
-                    fetch(`${API_BASE}/settlements?limit=500`, { credentials: 'include' }).then(r => r.json()),
-                    fetch(`${API_BASE}/info?limit=100`, { credentials: 'include' }).then(r => r.json())
-                ]);
-                allExpenses = expData.expenses || [];
-                allSettlements = setData.settlements || [];
-                allInfo = infoData.info || [];
-            } catch (err) { console.error(err); }
+            renderJastip();
         }
 
-        // Render Dashboard
         function renderDashboard() {
-            document.getElementById('statUsers').textContent = state.users.length;
-            document.getElementById('statTransactions').textContent = allExpenses.length;
+            const stats = adminState.stats || {};
+            const jastipStats = stats.jastip || {};
+            const totalExpenses = Number(stats.total_expenses ?? sumBy(adminState.expenses, 'amount'));
+            const totalSettlements = Number(stats.total_settlements ?? sumBy(adminState.settlements, 'amount'));
+            const activeJastip = Number(jastipStats.open || 0) + Number(jastipStats.closed || 0);
 
-            const totalExp = allExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
-            document.getElementById('statExpenses').textContent = formatCurrencyShort(totalExp);
+            setText('statUsers', stats.users_count ?? state.users.length);
+            setText('statTransactions', stats.expense_count ?? adminState.expenses.length);
+            setText('statExpenseNote', formatCurrencyShort(totalExpenses));
+            setText('statSettlements', formatCurrencyShort(totalSettlements));
+            setText('statSettlementNote', `${adminState.settlements.length} catatan`);
+            setText('statActiveJastip', activeJastip);
+            setText('statJastipNote', `${Number(jastipStats.closed || 0)} ditutup`);
+            setText('statPush', stats.push_subscriptions_count ?? 0);
+            setText('statUnread', stats.unread_notifications_count ?? 0);
 
-            const totalSet = allSettlements.reduce((sum, s) => sum + parseFloat(s.amount), 0);
-            document.getElementById('statSettlements').textContent = formatCurrencyShort(totalSet);
+            const summary = [
+                ['Push', `${stats.push_subscriptions_count ?? 0} device`, (stats.push_subscriptions_count || 0) > 0 ? 'green' : 'yellow'],
+                ['Jastip open', `${jastipStats.open || 0} order`, (jastipStats.open || 0) > 0 ? 'green' : ''],
+                ['Jastip ditutup', `${jastipStats.closed || 0} order`, (jastipStats.closed || 0) > 0 ? 'yellow' : ''],
+                ['Info', `${stats.info_count ?? adminState.info.length} catatan`, 'blue'],
+                ['Notifikasi', `${stats.notifications_count ?? 0} total`, ''],
+                ['User admin', `${state.users.filter(u => u.role === 'admin').length} akun`, 'red']
+            ];
 
-            // Category stats
-            const categories = {};
-            allExpenses.forEach(e => {
-                if (!categories[e.category]) categories[e.category] = { count: 0, total: 0 };
-                categories[e.category].count++;
-                categories[e.category].total += parseFloat(e.amount);
+            document.getElementById('systemSummary').innerHTML = summary.map(([label, value, tone]) => `
+                <div class="status-tile">
+                    <strong>${escapeHtml(value)}</strong>
+                    <span>${escapeHtml(label)}${tone ? ` <span class="chip ${tone}" style="margin-left:6px;">OK</span>` : ''}</span>
+                </div>
+            `).join('');
+
+            renderCategoryStats();
+            renderRecentActivity();
+        }
+
+        function renderCategoryStats() {
+            const rows = Array.isArray(adminState.stats?.by_category) && adminState.stats.by_category.length
+                ? adminState.stats.by_category
+                : Object.values(adminState.expenses.reduce((map, expense) => {
+                    const category = expense.category || 'Lainnya';
+                    map[category] = map[category] || { category, count: 0, total: 0 };
+                    map[category].count += 1;
+                    map[category].total += Number(expense.amount || 0);
+                    return map;
+                }, {})).sort((a, b) => Number(b.total) - Number(a.total));
+
+            document.getElementById('categoryCount').textContent = `${rows.length} kategori`;
+            document.getElementById('categoryStats').innerHTML = rows.length ? rows.map(row => `
+                <div class="data-row">
+                    <div class="data-main">
+                        <div class="data-title">${escapeHtml(row.category || 'Lainnya')}</div>
+                        <div class="data-meta"><span class="chip">${Number(row.count || 0)} transaksi</span></div>
+                    </div>
+                    <div class="amount">${formatCurrency(Number(row.total || 0))}</div>
+                </div>
+            `).join('') : '<div class="empty-state">Belum ada kategori.</div>';
+        }
+
+        function renderRecentActivity() {
+            const activities = [
+                ...adminState.expenses.map(item => ({
+                    type: 'Transaksi',
+                    title: item.description,
+                    meta: `${item.paid_by_name || '-'} - ${formatDateShort(item.created_at)}`,
+                    amount: Number(item.amount || 0),
+                    date: item.created_at,
+                    tone: 'green'
+                })),
+                ...adminState.settlements.map(item => ({
+                    type: 'Pembayaran',
+                    title: `${item.from_name || '-'} bayar ${item.to_name || '-'}`,
+                    meta: formatDateShort(item.created_at),
+                    amount: Number(item.amount || 0),
+                    date: item.created_at,
+                    tone: 'blue'
+                })),
+                ...adminState.jastip.map(item => ({
+                    type: 'Jastip',
+                    title: item.title,
+                    meta: `${item.opened_by_name || '-'} - ${statusLabel(item.status)}`,
+                    amount: totalJastipBought(item),
+                    date: item.completed_at || item.closed_at || item.created_at,
+                    tone: statusTone(item.status)
+                }))
+            ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 7);
+
+            document.getElementById('recentActivity').innerHTML = activities.length ? activities.map(item => `
+                <div class="data-row">
+                    <div class="data-main">
+                        <div class="data-title">${escapeHtml(item.title || '-')}</div>
+                        <div class="data-meta">
+                            <span class="chip ${item.tone}">${escapeHtml(item.type)}</span>
+                            <span class="chip">${escapeHtml(item.meta)}</span>
+                        </div>
+                    </div>
+                    <div class="amount">${item.amount ? formatCurrency(item.amount) : '-'}</div>
+                </div>
+            `).join('') : '<div class="empty-state">Belum ada aktivitas.</div>';
+        }
+
+        function renderUsers() {
+            const q = document.getElementById('userSearch').value.trim().toLowerCase();
+            const users = state.users.filter(user => {
+                if (!q) return true;
+                return `${user.display_name || ''} ${user.username || ''} ${user.role || ''}`.toLowerCase().includes(q);
             });
 
-            const catHtml = Object.entries(categories).map(([cat, data]) => `
-                <div class="data-item">
-                    <div class="data-info">
-                        <div class="data-title">${cat}</div>
-                        <div class="data-meta">
-                            <span class="data-tag">${data.count} transaksi</span>
+            document.getElementById('userList').innerHTML = users.length ? users.map(user => {
+                const isAdmin = user.role === 'admin';
+                return `
+                    <div class="data-row">
+                        <div class="data-main">
+                            <div class="data-title">${escapeHtml(user.display_name)}</div>
+                            <div class="data-meta">
+                                <span class="chip">@${escapeHtml(user.username)}</span>
+                                <span class="chip ${isAdmin ? 'red' : 'green'}">${isAdmin ? 'admin' : 'member'}</span>
+                                ${user.must_change_password ? '<span class="chip yellow">password sementara</span>' : ''}
+                                ${user.phone_wa ? `<span class="chip">${escapeHtml(user.phone_wa)}</span>` : ''}
+                            </div>
+                        </div>
+                        <div>
+                            ${isAdmin ? '<span class="chip red">Dilindungi</span>' : `
+                                <div class="row-actions">
+                                    <button class="mini-btn yellow" onclick="openResetPasswordModal(${Number(user.id)})">Reset PW</button>
+                                    <button class="mini-btn red" onclick="openDeleteUserModal(${Number(user.id)})">Hapus</button>
+                                </div>
+                            `}
                         </div>
                     </div>
-                    <div class="data-amount">Rp ${data.total.toLocaleString('id-ID')}</div>
-                </div>
-            `).join('');
-
-            document.getElementById('categoryStats').innerHTML = catHtml || '<div class="empty-state">Belum ada data</div>';
+                `;
+            }).join('') : '<div class="empty-state">User tidak ditemukan.</div>';
         }
 
-        // Render Users
-        function renderUsers() {
-            const container = document.getElementById('userList');
-            if (state.users.length === 0) {
-                container.innerHTML = '<div class="empty-state">Tidak ada user</div>';
-                return;
-            }
-
-            container.innerHTML = state.users.map(u => `
-                <div class="data-item">
-                    <div class="data-info">
-                        <div class="data-title">${escapeHtml(u.display_name)}</div>
-                        <div class="data-meta">
-                            <span class="data-tag">@${escapeHtml(u.username)}</span>
-                            <span class="data-tag ${u.role === 'admin' ? 'admin' : ''}">${escapeHtml(u.role)}</span>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 4px;">
-                        ${u.role !== 'admin' ? `<button class="btn-sm btn-reset" onclick="openResetModal(${u.id}, ${JSON.stringify(u.display_name)})">Reset PW</button>` : ''}
-                        ${u.role !== 'admin' ? `<button class="btn-sm btn-delete" onclick="openDeleteUserModal(${u.id}, ${JSON.stringify(u.display_name)})">Hapus</button>` : ''}
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        // Render Transactions
         function renderTransactions() {
-            const container = document.getElementById('txList');
-            const search = document.getElementById('txSearch').value.toLowerCase();
+            const q = document.getElementById('txSearch').value.trim().toLowerCase();
             const fromDate = document.getElementById('txFromDate').value;
             const toDate = document.getElementById('txToDate').value;
 
-            let filtered = allExpenses.filter(e => {
-                if (search && !e.description.toLowerCase().includes(search) && !e.paid_by_name.toLowerCase().includes(search)) return false;
-                if (fromDate && new Date(e.created_at) < new Date(fromDate)) return false;
-                if (toDate) {
-                    const to = new Date(toDate);
-                    to.setHours(23, 59, 59);
-                    if (new Date(e.created_at) > to) return false;
-                }
-                return true;
+            const rows = adminState.expenses.filter(expense => {
+                if (!isWithinDateRange(expense.created_at, fromDate, toDate)) return false;
+                if (!q) return true;
+                return transactionSearchText(expense).includes(q);
             });
 
-            if (filtered.length === 0) {
-                container.innerHTML = '<div class="empty-state">Tidak ada transaksi</div>';
-                return;
-            }
-
-            container.innerHTML = filtered.map(e => `
-                <div class="data-item" style="cursor: pointer;" onclick="showTransactionDetail(${e.id})">
-                    <div class="data-info">
-                        <div class="data-title">${escapeHtml(e.description)}</div>
+            setText('txSummary', `${rows.length} transaksi`);
+            document.getElementById('txList').innerHTML = rows.length ? rows.map(expense => `
+                <div class="data-row clickable" onclick="showTransactionDetail(${Number(expense.id)})">
+                    <div class="data-main">
+                        <div class="data-title">${escapeHtml(expense.description)}</div>
                         <div class="data-meta">
-                            <span class="data-tag category">${escapeHtml(e.category)}</span>
-                            <span class="data-tag">${escapeHtml(e.paid_by_name)}</span>
-                            <span class="data-tag">${formatDateShort(e.created_at)}</span>
-                            <span class="data-tag" style="background: var(--text-secondary); color: var(--bg-card);">${e.splits ? e.splits.length : 0} orang</span>
+                            <span class="chip green">${escapeHtml(expense.category)}</span>
+                            <span class="chip">${escapeHtml(expense.paid_by_name)}</span>
+                            <span class="chip">${formatDateShort(expense.created_at)}</span>
+                            <span class="chip">${(expense.splits || []).length} split</span>
                         </div>
                     </div>
-                    <div style="text-align: right;">
-                        <div class="data-amount">Rp ${parseFloat(e.amount).toLocaleString('id-ID')}</div>
-                        <button class="btn-sm btn-delete" style="margin-top: 4px;" onclick="event.stopPropagation(); deleteExpense(${e.id})">Hapus</button>
+                    <div>
+                        <div class="amount">${formatCurrency(Number(expense.amount || 0))}</div>
+                        <div class="row-actions">
+                            <button class="mini-btn" onclick="event.stopPropagation(); showTransactionDetail(${Number(expense.id)})">Detail</button>
+                            <button class="mini-btn red" onclick="event.stopPropagation(); deleteExpense(${Number(expense.id)})">Hapus</button>
+                        </div>
                     </div>
                 </div>
-            `).join('');
+            `).join('') : '<div class="empty-state">Tidak ada transaksi sesuai filter.</div>';
         }
 
-        // Render Payments
         function renderPayments() {
-            const container = document.getElementById('payList');
+            const q = document.getElementById('paySearch').value.trim().toLowerCase();
             const fromDate = document.getElementById('payFromDate').value;
             const toDate = document.getElementById('payToDate').value;
 
-            let filtered = allSettlements.filter(s => {
-                if (fromDate && new Date(s.created_at) < new Date(fromDate)) return false;
-                if (toDate) {
-                    const to = new Date(toDate);
-                    to.setHours(23, 59, 59);
-                    if (new Date(s.created_at) > to) return false;
-                }
-                return true;
+            const rows = adminState.settlements.filter(payment => {
+                if (!isWithinDateRange(payment.created_at, fromDate, toDate)) return false;
+                if (!q) return true;
+                return `${payment.from_name || ''} ${payment.to_name || ''}`.toLowerCase().includes(q);
             });
 
-            if (filtered.length === 0) {
-                container.innerHTML = '<div class="empty-state">Tidak ada pembayaran</div>';
-                return;
-            }
-
-            container.innerHTML = filtered.map(s => `
-                <div class="data-item">
-                    <div class="data-info">
-                        <div class="data-title">${escapeHtml(s.from_name)} → ${escapeHtml(s.to_name)}</div>
+            setText('paySummary', `${rows.length} catatan`);
+            document.getElementById('payList').innerHTML = rows.length ? rows.map(payment => `
+                <div class="data-row">
+                    <div class="data-main">
+                        <div class="data-title">${escapeHtml(payment.from_name)} bayar ${escapeHtml(payment.to_name)}</div>
                         <div class="data-meta">
-                            <span class="data-tag">${formatDateShort(s.created_at)}</span>
+                            <span class="chip blue">${formatDateShort(payment.created_at)}</span>
+                            ${payment.receipt_image ? '<span class="chip green">ada bukti</span>' : ''}
                         </div>
                     </div>
-                    <div class="data-amount" style="color: var(--green);">+Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
+                    <div>
+                        <div class="amount">${formatCurrency(Number(payment.amount || 0))}</div>
+                        <div class="row-actions">
+                            <button class="mini-btn red" onclick="deleteSettlement(${Number(payment.id)})">Hapus</button>
+                        </div>
+                    </div>
                 </div>
-            `).join('');
+            `).join('') : '<div class="empty-state">Tidak ada pembayaran sesuai filter.</div>';
         }
 
-        // Render Info
         function renderInfo() {
-            const container = document.getElementById('infoList');
-
-            if (allInfo.length === 0) {
-                container.innerHTML = '<div class="empty-state">Tidak ada info</div>';
-                return;
-            }
-
-            container.innerHTML = allInfo.map(i => `
-                <div class="data-item">
-                    <div class="data-info">
-                        <div class="data-title">${escapeHtml(i.title)}</div>
+            const rows = adminState.info;
+            setText('infoSummary', `${rows.length} info`);
+            document.getElementById('infoList').innerHTML = rows.length ? rows.map(info => `
+                <div class="data-row">
+                    <div class="data-main">
+                        <div class="data-title">${escapeHtml(info.title)}</div>
+                        <div class="data-subtitle">${escapeHtml(trimText(info.content || '', 110))}</div>
                         <div class="data-meta">
-                            <span class="data-tag">${escapeHtml(i.author_name)}</span>
-                            <span class="data-tag">${formatDateShort(i.created_at)}</span>
+                            <span class="chip">${escapeHtml(info.author_name || '-')}</span>
+                            <span class="chip">${formatDateShort(info.created_at)}</span>
+                            ${info.image_path ? '<span class="chip green">ada gambar</span>' : ''}
                         </div>
                     </div>
-                    <button class="btn-sm btn-delete" onclick="deleteInfo(${i.id})">Hapus</button>
+                    <button class="mini-btn red" onclick="deleteInfo(${Number(info.id)})">Hapus</button>
                 </div>
-            `).join('');
+            `).join('') : '<div class="empty-state">Belum ada info.</div>';
         }
 
-        // Date format
-        function formatDateShort(dateStr) {
-            const d = new Date(dateStr);
-            return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
-        }
+        function renderJastip() {
+            const filter = document.getElementById('jastipStatusFilter').value;
+            const rows = adminState.jastip.filter(order => filter === 'all' || order.status === filter);
 
-        // Delete expense
-        async function deleteExpense(id) {
-            if (!confirm('Hapus transaksi ini?')) return;
-            try {
-                await apiDelete('expenses?id=' + id);
-                showToast('Transaksi dihapus', 'success');
-                await loadAllData();
-                renderDashboard();
-                renderTransactions();
-            } catch { showToast('Gagal menghapus', 'error'); }
-        }
-
-        // Delete info
-        async function deleteInfo(id) {
-            if (!confirm('Hapus info ini?')) return;
-            try {
-                await apiDelete('info?id=' + id);
-                showToast('Info dihapus', 'success');
-                await loadAllData();
-                renderInfo();
-            } catch { showToast('Gagal menghapus', 'error'); }
-        }
-
-        // Reset password modal
-        function openResetModal(userId, userName) {
-            document.getElementById('resetUserId').value = userId;
-            document.getElementById('resetUserName').textContent = userName;
-            openModal('resetModal');
-        }
-
-        document.getElementById('confirmResetBtn').addEventListener('click', async () => {
-            try {
-                const data = await apiPut('admin?action=reset-password', { user_id: parseInt(document.getElementById('resetUserId').value) });
-                showToast(`Password sementara: ${data.temporary_password}`, 'success');
-                closeModal('resetModal');
-            } catch { showToast('Gagal reset password', 'error'); }
-        });
-
-        // Show transaction detail modal
-        function showTransactionDetail(expenseId) {
-            const expense = allExpenses.find(e => e.id == expenseId);
-            if (!expense) return;
-
-            document.getElementById('txDetailTitle').textContent = expense.description;
-
-            let splitsHtml = '';
-            if (expense.splits && expense.splits.length > 0) {
-                splitsHtml = `
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: var(--space-sm);">Dibagi ke:</div>
-                    <div class="data-list">
-                        ${expense.splits.map(s => `
-                            <div class="data-item">
-                                <div class="data-info">
-                                    <div class="data-title">${escapeHtml(s.display_name)}</div>
-                                </div>
-                                <div class="data-amount">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
+            document.getElementById('jastipList').innerHTML = rows.length ? rows.map(order => {
+                const counts = summarizeJastip(order);
+                return `
+                    <div class="data-row">
+                        <div class="data-main">
+                            <div class="data-title">${escapeHtml(order.title)}</div>
+                            <div class="data-subtitle">Dibuka ${escapeHtml(order.opened_by_name || '-')} - ${relativeTime(order.created_at)}</div>
+                            <div class="data-meta">
+                                <span class="chip ${statusTone(order.status)}">${statusLabel(order.status)}</span>
+                                <span class="chip">${counts.items} nitipan</span>
+                                <span class="chip">${counts.participants} penitip</span>
+                                <span class="chip green">${counts.bought} ada</span>
+                                <span class="chip red">${counts.unavailable} kosong</span>
                             </div>
-                        `).join('')}
+                        </div>
+                        <div>
+                            <div class="amount">${counts.total ? formatCurrency(counts.total) : '-'}</div>
+                            <div class="row-actions">
+                                <button class="mini-btn" onclick="window.location.href='jastip.html'">Buka</button>
+                                ${order.status === 'open' ? `<button class="mini-btn yellow" onclick="handleJastipAction(${Number(order.id)}, 'close')">Tutup</button>` : ''}
+                                ${['open', 'closed'].includes(order.status) ? `<button class="mini-btn red" onclick="handleJastipAction(${Number(order.id)}, 'cancel')">Batal</button>` : ''}
+                                ${order.expense_id ? `<button class="mini-btn green" onclick="showTransactionDetail(${Number(order.expense_id)})">Tagihan</button>` : ''}
+                            </div>
+                        </div>
                     </div>
                 `;
-            } else {
-                splitsHtml = '<p style="font-size: 0.875rem; color: var(--text-muted);">Tidak ada pembagian (Listrik)</p>';
+            }).join('') : '<div class="empty-state">Tidak ada jastip sesuai filter.</div>';
+        }
+
+        function showTransactionDetail(expenseId) {
+            const expense = adminState.expenses.find(item => Number(item.id) === Number(expenseId));
+            if (!expense) {
+                showToast('Transaksi tidak ditemukan di data admin', 'error');
+                return;
             }
 
-            document.getElementById('txDetailContent').innerHTML = `
-                <div style="text-align: center; margin-bottom: var(--space-lg);">
-                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--green);">Rp ${parseFloat(expense.amount).toLocaleString('id-ID')}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: var(--space-xs);">
-                        <span class="data-tag category">${escapeHtml(expense.category)}</span>
-                        <span class="data-tag">${escapeHtml(expense.paid_by_name)}</span>
-                        <span class="data-tag">${formatDateShort(expense.created_at)}</span>
+            document.getElementById('detailTitle').textContent = expense.description;
+            const splits = expense.splits || [];
+            const splitHtml = splits.length ? splits.map(split => {
+                const items = normalizeItems(split.items);
+                return `
+                    <div class="data-row">
+                        <div class="data-main">
+                            <div class="data-title">${escapeHtml(split.display_name)}</div>
+                            ${items.length ? `<div class="split-items">${items.map(item => `
+                                <div class="split-item">${escapeHtml(item.item || item.name || '-')} x${escapeHtml(item.qty || 1)} - ${formatCurrency(Number(item.price || 0))}${item.note ? ` - ${escapeHtml(item.note)}` : ''}</div>
+                            `).join('')}</div>` : ''}
+                        </div>
+                        <div class="amount">${formatCurrency(Number(split.amount || 0))}</div>
                     </div>
+                `;
+            }).join('') : '<div class="empty-state">Tidak ada split.</div>';
+
+            document.getElementById('detailContent').innerHTML = `
+                <div class="detail-stack">
+                    <div class="detail-line"><span class="detail-label">Total</span><span class="detail-value">${formatCurrency(Number(expense.amount || 0))}</span></div>
+                    <div class="detail-line"><span class="detail-label">Kategori</span><span class="detail-value">${escapeHtml(expense.category)}</span></div>
+                    <div class="detail-line"><span class="detail-label">Dibayar oleh</span><span class="detail-value">${escapeHtml(expense.paid_by_name)}</span></div>
+                    <div class="detail-line"><span class="detail-label">Tanggal</span><span class="detail-value">${formatDate(expense.created_at)}</span></div>
+                    ${expense.receipt_image ? `<div class="detail-line"><span class="detail-label">Bukti</span><span class="detail-value"><a href="${escapeAttribute(expense.receipt_image)}" target="_blank" rel="noopener">Lihat bukti</a></span></div>` : ''}
                 </div>
-                ${splitsHtml}
+                <div class="section" style="margin-top:var(--space-lg); margin-bottom:0;">
+                    <div class="section-head"><div class="section-title">Pembagian</div></div>
+                    <div class="admin-panel"><div class="data-list">${splitHtml}</div></div>
+                </div>
             `;
-
-            openModal('txDetailModal');
+            openModal('detailModal');
         }
 
-        // Open delete user modal
-        function openDeleteUserModal(userId, userName) {
-            document.getElementById('deleteUserId').value = userId;
-            document.getElementById('deleteUserName').textContent = userName;
-            openModal('deleteUserModal');
+        function openResetPasswordModal(userId) {
+            const user = state.users.find(item => Number(item.id) === Number(userId));
+            document.getElementById('resetUserId').value = userId;
+            document.getElementById('resetUserName').textContent = user?.display_name || '-';
+            document.getElementById('tempPasswordResult').classList.remove('active');
+            document.getElementById('tempPasswordValue').textContent = '-';
+            openModal('resetPasswordModal');
         }
 
-        // Add new member
-        async function addNewMember() {
+        async function resetMemberPassword() {
+            const userId = Number(document.getElementById('resetUserId').value);
+            const btn = document.getElementById('confirmPasswordResetBtn');
+            btn.disabled = true;
+            try {
+                const data = await apiPut('admin?action=reset-password', { user_id: userId });
+                document.getElementById('tempPasswordValue').textContent = data.temporary_password;
+                document.getElementById('tempPasswordResult').classList.add('active');
+                showToast('Password berhasil direset', 'success');
+                await refreshAdmin({ silent: true });
+            } catch (err) {
+                showToast(err.message || 'Gagal reset password', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function copyTempPassword() {
+            const password = document.getElementById('tempPasswordValue').textContent.trim();
+            if (!password || password === '-') return;
+            try {
+                await navigator.clipboard.writeText(password);
+                showToast('Password disalin', 'success');
+            } catch {
+                showToast('Gagal menyalin password', 'error');
+            }
+        }
+
+        async function addNewMember(event) {
+            event.preventDefault();
+            const btn = document.getElementById('addUserSubmit');
             const username = document.getElementById('newUsername').value.trim();
             const displayName = document.getElementById('newDisplayName').value.trim();
             const password = document.getElementById('newPassword').value;
 
-            if (!username || !displayName || !password) {
-                showToast('Semua field harus diisi', 'error');
-                return;
-            }
-
+            btn.disabled = true;
             try {
-                const res = await fetch(`${API_BASE}/admin?action=add-user`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, display_name: displayName, password })
-                });
-                const data = await res.json();
-
-                if (res.ok) {
-                    showToast('Member berhasil ditambahkan', 'success');
-                    closeModal('addUserModal');
-                    document.getElementById('newUsername').value = '';
-                    document.getElementById('newDisplayName').value = '';
-                    document.getElementById('newPassword').value = '';
-                    await loadUsers();
-                    renderUsers();
-                } else {
-                    showToast(data.error || 'Gagal menambah member', 'error');
-                }
+                await apiPost('admin?action=add-user', { username, display_name: displayName, password });
+                document.getElementById('addUserForm').reset();
+                closeModal('addUserModal');
+                showToast('Member berhasil ditambahkan', 'success');
+                await refreshAdmin({ silent: true });
             } catch (err) {
-                showToast('Gagal menambah member', 'error');
+                showToast(err.message || 'Gagal menambah member', 'error');
+            } finally {
+                btn.disabled = false;
             }
         }
 
-        // Confirm delete member
+        function openDeleteUserModal(userId) {
+            const user = state.users.find(item => Number(item.id) === Number(userId));
+            document.getElementById('deleteUserId').value = userId;
+            document.getElementById('deleteUserName').textContent = user?.display_name || '-';
+            openModal('deleteUserModal');
+        }
+
         async function confirmDeleteMember() {
-            const userId = document.getElementById('deleteUserId').value;
-
+            const userId = Number(document.getElementById('deleteUserId').value);
             try {
-                const res = await fetch(`${API_BASE}/admin?action=delete-user&id=${userId}`, {
-                    method: 'DELETE',
-                    credentials: 'include'
-                });
-                const data = await res.json();
-
-                if (res.ok) {
-                    showToast('Member berhasil dihapus', 'success');
-                    closeModal('deleteUserModal');
-                    await loadUsers();
-                    renderUsers();
-                } else {
-                    showToast(data.error || 'Gagal menghapus member', 'error');
-                }
+                await apiDelete(`admin?action=delete-user&id=${userId}`);
+                closeModal('deleteUserModal');
+                showToast('Member berhasil dihapus', 'success');
+                await refreshAdmin({ silent: true });
             } catch (err) {
-                showToast('Gagal menghapus member', 'error');
+                showToast(err.message || 'Gagal menghapus member', 'error');
             }
         }
 
-        // Logout
-        async function logout() {
+        async function deleteExpense(id) {
+            if (!confirm('Hapus transaksi ini?')) return;
+            try {
+                await apiDelete(`expenses?id=${id}`);
+                showToast('Transaksi dihapus', 'success');
+                await refreshAdmin({ silent: true });
+            } catch (err) {
+                showToast(err.message || 'Gagal menghapus transaksi', 'error');
+            }
+        }
+
+        async function deleteSettlement(id) {
+            if (!confirm('Hapus pembayaran ini?')) return;
+            try {
+                await apiDelete(`settlements?id=${id}`);
+                showToast('Pembayaran dihapus', 'success');
+                await refreshAdmin({ silent: true });
+            } catch (err) {
+                showToast(err.message || 'Gagal menghapus pembayaran', 'error');
+            }
+        }
+
+        async function deleteInfo(id) {
+            if (!confirm('Hapus info ini?')) return;
+            try {
+                await apiDelete(`info?id=${id}`);
+                showToast('Info dihapus', 'success');
+                await refreshAdmin({ silent: true });
+            } catch (err) {
+                showToast(err.message || 'Gagal menghapus info', 'error');
+            }
+        }
+
+        async function handleJastipAction(id, action) {
+            const label = action === 'close' ? 'tutup' : 'batalkan';
+            if (!confirm(`Yakin ${label} jastip ini?`)) return;
+            try {
+                await apiPut(`jastip?action=${action}`, { id });
+                showToast(`Jastip berhasil di${label}`, 'success');
+                await refreshAdmin({ silent: true });
+            } catch (err) {
+                showToast(err.message || 'Gagal mengubah jastip', 'error');
+            }
+        }
+
+        function openResetDataModal(type, label) {
+            document.getElementById('resetDataType').value = type;
+            document.getElementById('resetDataLabel').textContent = label;
+            document.getElementById('resetConfirmInput').value = '';
+            document.getElementById('confirmResetDataBtn').disabled = true;
+            openModal('resetDataModal');
+            setTimeout(() => document.getElementById('resetConfirmInput').focus(), 150);
+        }
+
+        async function executeResetData() {
+            const type = document.getElementById('resetDataType').value;
+            try {
+                showLoading();
+                const data = await apiPost('reset', { type });
+                closeModal('resetDataModal');
+                showToast(data.message || 'Reset berhasil', 'success');
+                await refreshAdmin({ silent: true });
+            } catch (err) {
+                showToast(err.message || 'Reset gagal', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function logoutAdmin() {
             localStorage.removeItem('kontrakan_token');
             localStorage.removeItem('kontrakan_user');
             window.location.href = 'login.html';
         }
 
-        // Reset data confirmation and execution
-        let pendingResetType = null;
-        let pendingResetLabel = null;
+        function transactionSearchText(expense) {
+            const splitText = (expense.splits || []).map(split => {
+                const items = normalizeItems(split.items).map(item => `${item.item || item.name || ''} ${item.note || ''}`).join(' ');
+                return `${split.display_name || ''} ${items}`;
+            }).join(' ');
+            return `${expense.description || ''} ${expense.category || ''} ${expense.paid_by_name || ''} ${splitText}`.toLowerCase();
+        }
 
-        function confirmReset(type, label) {
-            pendingResetType = type;
-            pendingResetLabel = label;
-            const confirmed = confirm(`⚠️ PERINGATAN!\n\nAnda akan menghapus: ${label}\n\nTindakan ini TIDAK BISA DIBATALKAN!\n\nLanjutkan?`);
-            if (confirmed) {
-                const doubleConfirm = confirm(`🔥 KONFIRMASI TERAKHIR!\n\nYakin hapus ${label}?\n\nKetik OK untuk melanjutkan.`);
-                if (doubleConfirm) {
-                    executeReset(type, label);
+        function normalizeItems(items) {
+            if (!items) return [];
+            if (Array.isArray(items)) return items;
+            if (typeof items === 'string') {
+                try {
+                    const parsed = JSON.parse(items);
+                    return Array.isArray(parsed) ? parsed : [];
+                } catch {
+                    return [];
                 }
             }
+            return [];
         }
 
-        async function executeReset(type, label) {
-            try {
-                showLoading();
-                const res = await fetch(`${API_BASE}/reset`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type })
-                });
-                const data = await res.json();
-                hideLoading();
+        function summarizeJastip(order) {
+            const items = order.items || [];
+            const participants = new Set(items.map(item => item.user_id)).size;
+            const bought = items.filter(item => item.status === 'bought').length;
+            const unavailable = items.filter(item => item.status === 'unavailable' || item.status === 'cancelled').length;
+            const total = items.reduce((sum, item) => sum + (item.status === 'bought' ? Number(item.final_price || 0) : 0), 0);
+            return { items: items.length, participants, bought, unavailable, total };
+        }
 
-                if (res.ok) {
-                    showToast(data.message || `${label} berhasil dihapus!`, 'success');
-                    // Reload data
-                    await loadAllData();
-                    renderDashboard();
-                    renderTransactions();
-                    renderPayments();
-                    renderInfo();
-                } else {
-                    showToast(data.error || 'Reset gagal', 'error');
-                }
-            } catch (err) {
-                hideLoading();
-                showToast('Reset gagal: ' + err.message, 'error');
+        function totalJastipBought(order) {
+            return summarizeJastip(order).total;
+        }
+
+        function statusLabel(status) {
+            return ({
+                open: 'Open',
+                closed: 'Ditutup',
+                completed: 'Selesai',
+                cancelled: 'Batal'
+            })[status] || status || '-';
+        }
+
+        function statusTone(status) {
+            return ({
+                open: 'green',
+                closed: 'yellow',
+                completed: 'blue',
+                cancelled: 'red'
+            })[status] || '';
+        }
+
+        function isWithinDateRange(dateStr, fromDate, toDate) {
+            const time = new Date(dateStr).getTime();
+            if (fromDate && time < new Date(fromDate).getTime()) return false;
+            if (toDate) {
+                const end = new Date(toDate);
+                end.setHours(23, 59, 59, 999);
+                if (time > end.getTime()) return false;
             }
+            return true;
         }
 
-        // Show transaction detail with splits
-        function showTransactionDetail(expenseId) {
-            const expense = allExpenses.find(e => e.id == expenseId);
-            if (!expense) return;
-
-            document.getElementById('txDetailTitle').textContent = expense.description;
-
-            let splitsHtml = '';
-            if (expense.splits && expense.splits.length > 0) {
-                splitsHtml = `
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: var(--space-sm);">Dibagi ke:</div>
-                    <div class="data-list">
-                        ${expense.splits.map(s => `
-                            <div class="data-item">
-                                <div class="data-info">
-                                    <div class="data-title">${s.display_name}</div>
-                                </div>
-                                <div class="data-amount">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
-                            </div>
-                        `).join('')}
-                    </div>
-                `;
-            } else {
-                splitsHtml = '<p style="font-size: 0.875rem; color: var(--text-muted);">Tidak ada pembagian (Listrik)</p>';
-            }
-
-            document.getElementById('txDetailContent').innerHTML = `
-                <div style="text-align: center; margin-bottom: var(--space-lg);">
-                    <div style="font-size: 1.5rem; font-weight: 700; color: var(--green);">Rp ${parseFloat(expense.amount).toLocaleString('id-ID')}</div>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: var(--space-xs);">
-                        <span class="data-tag category">${expense.category}</span>
-                        <span class="data-tag">${expense.paid_by_name}</span>
-                        <span class="data-tag">${formatDateShort(expense.created_at)}</span>
-                    </div>
-                </div>
-                ${splitsHtml}
-            `;
-
-            openModal('txDetailModal');
+        function relativeTime(dateStr) {
+            const date = new Date(dateStr);
+            const diff = Date.now() - date.getTime();
+            const minutes = Math.max(0, Math.floor(diff / 60000));
+            if (minutes < 1) return 'baru saja';
+            if (minutes < 60) return `${minutes}m lalu`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}j lalu`;
+            const days = Math.floor(hours / 24);
+            return `${days}h lalu`;
         }
 
-        // Open delete user modal
-        function openDeleteUserModal(userId, displayName) {
-            document.getElementById('deleteUserId').value = userId;
-            document.getElementById('deleteUserName').textContent = displayName;
-            openModal('deleteUserModal');
+        function formatDateShort(dateStr) {
+            if (!dateStr) return '-';
+            return new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
         }
 
-        // Confirm delete member
-        async function confirmDeleteMember() {
-            const userId = document.getElementById('deleteUserId').value;
-            try {
-                showLoading();
-                const res = await fetch(`${API_BASE}/admin?action=delete-user&id=${userId}`, {
-                    method: 'DELETE',
-                    credentials: 'include'
-                });
-                const data = await res.json();
-                hideLoading();
-
-                if (res.ok) {
-                    showToast(data.message || 'Member berhasil dihapus', 'success');
-                    closeModal('deleteUserModal');
-                    await loadUsers();
-                    renderUsers();
-                } else {
-                    showToast(data.error || 'Gagal menghapus member', 'error');
-                }
-            } catch (err) {
-                hideLoading();
-                showToast('Error: ' + err.message, 'error');
-            }
+        function sumBy(rows, key) {
+            return rows.reduce((sum, row) => sum + Number(row[key] || 0), 0);
         }
 
-        // Add new member
-        async function addNewMember() {
-            const username = document.getElementById('newUsername').value.trim();
-            const displayName = document.getElementById('newDisplayName').value.trim();
-            const password = document.getElementById('newPassword').value;
-
-            if (!username || !displayName || !password) {
-                showToast('Semua field harus diisi', 'error');
-                return;
-            }
-
-            try {
-                showLoading();
-                const res = await fetch(`${API_BASE}/admin?action=add-user`, {
-                    method: 'POST',
-                    credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, display_name: displayName, password })
-                });
-                const data = await res.json();
-                hideLoading();
-
-                if (res.ok) {
-                    showToast(data.message || 'Member berhasil ditambahkan', 'success');
-                    closeModal('addUserModal');
-                    // Clear form
-                    document.getElementById('newUsername').value = '';
-                    document.getElementById('newDisplayName').value = '';
-                    document.getElementById('newPassword').value = '';
-                    // Reload users
-                    await loadUsers();
-                    renderUsers();
-                } else {
-                    showToast(data.error || 'Gagal menambahkan member', 'error');
-                }
-            } catch (err) {
-                hideLoading();
-                showToast('Error: ' + err.message, 'error');
-            }
+        function trimText(value, maxLength) {
+            const text = String(value || '').trim();
+            if (text.length <= maxLength) return text || '-';
+            return `${text.slice(0, maxLength - 1)}...`;
         }
 
-
-        // Search/filter event listeners
-        document.getElementById('txSearch').addEventListener('input', renderTransactions);
-        document.getElementById('txFromDate').addEventListener('change', renderTransactions);
-        document.getElementById('txToDate').addEventListener('change', renderTransactions);
-        document.getElementById('payFromDate').addEventListener('change', renderPayments);
-        document.getElementById('payToDate').addEventListener('change', renderPayments);
-
-        // Modal close
-        document.getElementById('resetModal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) closeModal('resetModal');
-        });
-        document.getElementById('txDetailModal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) closeModal('txDetailModal');
-        });
-        document.getElementById('addUserModal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) closeModal('addUserModal');
-        });
-        document.getElementById('deleteUserModal').addEventListener('click', (e) => {
-            if (e.target.classList.contains('modal-overlay')) closeModal('deleteUserModal');
-        });
+        function setText(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        }
     </script>
 </body>
 

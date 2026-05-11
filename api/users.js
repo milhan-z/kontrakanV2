@@ -24,13 +24,18 @@ async function listUsers(req, res, user) {
   const db = getDB();
   let result;
 
+  await db.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+
   if (user.role === 'admin') {
     result = await db.query(
-      "SELECT id, username, display_name, role FROM users ORDER BY role DESC, display_name"
+      "SELECT id, username, display_name, phone_wa, role, COALESCE(must_change_password, FALSE) AS must_change_password FROM users ORDER BY role DESC, display_name"
     );
   } else {
     result = await db.query(
-      "SELECT id, username, display_name, role FROM users WHERE role != 'admin' ORDER BY display_name"
+      "SELECT id, username, display_name, phone_wa, role FROM users WHERE role != 'admin' ORDER BY display_name"
     );
   }
 

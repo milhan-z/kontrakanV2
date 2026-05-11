@@ -1,7 +1,8 @@
 /**
  * api/settlements.js — Settlements API (Pengganti settlements.php)
- * GET  → List settlements
- * POST → Create settlement + notification
+ * GET    - List settlements
+ * POST   - Create settlement + notification
+ * DELETE - Delete settlement
  */
 
 const { getDB, setCors, jsonResponse, requireAuth, getBody, handleOptions } = require('../lib/db');
@@ -17,8 +18,9 @@ module.exports = async function handler(req, res) {
   // Route /api/debt_details → debt details between 2 users
   if ((req.url || '').includes('/debt_details')) return debtDetails(req, res, user);
 
-  if (req.method === 'GET')  return listSettlements(req, res, user);
-  if (req.method === 'POST') return createSettlement(req, res, user);
+  if (req.method === 'GET')    return listSettlements(req, res, user);
+  if (req.method === 'POST')   return createSettlement(req, res, user);
+  if (req.method === 'DELETE') return deleteSettlement(req, res, user);
 
   return jsonResponse(res, { error: 'Method not allowed' }, 405);
 };
@@ -126,6 +128,26 @@ async function createSettlement(req, res, user) {
   } finally {
     client.release();
   }
+}
+
+async function deleteSettlement(req, res, user) {
+  const id = parseInt(req.query.id || '0', 10);
+  if (!id) return jsonResponse(res, { error: 'Settlement ID required' }, 400);
+
+  const db = getDB();
+  const result = await db.query(
+    'SELECT id, from_user, to_user FROM settlements WHERE id = $1',
+    [id]
+  );
+  const settlement = result.rows[0];
+  if (!settlement) return jsonResponse(res, { error: 'Pembayaran tidak ditemukan' }, 404);
+
+  if (user.role !== 'admin') {
+    return jsonResponse(res, { error: 'Tidak boleh menghapus pembayaran ini' }, 403);
+  }
+
+  await db.query('DELETE FROM settlements WHERE id = $1', [id]);
+  return jsonResponse(res, { success: true, message: 'Pembayaran berhasil dihapus' });
 }
 
 // Debt details between 2 users (served via /api/debt_details → /api/settlements.js)

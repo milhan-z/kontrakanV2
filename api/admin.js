@@ -1,10 +1,10 @@
 /**
- * api/admin.js — Admin API (Pengganti admin.php)
- * GET  ?action=stats          → Statistics
- * POST ?action=add-user       → Add member
- * PUT  ?action=reset-password → Reset password
- * DELETE ?action=delete-user&id=X    → Delete user
- * DELETE ?action=clear-expenses      → Clear all data
+ * api/admin.js - Admin API
+ * GET    ?action=stats              - Statistics
+ * POST   ?action=add-user           - Add member
+ * PUT    ?action=reset-password     - Reset password
+ * DELETE ?action=delete-user&id=X   - Delete user
+ * DELETE ?action=clear-expenses     - Clear finance data
  */
 
 const bcrypt = require('bcryptjs');
@@ -35,42 +35,82 @@ module.exports = async function handler(req, res) {
 async function getStats(req, res) {
   const db = getDB();
 
-  const [totExp, totSettle, expCount, byCategory, byMonth] = await Promise.all([
-    db.query("SELECT COALESCE(SUM(amount), 0) as total FROM expenses"),
-    db.query("SELECT COALESCE(SUM(amount), 0) as total FROM settlements"),
-    db.query("SELECT COUNT(*) as count FROM expenses"),
-    db.query(`
+  const [
+    usersCount,
+    totExp,
+    totSettle,
+    expCount,
+    infoCount,
+    notifCount,
+    unreadNotifCount,
+    pushCount,
+    activeJastipCount,
+    closedJastipCount,
+    completedJastipCount,
+    byCategory,
+    byMonth,
+  ] = await Promise.all([
+    safeScalar(db, 'SELECT COUNT(*) AS value FROM users'),
+    safeScalar(db, 'SELECT COALESCE(SUM(amount), 0) AS value FROM expenses'),
+    safeScalar(db, 'SELECT COALESCE(SUM(amount), 0) AS value FROM settlements'),
+    safeScalar(db, 'SELECT COUNT(*) AS value FROM expenses'),
+    safeScalar(db, 'SELECT COUNT(*) AS value FROM info_kontrakan'),
+    safeScalar(db, 'SELECT COUNT(*) AS value FROM notifications'),
+    safeScalar(db, 'SELECT COUNT(*) AS value FROM notifications WHERE is_read = FALSE'),
+    safeScalar(db, 'SELECT COUNT(*) AS value FROM push_subscriptions'),
+    safeScalar(db, "SELECT COUNT(*) AS value FROM jastip_orders WHERE status = 'open'"),
+    safeScalar(db, "SELECT COUNT(*) AS value FROM jastip_orders WHERE status = 'closed'"),
+    safeScalar(db, "SELECT COUNT(*) AS value FROM jastip_orders WHERE status = 'completed'"),
+    safeRows(db, `
       SELECT category, COUNT(*) as count, SUM(amount) as total
       FROM expenses GROUP BY category ORDER BY total DESC
     `),
-    db.query(`
+    safeRows(db, `
       SELECT TO_CHAR(created_at, 'YYYY-MM') as month, SUM(amount) as total
       FROM expenses GROUP BY month ORDER BY month DESC LIMIT 6
     `),
   ]);
 
   return jsonResponse(res, {
-    total_expenses:    parseFloat(totExp.rows[0].total),
-    total_settlements: parseFloat(totSettle.rows[0].total),
-    expense_count:     parseInt(expCount.rows[0].count),
-    by_category:       byCategory.rows,
-    by_month:          byMonth.rows,
+    users_count:       parseInt(usersCount, 10) || 0,
+    total_expenses:    parseFloat(totExp) || 0,
+    total_settlements: parseFloat(totSettle) || 0,
+    expense_count:     parseInt(expCount, 10) || 0,
+    info_count:        parseInt(infoCount, 10) || 0,
+    notifications_count: parseInt(notifCount, 10) || 0,
+    unread_notifications_count: parseInt(unreadNotifCount, 10) || 0,
+    push_subscriptions_count: parseInt(pushCount, 10) || 0,
+    jastip: {
+      open: parseInt(activeJastipCount, 10) || 0,
+      closed: parseInt(closedJastipCount, 10) || 0,
+      completed: parseInt(completedJastipCount, 10) || 0,
+    },
+    by_category:       byCategory,
+    by_month:          byMonth,
   });
 }
 
 async function addUser(req, res) {
   const input = await getBody(req);
-  const { username, display_name, password } = input;
+  const normalizedUsername = String(input.username || '').trim().toLowerCase();
+  const normalizedDisplayName = String(input.display_name || '').trim();
+  const password = String(input.password || '');
 
-  if (!username || !display_name || !password) {
+  if (!normalizedUsername || !normalizedDisplayName || !password) {
     return jsonResponse(res, { error: 'Username, display_name, dan password harus diisi' }, 400);
   }
-  if (username.length < 3) return jsonResponse(res, { error: 'Username minimal 3 karakter' }, 400);
+  if (normalizedUsername.length < 3) return jsonResponse(res, { error: 'Username minimal 3 karakter' }, 400);
   if (password.length < 6) return jsonResponse(res, { error: 'Password minimal 6 karakter' }, 400);
+  if (!/^[a-z0-9._-]+$/.test(normalizedUsername)) {
+    return jsonResponse(res, { error: 'Username hanya boleh huruf kecil, angka, titik, underscore, atau strip' }, 400);
+  }
+  if (normalizedDisplayName.length > 100) {
+    return jsonResponse(res, { error: 'Nama tampilan maksimal 100 karakter' }, 400);
+  }
 
   const db = getDB();
   await ensureUserSecurityColumns(db);
-  const existing = await db.query('SELECT id FROM users WHERE username = $1', [username]);
+  const existing = await db.query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [normalizedUsername]);
   if (existing.rows.length > 0) {
     return jsonResponse(res, { error: 'Username sudah digunakan' }, 400);
   }
@@ -78,7 +118,7 @@ async function addUser(req, res) {
   const hash = await bcrypt.hash(password, 10);
   const result = await db.query(
     "INSERT INTO users (username, password_hash, display_name, role, must_change_password) VALUES ($1, $2, $3, 'member', TRUE) RETURNING id",
-    [username, hash, display_name]
+    [normalizedUsername, hash, normalizedDisplayName]
   );
 
   return jsonResponse(res, {
@@ -122,10 +162,12 @@ async function deleteUser(req, res) {
   if (!user) return jsonResponse(res, { error: 'User tidak ditemukan' }, 404);
   if (user.role === 'admin') return jsonResponse(res, { error: 'Tidak bisa menghapus admin' }, 403);
 
-  const [expCheck, splitCheck, settlCheck] = await Promise.all([
+  const [expCheck, splitCheck, settlCheck, openJastipCheck, pendingJastipItemCheck] = await Promise.all([
     db.query('SELECT COUNT(*) as count FROM expenses WHERE paid_by = $1', [userId]),
     db.query('SELECT COUNT(*) as count FROM expense_splits WHERE user_id = $1', [userId]),
     db.query('SELECT COUNT(*) as count FROM settlements WHERE from_user = $1 OR to_user = $1', [userId]),
+    safeCount(db, "SELECT COUNT(*) AS count FROM jastip_orders WHERE opened_by = $1 AND status IN ('open', 'closed')", [userId]),
+    safeCount(db, "SELECT COUNT(*) AS count FROM jastip_items ji JOIN jastip_orders jo ON jo.id = ji.jastip_id WHERE ji.user_id = $1 AND jo.status IN ('open', 'closed')", [userId]),
   ]);
 
   if (parseInt(expCheck.rows[0].count) > 0)
@@ -134,6 +176,10 @@ async function deleteUser(req, res) {
     return jsonResponse(res, { error: 'User masih terlibat dalam pembagian biaya.' }, 400);
   if (parseInt(settlCheck.rows[0].count) > 0)
     return jsonResponse(res, { error: 'User masih punya riwayat pembayaran.' }, 400);
+  if (parseInt(openJastipCheck) > 0)
+    return jsonResponse(res, { error: 'User masih punya jastip aktif/ditutup.' }, 400);
+  if (parseInt(pendingJastipItemCheck) > 0)
+    return jsonResponse(res, { error: 'User masih punya nitipan di jastip aktif.' }, 400);
 
   await db.query('DELETE FROM users WHERE id = $1', [userId]);
   return jsonResponse(res, { success: true, message: `Member ${user.display_name} berhasil dihapus` });
@@ -150,29 +196,64 @@ async function clearExpenses(req, res) {
 // Reset specific data (served via /api/reset → /api/admin.js)
 async function resetData(req, res) {
   const input = req.method === 'POST' ? await require('../lib/db').getBody(req) : {};
-  const target = input.target || input.type;
+  const target = normalizeResetTarget(input.target || input.type);
   const db = getDB();
+  const client = await db.connect();
 
   try {
-    if (!target || target === 'all') {
-      await db.query('DELETE FROM settlements');
-      await db.query('DELETE FROM expense_splits');
-      await db.query('DELETE FROM expenses');
-      await db.query('DELETE FROM notifications');
-      return jsonResponse(res, { success: true, message: 'All data reset' });
+    await client.query('BEGIN');
+
+    if (target === 'all') {
+      await deleteTable(client, 'jastip_items');
+      await deleteTable(client, 'jastip_orders');
+      await deleteTable(client, 'settlements');
+      await deleteTable(client, 'expense_splits');
+      await deleteTable(client, 'expenses');
+      await deleteTable(client, 'notifications');
+      await deleteTable(client, 'info_kontrakan');
+      await client.query('COMMIT');
+      return jsonResponse(res, { success: true, message: 'Semua data sistem berhasil direset' });
     }
+
     if (target === 'settlements') {
-      await db.query('DELETE FROM settlements');
-      return jsonResponse(res, { success: true, message: 'Settlements cleared' });
+      await deleteTable(client, 'settlements');
+      await client.query('COMMIT');
+      return jsonResponse(res, { success: true, message: 'Riwayat pembayaran berhasil dihapus' });
     }
+
     if (target === 'expenses') {
-      await db.query('DELETE FROM expense_splits');
-      await db.query('DELETE FROM expenses');
-      return jsonResponse(res, { success: true, message: 'Expenses cleared' });
+      await deleteTable(client, 'expense_splits');
+      await deleteTable(client, 'expenses');
+      await client.query('COMMIT');
+      return jsonResponse(res, { success: true, message: 'Transaksi berhasil dihapus' });
     }
-    return jsonResponse(res, { error: 'Invalid target' }, 400);
+
+    if (target === 'info') {
+      await deleteTable(client, 'info_kontrakan');
+      await client.query('COMMIT');
+      return jsonResponse(res, { success: true, message: 'Info kontrakan berhasil dihapus' });
+    }
+
+    if (target === 'notifications') {
+      await deleteTable(client, 'notifications');
+      await client.query('COMMIT');
+      return jsonResponse(res, { success: true, message: 'Notifikasi berhasil dihapus' });
+    }
+
+    if (target === 'jastip') {
+      await deleteTable(client, 'jastip_items');
+      await deleteTable(client, 'jastip_orders');
+      await client.query('COMMIT');
+      return jsonResponse(res, { success: true, message: 'Data jastip berhasil dihapus' });
+    }
+
+    await client.query('ROLLBACK');
+    return jsonResponse(res, { error: 'Target reset tidak valid' }, 400);
   } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
     return jsonResponse(res, { error: err.message }, 500);
+  } finally {
+    client.release();
   }
 }
 
@@ -185,4 +266,73 @@ async function ensureUserSecurityColumns(db) {
 
 function generateTemporaryPassword() {
   return crypto.randomBytes(6).toString('base64url');
+}
+
+function normalizeResetTarget(target) {
+  const value = String(target || 'all').trim().toLowerCase();
+  const aliases = {
+    all: 'all',
+    semua: 'all',
+    transaksi: 'expenses',
+    expense: 'expenses',
+    expenses: 'expenses',
+    settlements: 'settlements',
+    settlement: 'settlements',
+    payments: 'settlements',
+    pembayaran: 'settlements',
+    info: 'info',
+    notifications: 'notifications',
+    notification: 'notifications',
+    notifikasi: 'notifications',
+    jastip: 'jastip',
+  };
+  return aliases[value] || value;
+}
+
+async function safeRows(db, sql, params = []) {
+  try {
+    const result = await db.query(sql, params);
+    return result.rows;
+  } catch (err) {
+    if (err.code === '42P01' || err.code === '42703') return [];
+    throw err;
+  }
+}
+
+async function safeScalar(db, sql, params = []) {
+  const rows = await safeRows(db, sql, params);
+  if (!rows[0]) return 0;
+  if ('value' in rows[0]) return rows[0].value;
+  if ('count' in rows[0]) return rows[0].count;
+  if ('total' in rows[0]) return rows[0].total;
+  return 0;
+}
+
+async function safeCount(db, sql, params = []) {
+  return safeScalar(db, sql, params);
+}
+
+async function deleteTable(client, tableName) {
+  const allowedTables = new Set([
+    'expenses',
+    'expense_splits',
+    'settlements',
+    'notifications',
+    'info_kontrakan',
+    'jastip_items',
+    'jastip_orders',
+  ]);
+  if (!allowedTables.has(tableName)) throw new Error('Reset table tidak valid');
+
+  const savepoint = `delete_${tableName}`;
+  await client.query(`SAVEPOINT ${savepoint}`);
+  try {
+    await client.query(`DELETE FROM ${tableName}`);
+    await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+  } catch (err) {
+    await client.query(`ROLLBACK TO SAVEPOINT ${savepoint}`);
+    await client.query(`RELEASE SAVEPOINT ${savepoint}`);
+    if (err.code === '42P01') return;
+    throw err;
+  }
 }
