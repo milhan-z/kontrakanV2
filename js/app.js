@@ -617,6 +617,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ==================== Push Notifications ====================
 let pushPublicKeyPromise = null;
+let pushAvailability = { checked: false, enabled: true, message: '' };
+let pushSyncInFlight = null;
 
 function isIosDevice() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -633,8 +635,18 @@ async function getPushPublicKey() {
             .then(async (res) => {
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok || !data.publicKey) {
+                    pushAvailability = {
+                        checked: true,
+                        enabled: false,
+                        message: data.error || 'Public key push tidak tersedia',
+                    };
                     throw new Error(data.error || 'Public key push tidak tersedia');
                 }
+                pushAvailability = {
+                    checked: true,
+                    enabled: true,
+                    message: data.fallback ? 'Push notification memakai key fallback aplikasi.' : '',
+                };
                 return data.publicKey;
             })
             .catch((err) => {
@@ -674,7 +686,12 @@ async function updatePushUi() {
     }
 
     if (btn) btn.classList.toggle('hidden', active);
-    if (status) status.classList.toggle('hidden', !active);
+    if (status) {
+        status.classList.toggle('hidden', !active);
+        if (active) {
+            status.textContent = pushAvailability.message || 'Notifikasi HP sudah aktif';
+        }
+    }
 }
 
 async function unsubscribeFromPush() {
@@ -729,7 +746,7 @@ async function subscribeToPush() {
         return true;
     } catch (err) {
         console.error('Failed to subscribe to push:', err);
-        showToast('Gagal mengaktifkan notif HP. Coba refresh lalu ulangi.', 'error');
+        showToast(err.message || 'Gagal mengaktifkan notif HP. Coba refresh lalu ulangi.', 'error');
         return false;
     }
 }
@@ -740,7 +757,15 @@ async function syncPushSubscription() {
         await updatePushUi();
         return false;
     }
-    return subscribeToPush();
+    if (pushAvailability.checked && !pushAvailability.enabled) {
+        return false;
+    }
+    if (!pushSyncInFlight) {
+        pushSyncInFlight = subscribeToPush().finally(() => {
+            pushSyncInFlight = null;
+        });
+    }
+    return pushSyncInFlight;
 }
 
 

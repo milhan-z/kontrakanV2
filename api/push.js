@@ -1,5 +1,5 @@
 const { getDB, requireAuth, jsonResponse, getBody, setCors, handleOptions } = require('../lib/db');
-const { vapidPublicKey, isPushConfigured, pushConfigError } = require('../lib/webpush');
+const { vapidPublicKey, isPushConfigured, pushConfigError, usesFallbackKeys } = require('../lib/webpush');
 
 module.exports = async (req, res) => {
   setCors(res);
@@ -17,7 +17,10 @@ module.exports = async (req, res) => {
         503
       );
     }
-    return jsonResponse(res, { publicKey: vapidPublicKey });
+    return jsonResponse(res, {
+      publicKey: vapidPublicKey,
+      fallback: usesFallbackKeys,
+    });
   }
 
   const user = requireAuth(req, res);
