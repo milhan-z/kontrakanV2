@@ -366,7 +366,7 @@
         <div id="stepAiAssign" class="wizard-step">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
                 <div style="font-size:0.85rem; color:var(--text-muted);">Pembagian split bill</div>
-                <button class="btn btn-sm" onclick="bagiRataSemuaAi()" style="background:var(--bg-hover); color:var(--text-primary); border:none; border-radius:20px; font-weight:600;">✨ Rata</button>
+                <button class="btn btn-sm" id="btnAiEvenSplit" onclick="bagiRataSemuaAi()" style="background:var(--bg-hover); color:var(--text-primary); border:none; border-radius:20px; font-weight:600;">Rata</button>
             </div>
             <div id="aiAssignList"></div>
             <div class="summary-box" style="margin-top:24px;">
@@ -392,6 +392,7 @@
         let aiSelectedMemberIds = [];
         let finalAiSplits = [];
         let finalAiGrandTotal = 0;
+        let aiEvenSplitSnapshot = null;
         window.giliranFilePath = null;
 
         // ===== Init =====
@@ -793,6 +794,7 @@
                 document.querySelectorAll('#aiMembersGrid input:checked')
             ).map(i => parseInt(i.value));
             if (aiSelectedMemberIds.length === 0) { showToast('Pilih minimal 1 orang', 'error'); return; }
+            aiEvenSplitSnapshot = null;
             aiItems.forEach(syncAiItemState);
             renderAiAssign();
             goToStep('stepAiAssign');
@@ -824,6 +826,7 @@
                 (item.isEditing ? renderAiItemEditor(index, item, members) : '') +
                 '</div>'
             ).join('');
+            updateAiEvenSplitButton();
             calcAiTotals();
         }
 
@@ -840,7 +843,17 @@
         }
 
         function bagiRataSemuaAi() {
-            aiItems.forEach(item => distributeAiItemEvenly(item));
+            const shouldCancel = isAiEvenSplitActive();
+            if (shouldCancel && aiEvenSplitSnapshot) {
+                restoreAiAllocations(aiEvenSplitSnapshot);
+                aiEvenSplitSnapshot = null;
+            } else if (shouldCancel) {
+                aiItems.forEach(clearAiItemAllocations);
+                aiEvenSplitSnapshot = null;
+            } else {
+                aiEvenSplitSnapshot = snapshotAiAllocations();
+                aiItems.forEach(item => distributeAiItemEvenly(item));
+            }
             renderAiAssign();
         }
 
@@ -952,11 +965,44 @@
             });
         }
 
+        function clearAiItemAllocations(item) {
+            syncAiItemState(item);
+            aiSelectedMemberIds.forEach(id => { item.allocations[id] = 0; });
+        }
+
         function distributeAiItemEvenly(item) {
             syncAiItemState(item);
             aiSelectedMemberIds.forEach(id => { item.allocations[id] = 0; });
             if (aiSelectedMemberIds.length === 0) return;
             aiSelectedMemberIds.forEach(id => { item.allocations[id] = 1; });
+        }
+
+        function snapshotAiAllocations() {
+            return aiItems.map(item => ({ ...item.allocations }));
+        }
+
+        function restoreAiAllocations(snapshot) {
+            aiItems.forEach((item, index) => {
+                item.allocations = { ...(snapshot[index] || {}) };
+                syncAiItemState(item);
+            });
+        }
+
+        function isAiEvenSplitActive() {
+            if (aiItems.length === 0 || aiSelectedMemberIds.length === 0) return false;
+            return aiItems.every(item => {
+                syncAiItemState(item);
+                return aiSelectedMemberIds.every(id => getAiAllocatedQty(item, id) === 1);
+            });
+        }
+
+        function updateAiEvenSplitButton() {
+            const btn = document.getElementById('btnAiEvenSplit');
+            if (!btn) return;
+            const active = isAiEvenSplitActive();
+            btn.textContent = active ? 'Batal Rata' : 'Rata';
+            btn.style.background = active ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-hover)';
+            btn.style.color = active ? 'var(--red)' : 'var(--text-primary)';
         }
 
         function toggleAiItemEditor(index) {
