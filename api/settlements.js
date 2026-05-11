@@ -29,63 +29,154 @@ function roundMoney(value) {
   return Math.round((Number(value) || 0) * 100) / 100;
 }
 
-async function getPairSummary(db, debtorId, creditorId) {
-  const [forwardExpResult, forwardSetResult, reverseExpResult, reverseSetResult] = await Promise.all([
+function toTimestamp(value) {
+  const ts = new Date(value).getTime();
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+/**
+ * Port of api/debt_details.php from v1.
+ *
+ * Builds a bidirectional timeline between creditor and debtor, calculates the
+ * running net balance from the requested creditor perspective, then only shows
+ * transactions after the last point where the pair became clear again.
+ *
+ * Positive running balance = debtor owes creditor.
+ * Negative running balance = creditor owes debtor.
+ */
+async function getDebtDetailsSummary(db, debtorId, creditorId) {
+  const [expenseResult, settlementResult] = await Promise.all([
     db.query(`
-      SELECT e.id, e.description, e.category, e.amount as total_amount,
-             es.amount as split_amount, e.created_at
+      SELECT e.id, e.description, e.category, e.created_at,
+             es.amount as split_amount,
+             e.paid_by as creditor,
+             es.user_id as debtor
       FROM expenses e
-      JOIN expense_splits es ON es.expense_id = e.id
-      WHERE e.paid_by = $1 AND es.user_id = $2 AND e.category != 'Listrik'
-      ORDER BY e.created_at DESC
+      JOIN expense_splits es ON e.id = es.expense_id
+      WHERE ((e.paid_by = $1 AND es.user_id = $2) OR (e.paid_by = $2 AND es.user_id = $1))
+        AND e.category != 'Listrik'
+      ORDER BY e.created_at ASC
     `, [creditorId, debtorId]),
     db.query(`
-      SELECT id, amount, created_at, receipt_image
+      SELECT id, from_user, to_user, amount, created_at, receipt_image
       FROM settlements
-      WHERE from_user = $1 AND to_user = $2
-      ORDER BY created_at DESC
-    `, [debtorId, creditorId]),
-    db.query(`
-      SELECT e.id, e.description, e.category, e.amount as total_amount,
-             es.amount as split_amount, e.created_at
-      FROM expenses e
-      JOIN expense_splits es ON es.expense_id = e.id
-      WHERE e.paid_by = $1 AND es.user_id = $2 AND e.category != 'Listrik'
-      ORDER BY e.created_at DESC
-    `, [debtorId, creditorId]),
-    db.query(`
-      SELECT id, amount, created_at, receipt_image
-      FROM settlements
-      WHERE from_user = $1 AND to_user = $2
-      ORDER BY created_at DESC
+      WHERE (from_user = $1 AND to_user = $2) OR (from_user = $2 AND to_user = $1)
+      ORDER BY created_at ASC
     `, [creditorId, debtorId]),
   ]);
 
-  const forwardExpenses = forwardExpResult.rows.reduce((s, e) => s + parseFloat(e.split_amount), 0);
-  const forwardSettled  = forwardSetResult.rows.reduce((s, r) => s + parseFloat(r.amount), 0);
-  const reverseExpenses = reverseExpResult.rows.reduce((s, e) => s + parseFloat(e.split_amount), 0);
-  const reverseSettled  = reverseSetResult.rows.reduce((s, r) => s + parseFloat(r.amount), 0);
+  const transactions = [];
 
-  // Net debt from debtor → creditor.
-  // Example:
-  // - creditor paid 100 split debtor 50 = debtor owes creditor 50
-  // - debtor paid 10 split creditor 5 = creditor owes debtor 5
-  // Net debtor owes creditor = 50 - 5 = 45
-  const forwardOutstanding = forwardExpenses - forwardSettled;
-  const reverseOutstanding = reverseExpenses - reverseSettled;
-  const netRemaining = roundMoney(forwardOutstanding - reverseOutstanding);
+  for (const e of expenseResult.rows) {
+    const creditor = parseInt(e.creditor, 10);
+    const debtor = parseInt(e.debtor, 10);
+    const amount = parseFloat(e.split_amount) || 0;
+    const creditorPaid = creditor === creditorId && debtor === debtorId;
+
+    transactions.push({
+      date: e.created_at,
+      timestamp: toTimestamp(e.created_at),
+      type: 'expense',
+      direction: creditorPaid ? 'creditor_paid' : 'debtor_paid',
+      net_effect: creditorPaid ? amount : -amount,
+      amount,
+      data: e,
+    });
+  }
+
+  for (const s of settlementResult.rows) {
+    const fromUser = parseInt(s.from_user, 10);
+    const toUser = parseInt(s.to_user, 10);
+    const amount = parseFloat(s.amount) || 0;
+    const debtorPaid = fromUser === debtorId && toUser === creditorId;
+
+    transactions.push({
+      date: s.created_at,
+      timestamp: toTimestamp(s.created_at),
+      type: 'settlement',
+      direction: debtorPaid ? 'debtor_paid' : 'creditor_paid',
+      net_effect: debtorPaid ? -amount : amount,
+      amount,
+      data: s,
+    });
+  }
+
+  transactions.sort((a, b) => {
+    const diff = a.timestamp - b.timestamp;
+    if (diff !== 0) return diff;
+    if (a.type === 'expense' && b.type === 'settlement') return -1;
+    if (a.type === 'settlement' && b.type === 'expense') return 1;
+    return 0;
+  });
+
+  let runningBalance = 0;
+  let lastResetIndex = -1;
+  let lastResetDate = null;
+  const debugLog = [];
+
+  transactions.forEach((t, index) => {
+    const before = runningBalance;
+    runningBalance += t.net_effect;
+    const isReset = Math.abs(runningBalance) < 0.01;
+
+    debugLog.push({
+      idx: index,
+      type: t.type,
+      direction: t.direction,
+      amount: roundMoney(t.amount),
+      net_effect: roundMoney(t.net_effect),
+      date: t.date,
+      before: roundMoney(before),
+      after: roundMoney(runningBalance),
+      is_reset: isReset,
+    });
+
+    if (isReset) {
+      lastResetIndex = index;
+      lastResetDate = t.date;
+      runningBalance = 0;
+    }
+  });
+
+  const activeExpenses = [];
+  const activeSettlements = [];
+  let totalExpenses = 0;
+  let totalSettled = 0;
+
+  for (let i = lastResetIndex + 1; i < transactions.length; i++) {
+    const t = transactions[i];
+
+    if (t.type === 'expense' && t.direction === 'creditor_paid') {
+      const row = { ...t.data, remaining_amount: t.amount };
+      activeExpenses.push(row);
+      totalExpenses += t.amount;
+    } else if (t.type === 'settlement' && t.direction === 'debtor_paid') {
+      activeSettlements.push(t.data);
+      totalSettled += t.amount;
+    }
+  }
+
+  activeExpenses.reverse();
+  activeSettlements.reverse();
+
+  const netRemaining = roundMoney(totalExpenses - totalSettled);
 
   return {
-    expenses: forwardExpResult.rows,
-    settlements: forwardSetResult.rows,
-    reverse_expenses: reverseExpResult.rows,
-    reverse_settlements: reverseSetResult.rows,
-    raw_forward_expenses: roundMoney(forwardExpenses),
-    raw_forward_settled: roundMoney(forwardSettled),
-    raw_reverse_expenses: roundMoney(reverseExpenses),
-    raw_reverse_settled: roundMoney(reverseSettled),
-    net_offset: roundMoney(reverseOutstanding),
-    remaining: netRemaining > 0 ? netRemaining : 0,
+    expenses: activeExpenses.slice(0, 10),
+    settlements: activeSettlements.slice(0, 5),
+    total_expenses: roundMoney(totalExpenses),
+    total_settled: roundMoney(totalSettled),
+    remaining: roundMoney(Math.max(0, netRemaining)),
+    is_clear: netRemaining <= 0.01,
+    last_reset_date: lastResetDate,
+    debug: {
+      last_reset_index: lastResetIndex,
+      last_reset_date: lastResetDate,
+      total_transactions: transactions.length,
+      active_expense_count: activeExpenses.length,
+      active_settlement_count: activeSettlements.length,
+      log: debugLog,
+    },
   };
 }
 
@@ -147,7 +238,8 @@ async function createSettlement(req, res, user) {
   const userMap = {};
   usersResult.rows.forEach(u => { userMap[u.id] = u.display_name; });
 
-  const pairSummary = await getPairSummary(db, fromUser, toUser);
+  // Keep settlement creation aligned with the visible debt detail rules.
+  const pairSummary = await getDebtDetailsSummary(db, fromUser, toUser);
   const remaining = pairSummary.remaining;
   if (remaining <= 0) {
     return jsonResponse(res, { error: 'Tidak ada sisa hutang yang perlu dibayar' }, 400);
@@ -227,25 +319,15 @@ async function deleteSettlement(req, res, user) {
 async function debtDetails(req, res, user) {
   const creditorId = parseInt(req.query.creditor_id || '0');
   const debtorId   = parseInt(req.query.debtor_id   || '0');
-  if (!creditorId || !debtorId)
+  const debug = String(req.query.debug || '') === '1';
+
+  if (!creditorId || !debtorId) {
     return jsonResponse(res, { error: 'creditor_id and debtor_id required' }, 400);
+  }
 
   const db = getDB();
-  const summary = await getPairSummary(db, debtorId, creditorId);
+  const summary = await getDebtDetailsSummary(db, debtorId, creditorId);
+  if (!debug) delete summary.debug;
 
-  // Keep old frontend fields compatible, but make the math net-aware.
-  // total_settled here means "paid/offset", so reverse outstanding debt is counted as offset.
-  const totalExpenses = summary.raw_forward_expenses;
-  const totalSettledOrOffset = roundMoney(totalExpenses - summary.remaining);
-
-  return jsonResponse(res, {
-    expenses: summary.expenses,
-    settlements: summary.settlements,
-    reverse_expenses: summary.reverse_expenses,
-    reverse_settlements: summary.reverse_settlements,
-    total_expenses: totalExpenses,
-    total_settled: totalSettledOrOffset < 0 ? 0 : totalSettledOrOffset,
-    net_offset: summary.net_offset,
-    remaining: summary.remaining,
-  });
+  return jsonResponse(res, summary);
 }
