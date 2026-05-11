@@ -77,38 +77,6 @@
             font-size: 0.75rem;
         }
 
-        .history-section-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: var(--space-sm);
-            margin-bottom: var(--space-sm);
-        }
-
-        .jastip-history-list {
-            display: grid;
-            gap: var(--space-sm);
-        }
-
-        .jastip-history-card {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: var(--space-sm);
-            align-items: center;
-            padding: var(--space-md);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            background: var(--bg-card);
-            cursor: pointer;
-        }
-
-        .jastip-history-title {
-            color: var(--text-primary);
-            font-weight: 750;
-            overflow-wrap: anywhere;
-        }
-
-        .jastip-history-meta,
         .jastip-detail-meta {
             color: var(--text-muted);
             font-size: 0.75rem;
@@ -191,6 +159,8 @@
                     style="border-radius: var(--radius-full);">Keamanan</button>
                 <button class="btn filter-btn" data-category="Titip Makanan"
                     style="border-radius: var(--radius-full);">Makanan</button>
+                <button class="btn filter-btn" data-category="Jastip"
+                    style="border-radius: var(--radius-full);">Jastip</button>
             </div>
 
             <!-- Search -->
@@ -239,15 +209,6 @@
             </div>
         </div>
 
-        <div class="section" id="jastipHistorySection">
-            <div class="history-section-head">
-                <div class="section-title">Riwayat Jastip</div>
-                <a href="jastip.html" class="section-link">Buka Jastip</a>
-            </div>
-            <div id="jastipHistoryList">
-                <div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>
-            </div>
-        </div>
     </div>
 
     <!-- Receipt Modal -->
@@ -330,7 +291,8 @@
         (async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
             await Promise.all([loadUsers(), loadNotifications()]);
-            await Promise.all([renderTransactions(), loadJastipHistory()]);
+            await loadJastipHistory();
+            await renderTransactions();
         })();
 
         async function renderTransactions(category = '') {
@@ -361,6 +323,15 @@
             try {
                 const data = await loadExpenses(category || null);
                 let expenses = data.expenses || [];
+                if (category === 'Jastip') {
+                    expenses = expenses.filter(e => e.category === 'Jastip');
+                }
+                const linkedJastipExpenseIds = new Set(
+                    jastipHistoryOrders
+                        .map(order => Number(order.expense_id || 0))
+                        .filter(Boolean)
+                );
+                expenses = expenses.filter(e => !linkedJastipExpenseIds.has(Number(e.id)));
 
                 // Apply search filter
                 if (searchTerm) {
@@ -381,45 +352,26 @@
                     expenses = expenses.filter(e => new Date(e.created_at) <= to);
                 }
 
-                if (expenses.length === 0) {
+                let rows = expenses.map(e => ({ type: 'expense', date: e.created_at, data: e }));
+                if (category === '' || category === 'Jastip') {
+                    rows = rows.concat(getFilteredJastipHistory().map(order => ({
+                        type: 'jastip',
+                        date: order.completed_at || order.closed_at || order.created_at,
+                        data: order,
+                    })));
+                }
+                rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                if (rows.length === 0) {
                     container.innerHTML = '<div class="empty-state">Tidak ada transaksi ditemukan</div>';
-                    renderJastipHistory();
                     return;
                 }
 
-                container.innerHTML = expenses.map(e => {
-                    const isPayer = e.paid_by == state.user.id;
-                    const isSplit = e.splits.some(s => s.user_id == state.user.id);
-                    let tagClass = '', tagText = e.category;
-
-                    // Listrik doesn't have hutang/piutang
-                    if (e.category === 'Listrik') {
-                        tagClass = '';
-                        tagText = 'Listrik';
-                    } else if (isPayer) {
-                        tagClass = 'piutang'; tagText = 'Piutang';
-                    } else if (isSplit) {
-                        tagClass = 'hutang'; tagText = 'Hutang';
-                    }
-
-                    return `
-                            <div class="transaction-item" onclick="showTransactionDetail(${safeJsonForAttr(e)})" style="cursor: pointer;">
-                            <div class="transaction-info">
-                                    <div class="transaction-title">${escapeHtml(e.description)}</div>
-                                <div class="transaction-meta">
-                                    <span class="transaction-tag ${tagClass}">${tagText}</span>
-                                    <span class="transaction-tag">${e.paid_by_name}</span>
-                                    <span class="transaction-tag">${formatDate(e.created_at)}</span>
-                                </div>
-                            </div>
-                            <div style="text-align: right;">
-                                <div class="transaction-amount ${tagClass}">Rp ${parseFloat(e.amount).toLocaleString('id-ID')}</div>
-                                ${(e.paid_by == state.user.id || state.user.role === 'admin') ? `<button class="btn btn-danger" style="font-size: 0.625rem; padding: 4px 8px; margin-top: 8px;" onclick="event.stopPropagation(); handleDelete(${e.id})">Hapus</button>` : ''}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                renderJastipHistory();
+                container.innerHTML = rows.map(row => (
+                    row.type === 'jastip'
+                        ? renderJastipAsTransaction(row.data)
+                        : renderExpenseAsTransaction(row.data)
+                )).join('');
             } catch { container.innerHTML = '<div class="empty-state">Gagal memuat</div>'; }
         }
 
@@ -434,17 +386,12 @@
             try {
                 const data = await apiGetFresh('jastip?limit=100');
                 jastipHistoryOrders = (data.orders || []).filter(order => !['open', 'closed'].includes(order.status));
-                renderJastipHistory();
             } catch (err) {
                 console.error(err);
-                document.getElementById('jastipHistoryList').innerHTML = '<div class="empty-state">Gagal memuat riwayat jastip</div>';
             }
         }
 
-        function renderJastipHistory() {
-            const container = document.getElementById('jastipHistoryList');
-            if (!container) return;
-
+        function getFilteredJastipHistory() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
             const fromDate = document.getElementById('fromDate').value;
             const toDate = document.getElementById('toDate').value;
@@ -467,24 +414,66 @@
                 rows = rows.filter(order => new Date(order.completed_at || order.closed_at || order.created_at) <= to);
             }
 
-            container.innerHTML = rows.length
-                ? `<div class="jastip-history-list">${rows.map(renderJastipHistoryCard).join('')}</div>`
-                : '<div class="empty-state">Tidak ada riwayat jastip ditemukan</div>';
+            return rows;
         }
 
-        function renderJastipHistoryCard(order) {
+        function renderExpenseAsTransaction(e) {
+            const isPayer = e.paid_by == state.user.id;
+            const isSplit = e.splits.some(s => s.user_id == state.user.id);
+            let tagClass = '', tagText = e.category;
+
+            if (e.category === 'Listrik') {
+                tagClass = '';
+                tagText = 'Listrik';
+            } else if (e.category === 'Jastip') {
+                tagClass = 'piutang';
+                tagText = 'Jastip';
+            } else if (isPayer) {
+                tagClass = 'piutang';
+                tagText = 'Piutang';
+            } else if (isSplit) {
+                tagClass = 'hutang';
+                tagText = 'Hutang';
+            }
+
+            return `
+                <div class="transaction-item" onclick="showTransactionDetail(${safeJsonForAttr(e)})" style="cursor: pointer;">
+                    <div class="transaction-info">
+                        <div class="transaction-title">${escapeHtml(e.description)}</div>
+                        <div class="transaction-meta">
+                            <span class="transaction-tag ${tagClass}">${escapeHtml(tagText)}</span>
+                            <span class="transaction-tag">${escapeHtml(e.paid_by_name)}</span>
+                            <span class="transaction-tag">${formatDate(e.created_at)}</span>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="transaction-amount ${tagClass}">Rp ${parseFloat(e.amount).toLocaleString('id-ID')}</div>
+                        ${(e.paid_by == state.user.id || state.user.role === 'admin') ? `<button class="btn btn-danger" style="font-size: 0.625rem; padding: 4px 8px; margin-top: 8px;" onclick="event.stopPropagation(); handleDelete(${e.id})">Hapus</button>` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderJastipAsTransaction(order) {
             const items = order.items || [];
             const total = items
                 .filter(item => item.status === 'bought')
                 .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
+            const date = order.completed_at || order.closed_at || order.created_at;
             return `
-                <div class="jastip-history-card" onclick="showJastipDetail(${Number(order.id)})">
-                    <div>
-                        <div class="jastip-history-title">${escapeHtml(order.title)}</div>
-                        <div class="jastip-history-meta">${escapeHtml(order.opened_by_name || '-')} - ${formatDate(order.completed_at || order.closed_at || order.created_at)}</div>
-                        <div class="jastip-history-meta">${items.length} item${total ? ' - Rp ' + total.toLocaleString('id-ID') : ''}</div>
+                <div class="transaction-item" onclick="showJastipDetail(${Number(order.id)})" style="cursor: pointer;">
+                    <div class="transaction-info">
+                        <div class="transaction-title">${escapeHtml(order.title)}</div>
+                        <div class="transaction-meta">
+                            <span class="transaction-tag piutang">Jastip</span>
+                            <span class="transaction-tag">${escapeHtml(order.opened_by_name || '-')}</span>
+                            <span class="transaction-tag">${formatDate(date)}</span>
+                            <span class="transaction-tag">${jastipStatusLabel(order.status)}</span>
+                        </div>
                     </div>
-                    <span class="jastip-pill ${order.status}">${jastipStatusLabel(order.status)}</span>
+                    <div style="text-align: right;">
+                        <div class="transaction-amount piutang">${total ? 'Rp ' + total.toLocaleString('id-ID') : '-'}</div>
+                    </div>
                 </div>
             `;
         }
