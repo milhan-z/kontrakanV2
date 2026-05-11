@@ -6,10 +6,6 @@
         return cleaned ? parseInt(cleaned, 10) : 0;
     }
 
-    function formatRupiah(amount) {
-        return 'Rp ' + Math.max(0, Math.round(Number(amount) || 0)).toLocaleString('id-ID');
-    }
-
     function getItemData(item) {
         const raw = item && item.getAttribute ? (item.getAttribute('onclick') || '') : '';
         const match = raw.match(/show(Debt|Credit)Detail\((\d+)/);
@@ -91,61 +87,9 @@
         });
     }
 
-    function findAmountAfterLabel(root, labelText) {
-        const rows = Array.from(root.querySelectorAll('div'));
-        for (const row of rows) {
-            const text = row.textContent || '';
-            if (!text.includes(labelText)) continue;
-            const spans = row.querySelectorAll('span');
-            if (spans.length >= 2) return rupiahToNumber(spans[spans.length - 1].textContent);
-        }
-        return 0;
-    }
-
-    function setAmountAfterLabel(root, labelText, amount, colorVar) {
-        const rows = Array.from(root.querySelectorAll('div'));
-        for (const row of rows) {
-            const text = row.textContent || '';
-            if (!text.includes(labelText)) continue;
-            const spans = row.querySelectorAll('span');
-            if (spans.length >= 2) {
-                const target = spans[spans.length - 1];
-                target.textContent = formatRupiah(amount);
-                if (colorVar) target.style.color = colorVar;
-            }
-        }
-    }
-
-    function fixDebtModalCalculation() {
-        const content = document.getElementById('debtDetailContent');
-        if (!content || !content.textContent.includes('Total Pengeluaran')) return;
-
-        const totalExpenses = findAmountAfterLabel(content, 'Total Pengeluaran');
-        const totalSettled = findAmountAfterLabel(content, 'Sudah Dibayar');
-        if (!totalExpenses) return;
-
-        const remaining = Math.max(0, totalExpenses - totalSettled);
-        setAmountAfterLabel(content, 'Sisa Hutang', remaining, 'var(--red)');
-
-        const amountHeader = content.querySelector('.amount-value');
-        if (amountHeader) amountHeader.textContent = formatRupiah(remaining);
-
-        const confirmAmount = document.getElementById('confirmAmount');
-        if (confirmAmount) confirmAmount.max = remaining;
-
-        // Update inline button handlers that still carry the stale amount from balance API.
-        content.querySelectorAll('[onclick]').forEach(function (el) {
-            const raw = el.getAttribute('onclick') || '';
-            if (raw.includes('openSettleFromDebt(') || raw.includes('confirmFullPayment(')) {
-                el.setAttribute('onclick', raw.replace(/,\s*\d+(?:\.\d+)?\s*\)/, ', ' + remaining + ')'));
-            }
-        });
-    }
-
     function runFix() {
         enhanceList('myDebtsList', 'Bayar');
         enhanceList('myCreditsList', 'Tagih');
-        fixDebtModalCalculation();
     }
 
     if (document.readyState === 'loading') {
@@ -155,5 +99,5 @@
     }
 
     const observer = new MutationObserver(runFix);
-    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
 })();
