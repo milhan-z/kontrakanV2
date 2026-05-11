@@ -442,10 +442,11 @@ async function deleteOrder(req, res, user, db) {
   const id = parseInt(req.query.order_id || req.query.id || '0', 10);
   const order = await getOrder(db, id);
   if (!order) return jsonResponse(res, { error: 'Jastip tidak ditemukan' }, 404);
-  if (order.opened_by !== user.user_id) {
+  const isAdmin = user.role === 'admin';
+  if (!isAdmin && order.opened_by !== user.user_id) {
     return jsonResponse(res, { error: 'Hanya pembuka jastip yang bisa menghapus riwayat ini' }, 403);
   }
-  if (['open', 'closed'].includes(order.status)) {
+  if (!isAdmin && ['open', 'closed'].includes(order.status)) {
     return jsonResponse(res, { error: 'Jastip aktif tidak bisa dihapus dari riwayat' }, 409);
   }
 
