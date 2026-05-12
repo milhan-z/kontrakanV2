@@ -624,11 +624,11 @@ async function getItemWithOrder(db, itemId) {
   return result.rows[0] || null;
 }
 
-async function createNotification(db, userId, title, message, relatedId) {
+async function createNotification(db, userId, title, message, relatedId, type = 'jastip') {
   await db.query(
     `INSERT INTO notifications (user_id, title, message, type, related_id)
-     VALUES ($1, $2, $3, 'info', $4)`,
-    [userId, title, message, relatedId]
+     VALUES ($1, $2, $3, $4, $5)`,
+    [userId, title, message, type, relatedId]
   );
 }
 

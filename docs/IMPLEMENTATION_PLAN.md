@@ -13,6 +13,7 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 - Halaman Bayar/Tagih sudah lebih aman dari error inline handler dan punya shortcut chat WA.
 - Admin panel punya audit log dasar untuk aksi penting admin.
 - Admin panel bisa membuka detail jastip: daftar item, status hasil belanja, total final, dan rekap penitip.
+- Notifikasi in-app sudah jadi inbox berkategori dengan mark read per item dan link ke halaman terkait.
 - Serverless function tetap 12 file, masih aman untuk batas Vercel Hobby.
 
 ## Prioritas Berikutnya
@@ -48,10 +49,10 @@ Tujuan: pembayaran makin jelas untuk semua penghuni.
 
 Tujuan: notif tidak cuma badge, tapi bisa dipahami sebagai inbox.
 
-- Kelompokkan notif: Jastip, Tagihan, Pembayaran, Info.
-- Mark read per item.
-- Link notif langsung ke detail terkait.
-- Badge per kategori bila perlu.
+- Kelompokkan notif: Jastip, Tagihan, Pembayaran, Info. (selesai)
+- Mark read per item. (selesai)
+- Link notif langsung ke halaman terkait. (selesai)
+- Badge per kategori. (selesai)
 
 ### 5. Onboarding Final
 
@@ -68,7 +69,7 @@ Tujuan: user baru cepat paham tanpa harus dijelaskan manual.
 2. Export CSV riwayat pembayaran. (selesai)
 3. Admin audit log dasar. (selesai)
 4. Detail jastip admin. (selesai)
-5. Notifikasi inbox grouping.
+5. Notifikasi inbox grouping. (selesai)
 6. Onboarding action tour.
 
 ## Catatan Teknis

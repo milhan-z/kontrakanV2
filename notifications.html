@@ -16,6 +16,220 @@
     <style>
         body { animation: pageFadeIn 0.15s ease; }
         @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .notification-header-actions {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+
+        .notif-summary {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-md);
+            align-items: center;
+            padding: var(--space-md);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: var(--bg-card);
+            margin-bottom: var(--space-md);
+        }
+
+        .notif-summary-title {
+            font-size: 0.9rem;
+            font-weight: 850;
+            color: var(--text-primary);
+        }
+
+        .notif-summary-body {
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            line-height: 1.4;
+            margin-top: 4px;
+        }
+
+        .notif-unread-badge {
+            min-width: 36px;
+            height: 36px;
+            display: inline-grid;
+            place-items: center;
+            border-radius: 50%;
+            background: var(--red);
+            color: white;
+            font-weight: 850;
+        }
+
+        .notif-filter-scroll {
+            display: flex;
+            gap: var(--space-sm);
+            overflow-x: auto;
+            padding: 2px 2px var(--space-sm);
+            margin-bottom: var(--space-sm);
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .notif-filter-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .notif-filter {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            min-height: 38px;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font: inherit;
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+
+        .notif-filter.active {
+            background: var(--text-primary);
+            color: var(--bg-primary);
+            border-color: var(--text-primary);
+        }
+
+        .notif-filter-count {
+            min-width: 20px;
+            height: 20px;
+            display: inline-grid;
+            place-items: center;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            font-weight: 850;
+        }
+
+        .notif-filter.active .notif-filter-count {
+            background: rgba(255,255,255,0.2);
+            color: inherit;
+        }
+
+        .notification-date-group {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: var(--space-md) var(--space-xs) var(--space-sm);
+            text-transform: uppercase;
+        }
+
+        .notification-card {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            gap: var(--space-md);
+            padding: var(--space-md);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: var(--bg-card);
+            margin-bottom: var(--space-sm);
+            cursor: pointer;
+        }
+
+        .notification-card.unread {
+            border-color: var(--green-medium);
+            background: var(--green-light);
+        }
+
+        .notif-icon {
+            display: grid;
+            place-items: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-weight: 900;
+        }
+
+        .notif-icon.jastip { background: rgba(34, 197, 94, 0.16); color: var(--green); }
+        .notif-icon.tagihan { background: rgba(239, 68, 68, 0.14); color: var(--red); }
+        .notif-icon.pembayaran { background: rgba(59, 130, 246, 0.14); color: #3b82f6; }
+        .notif-icon.info { background: var(--bg-secondary); color: var(--text-muted); }
+
+        .notif-card-head {
+            display: flex;
+            gap: var(--space-sm);
+            align-items: flex-start;
+            justify-content: space-between;
+        }
+
+        .notif-title-wrap {
+            min-width: 0;
+        }
+
+        .notif-category {
+            display: inline-flex;
+            align-items: center;
+            border-radius: var(--radius-full);
+            padding: 4px 8px;
+            font-size: 0.65rem;
+            font-weight: 850;
+            background: var(--bg-secondary);
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .notif-card-title {
+            color: var(--text-primary);
+            font-weight: 850;
+            line-height: 1.25;
+            overflow-wrap: anywhere;
+        }
+
+        .notif-card-message {
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            line-height: 1.45;
+            margin-top: 5px;
+        }
+
+        .notif-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-sm);
+            margin-top: var(--space-sm);
+        }
+
+        .notif-time {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .notif-row-actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .notif-mini-btn {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 6px 10px;
+            font: inherit;
+            font-size: 0.68rem;
+            font-weight: 850;
+        }
+
+        .notif-unread-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--red);
+            flex: 0 0 auto;
+            margin-top: 5px;
+        }
     </style>
     <link rel="prefetch" href="dashboard.html">
 </head>
@@ -24,10 +238,20 @@
     <div class="container">
         <div class="page-header">
             <h1 class="page-title">Notifikasi</h1>
-            <button class="btn" id="markAllReadBtn" style="font-size: 0.75rem;">Tandai Dibaca</button>
+            <div class="notification-header-actions">
+                <button class="btn" id="markAllReadBtn" style="font-size: 0.75rem;">Tandai Dibaca</button>
+            </div>
         </div>
 
         <div class="section">
+            <div class="notif-summary" id="notifSummary">
+                <div>
+                    <div class="notif-summary-title">Inbox kontrakan</div>
+                    <div class="notif-summary-body">Jastip, tagihan, pembayaran, dan info penting terkumpul di sini.</div>
+                </div>
+                <div class="notif-unread-badge" id="notifUnreadBadge">0</div>
+            </div>
+            <div class="notif-filter-scroll" id="notificationFilters"></div>
             <div id="notificationList">
                 <div class="empty-state">
                     <div class="spinner" style="margin: 0 auto;"></div>
@@ -81,6 +305,16 @@
     <script src="js/config.js"></script>
     <script src="js/app.js"></script>
     <script>
+        const notificationCategories = [
+            { key: 'all', label: 'Semua', icon: 'N', url: 'notifications.html' },
+            { key: 'jastip', label: 'Jastip', icon: 'J', url: 'jastip.html' },
+            { key: 'tagihan', label: 'Tagihan', icon: 'T', url: 'history.html' },
+            { key: 'pembayaran', label: 'Pembayaran', icon: 'B', url: 'settle.html' },
+            { key: 'info', label: 'Info', icon: 'I', url: 'dashboard.html' }
+        ];
+        let currentNotifFilter = 'all';
+        let notificationRows = [];
+
         (async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
             await renderNotifications();
@@ -90,21 +324,173 @@
             const container = document.getElementById('notificationList');
             try {
                 const data = await loadNotifications();
-                const notifications = data.notifications || [];
+                notificationRows = (data.notifications || []).map(enrichNotification);
+                renderNotificationFilters();
+                renderNotificationSummary(data.unread_count || 0);
+                const notifications = currentNotifFilter === 'all'
+                    ? notificationRows
+                    : notificationRows.filter(n => n.category === currentNotifFilter);
 
                 if (notifications.length === 0) {
-                    container.innerHTML = '<div class="empty-state">Belum ada notifikasi</div>';
+                    container.innerHTML = renderEmptyState({
+                        title: currentNotifFilter === 'all' ? 'Belum ada notifikasi' : `Belum ada notifikasi ${categoryLabel(currentNotifFilter)}`,
+                        body: 'Update penting kontrakan akan muncul di sini.'
+                    });
                     return;
                 }
 
-                container.innerHTML = notifications.map(n => `
-                    <div class="notification-item ${n.is_read ? '' : 'unread'}">
-                        <div class="notification-title">${escapeHtml(n.title)}</div>
-                        <div class="notification-message">${escapeHtml(n.message)}</div>
-                        <div class="notification-time">${formatDate(n.created_at)}</div>
+                container.innerHTML = renderGroupedNotifications(notifications);
+            } catch {
+                container.innerHTML = renderEmptyState({
+                    title: 'Gagal memuat notifikasi',
+                    body: 'Koneksi atau server sedang bermasalah.',
+                    action: 'renderNotifications()',
+                    actionText: 'Coba Lagi'
+                });
+            }
+        }
+
+        function renderNotificationSummary(unreadCount) {
+            document.getElementById('notifUnreadBadge').textContent = unreadCount > 99 ? '99+' : unreadCount;
+            document.getElementById('markAllReadBtn').disabled = unreadCount === 0;
+        }
+
+        function renderNotificationFilters() {
+            const counts = notificationRows.reduce((map, item) => {
+                map.all += 1;
+                map[item.category] = (map[item.category] || 0) + 1;
+                return map;
+            }, { all: 0, jastip: 0, tagihan: 0, pembayaran: 0, info: 0 });
+
+            document.getElementById('notificationFilters').innerHTML = notificationCategories.map(cat => `
+                <button class="notif-filter ${currentNotifFilter === cat.key ? 'active' : ''}" type="button" onclick="setNotificationFilter('${cat.key}')">
+                    <span>${escapeHtml(cat.label)}</span>
+                    <span class="notif-filter-count">${counts[cat.key] || 0}</span>
+                </button>
+            `).join('');
+        }
+
+        function setNotificationFilter(category) {
+            currentNotifFilter = category;
+            renderNotificationFilters();
+            const filtered = currentNotifFilter === 'all'
+                ? notificationRows
+                : notificationRows.filter(n => n.category === currentNotifFilter);
+            const container = document.getElementById('notificationList');
+            container.innerHTML = filtered.length
+                ? renderGroupedNotifications(filtered)
+                : renderEmptyState({
+                    title: `Belum ada notifikasi ${categoryLabel(category)}`,
+                    body: 'Coba pilih kategori lain.'
+                });
+        }
+
+        function renderGroupedNotifications(rows) {
+            let lastGroup = '';
+            return rows.map(n => {
+                const group = dateGroupLabel(n.created_at);
+                const groupHtml = group !== lastGroup ? `<div class="notification-date-group">${escapeHtml(group)}</div>` : '';
+                lastGroup = group;
+                return groupHtml + renderNotificationCard(n);
+            }).join('');
+        }
+
+        function renderNotificationCard(n) {
+            const cat = notificationCategories.find(item => item.key === n.category) || notificationCategories[4];
+            return `
+                <div class="notification-card ${n.is_read ? '' : 'unread'}" onclick="openNotification(${Number(n.id)})">
+                    <div class="notif-icon ${escapeAttribute(n.category)}">${escapeHtml(cat.icon)}</div>
+                    <div>
+                        <div class="notif-card-head">
+                            <div class="notif-title-wrap">
+                                <div class="notif-category">${escapeHtml(cat.label)}</div>
+                                <div class="notif-card-title">${escapeHtml(n.title || '-')}</div>
+                            </div>
+                            ${n.is_read ? '' : '<span class="notif-unread-dot"></span>'}
+                        </div>
+                        <div class="notif-card-message">${escapeHtml(n.message || '')}</div>
+                        <div class="notif-card-footer">
+                            <span class="notif-time">${relativeNotifTime(n.created_at)}</span>
+                            <div class="notif-row-actions">
+                                ${n.is_read ? '' : `<button class="notif-mini-btn" type="button" onclick="event.stopPropagation(); markNotificationRead(${Number(n.id)})">Tandai</button>`}
+                                <button class="notif-mini-btn" type="button" onclick="event.stopPropagation(); openNotification(${Number(n.id)})">Buka</button>
+                            </div>
+                        </div>
                     </div>
-                `).join('');
-            } catch { container.innerHTML = '<div class="empty-state">Gagal memuat</div>'; }
+                </div>
+            `;
+        }
+
+        function enrichNotification(notification) {
+            const category = inferNotificationCategory(notification);
+            const cat = notificationCategories.find(item => item.key === category) || notificationCategories[4];
+            return {
+                ...notification,
+                category,
+                target_url: notification.target_url || cat.url
+            };
+        }
+
+        function inferNotificationCategory(notification) {
+            const type = String(notification.type || '').toLowerCase();
+            const text = `${notification.title || ''} ${notification.message || ''}`.toLowerCase();
+            if (type === 'settlement' || text.includes('pembayaran') || text.includes('dibayar') || text.includes('dikonfirmasi')) return 'pembayaran';
+            if (type === 'expense' || text.includes('tagihan') || text.includes('pengeluaran') || text.includes('nalangin')) return 'tagihan';
+            if (type === 'jastip' || text.includes('jastip') || text.includes('nitip') || text.includes('nitipan')) return 'jastip';
+            return 'info';
+        }
+
+        async function markNotificationRead(id) {
+            try {
+                await apiPut('notifications', { id });
+                const row = notificationRows.find(item => Number(item.id) === Number(id));
+                if (row) row.is_read = true;
+                state.unreadCount = Math.max(0, (state.unreadCount || 0) - 1);
+                updateNotificationBadge();
+                renderNotificationSummary(state.unreadCount || 0);
+                setNotificationFilter(currentNotifFilter);
+            } catch {
+                showToast('Gagal menandai notifikasi', 'error');
+            }
+        }
+
+        async function openNotification(id) {
+            const row = notificationRows.find(item => Number(item.id) === Number(id));
+            if (!row) return;
+            if (!row.is_read) {
+                try {
+                    await apiPut('notifications', { id });
+                } catch {}
+            }
+            window.location.href = row.target_url || 'notifications.html';
+        }
+
+        function categoryLabel(category) {
+            return (notificationCategories.find(item => item.key === category)?.label || 'notifikasi').toLowerCase();
+        }
+
+        function dateGroupLabel(dateStr) {
+            const d = new Date(dateStr);
+            const today = new Date();
+            const yesterday = new Date();
+            yesterday.setDate(today.getDate() - 1);
+            if (isSameDate(d, today)) return 'Hari ini';
+            if (isSameDate(d, yesterday)) return 'Kemarin';
+            return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        }
+
+        function isSameDate(a, b) {
+            return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+        }
+
+        function relativeNotifTime(dateStr) {
+            const date = new Date(dateStr);
+            const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+            if (minutes < 1) return 'Baru saja';
+            if (minutes < 60) return `${minutes}m lalu`;
+            const hours = Math.floor(minutes / 60);
+            if (hours < 24) return `${hours}j lalu`;
+            return formatDate(dateStr);
         }
 
         document.getElementById('markAllReadBtn').addEventListener('click', async () => {
@@ -112,7 +498,7 @@
                 await markAllRead();
                 showToast('Ditandai dibaca', 'success');
                 await renderNotifications();
-            } catch { showToast('Gagal', 'error'); }
+            } catch { showToast('Gagal menandai semua notifikasi', 'error'); }
         });
     </script>
 </body>
