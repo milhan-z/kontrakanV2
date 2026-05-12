@@ -31,6 +31,10 @@
             margin-bottom: var(--space-md);
         }
 
+        .hidden-filter-inputs {
+            display: none;
+        }
+
         .search-input {
             flex: 1;
             padding: var(--space-sm) var(--space-md);
@@ -47,69 +51,218 @@
             border-color: var(--text-primary);
         }
 
-        .date-toolbar {
+        .filter-pill-row {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: var(--space-sm);
-            margin-bottom: var(--space-sm);
-            align-items: end;
+            padding: 2px 0 var(--space-sm);
         }
 
-        .date-filter {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+        .filter-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
             gap: var(--space-sm);
+            min-height: 42px;
             min-width: 0;
-        }
-
-        .date-field {
-            display: grid;
-            gap: 5px;
-            min-width: 0;
-        }
-
-        .date-label {
-            color: var(--text-muted);
-            font-size: 0.68rem;
-            font-weight: 700;
-            padding-left: 3px;
-            text-transform: uppercase;
-        }
-
-        .date-input {
-            width: 100%;
-            min-width: 0;
-            padding: var(--space-sm) var(--space-md);
+            padding: 9px 12px;
             border: 1px solid var(--border-color);
             border-radius: var(--radius-full);
             background: var(--bg-card);
             color: var(--text-primary);
-            font-size: 0.8125rem;
+            font-size: 0.875rem;
+            font-weight: 700;
+            font-family: inherit;
+            line-height: 1;
+        }
+
+        .filter-pill span {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .filter-pill::after {
+            content: '';
+            width: 7px;
+            height: 7px;
+            border-right: 2px solid currentColor;
+            border-bottom: 2px solid currentColor;
+            transform: rotate(45deg) translateY(-2px);
+            opacity: 0.75;
+            flex: 0 0 auto;
+        }
+
+        .filter-pill.active-filter {
+            border-color: var(--green);
+            color: var(--green);
+            background: var(--green-light);
+        }
+
+        .filter-sheet {
+            max-height: min(82vh, 680px);
+            padding-bottom: calc(var(--space-lg) + env(safe-area-inset-bottom));
+            border-radius: 24px 24px 0 0;
+        }
+
+        .sheet-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: var(--space-md);
+            margin-bottom: var(--space-lg);
+        }
+
+        .sheet-title {
+            font-size: 1.45rem;
+            font-weight: 900;
+            line-height: 1.1;
+        }
+
+        .sheet-clear {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-full);
+            padding: 9px 16px;
+            background: transparent;
+            color: var(--text-muted);
+            font-weight: 800;
             font-family: inherit;
         }
 
-        .date-input:focus {
-            outline: none;
-            border-color: var(--text-primary);
+        .sheet-list {
+            display: grid;
+            gap: 0;
         }
 
-        .btn-clear {
-            min-height: 38px;
-            padding: 8px 14px;
-            border-radius: var(--radius-full);
-            font-size: 0.75rem;
+        .sheet-option {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-md);
+            align-items: center;
+            min-height: 72px;
+            border-bottom: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-primary);
+            text-align: left;
+            font-family: inherit;
         }
 
-        .history-actions {
-            display: flex;
+        .sheet-option-title {
+            font-size: 1rem;
+            font-weight: 900;
+        }
+
+        .sheet-option-subtitle {
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 0.86rem;
+        }
+
+        .sheet-radio {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--text-muted);
+            border-radius: 50%;
+        }
+
+        .sheet-option.active .sheet-radio {
+            border-color: var(--green);
+            box-shadow: inset 0 0 0 6px var(--bg-card);
+            background: var(--green);
+        }
+
+        .sheet-date-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: var(--space-sm);
-            justify-content: flex-end;
-            align-items: end;
+            margin: var(--space-md) 0 var(--space-lg);
         }
 
-        .history-actions .btn {
-            flex: 0 0 auto;
-            white-space: nowrap;
+        .sheet-date-field {
+            display: grid;
+            gap: 7px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: var(--bg-card);
+        }
+
+        .sheet-date-field span {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            font-weight: 800;
+        }
+
+        .sheet-date-field input,
+        .sheet-search-input {
+            width: 100%;
+            border: 0;
+            outline: 0;
+            background: transparent;
+            color: var(--text-primary);
+            font: inherit;
+            font-weight: 800;
+        }
+
+        .sheet-category-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: var(--space-lg) var(--space-md);
+            margin-bottom: var(--space-lg);
+        }
+
+        .sheet-category {
+            display: grid;
+            gap: 8px;
+            justify-items: center;
+            border: 0;
+            background: transparent;
+            color: var(--text-primary);
+            font-family: inherit;
+            text-align: center;
+            min-width: 0;
+        }
+
+        .sheet-category-icon {
+            display: grid;
+            place-items: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: rgba(34, 197, 94, 0.14);
+            color: var(--green);
+            font-weight: 900;
+        }
+
+        .sheet-category.active .sheet-category-icon {
+            background: var(--green);
+            color: white;
+        }
+
+        .sheet-category span:last-child {
+            font-weight: 700;
+            line-height: 1.2;
+            overflow-wrap: anywhere;
+        }
+
+        .sheet-search-box {
+            padding: 14px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: var(--bg-card);
+            margin-bottom: var(--space-lg);
+        }
+
+        .sheet-apply {
+            width: 100%;
+            min-height: 48px;
+            border-radius: var(--radius-full);
+            background: var(--green);
+            color: white;
+            border: 0;
+            font: inherit;
+            font-weight: 900;
         }
 
         .filter-scroll {
@@ -189,13 +342,14 @@
             font-weight: 800;
         }
 
-        @media (max-width: 520px) {
-            .date-toolbar {
-                grid-template-columns: 1fr;
+        @media (max-width: 380px) {
+            .filter-pill-row {
+                gap: 6px;
             }
 
-            .history-actions {
-                margin-top: 2px;
+            .filter-pill {
+                padding: 8px 9px;
+                font-size: 0.78rem;
             }
         }
     </style>
@@ -212,38 +366,16 @@
                 <button class="icon-btn" onclick="toggleTheme()"><span class="theme-toggle-icon"></span></button>
             </div>
 
-            <!-- Filter -->
-            <div class="filter-scroll">
-                <button class="btn filter-btn active" data-category="">Semua</button>
-                <button class="btn filter-btn" data-category="Listrik">Listrik</button>
-                <button class="btn filter-btn" data-category="Galon">Galon</button>
-                <button class="btn filter-btn" data-category="Air">Air</button>
-                <button class="btn filter-btn" data-category="Keamanan & Kebersihan">Keamanan</button>
-                <button class="btn filter-btn" data-category="Titip Makanan">Makanan</button>
-                <button class="btn filter-btn" data-category="Jastip">Jastip</button>
+            <div class="filter-pill-row">
+                <button class="filter-pill" id="dateFilterChip" onclick="openDateFilterSheet()"><span>Tanggal</span></button>
+                <button class="filter-pill" id="categoryFilterChip" onclick="openCategoryFilterSheet()"><span>Kategori</span></button>
+                <button class="filter-pill" id="searchFilterChip" onclick="openSearchFilterSheet()"><span>Cari</span></button>
             </div>
 
-            <!-- Search -->
-            <div class="search-filter">
-                <input type="text" class="search-input" id="searchInput" placeholder="Cari transaksi...">
-            </div>
-
-            <div class="date-toolbar">
-                <div class="date-filter">
-                    <label class="date-field">
-                        <span class="date-label">Dari</span>
-                        <input type="date" class="date-input" id="fromDate">
-                    </label>
-                    <label class="date-field">
-                        <span class="date-label">Sampai</span>
-                        <input type="date" class="date-input" id="toDate">
-                    </label>
-                </div>
-
-                <div class="history-actions">
-                    <button class="btn btn-clear" onclick="clearFilters()">Reset</button>
-                    <button class="btn btn-primary btn-clear" onclick="exportHistoryCsv()">Export CSV</button>
-                </div>
+            <div class="hidden-filter-inputs">
+                <input type="hidden" id="searchInput">
+                <input type="hidden" id="fromDate">
+                <input type="hidden" id="toDate">
             </div>
         </div>
 
@@ -308,6 +440,68 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="dateFilterModal">
+        <div class="modal filter-sheet">
+            <div class="modal-handle"></div>
+            <div class="sheet-head">
+                <div class="sheet-title">Pilih tanggal transaksi</div>
+                <button class="sheet-clear" type="button" onclick="clearDateFilterOnly()">Hapus</button>
+            </div>
+            <div class="sheet-list">
+                <button class="sheet-option" type="button" data-date-preset="7" onclick="applyDatePreset(7)">
+                    <span><span class="sheet-option-title">7 hari terakhir</span><span class="sheet-option-subtitle" id="datePreset7">-</span></span>
+                    <span class="sheet-radio"></span>
+                </button>
+                <button class="sheet-option" type="button" data-date-preset="30" onclick="applyDatePreset(30)">
+                    <span><span class="sheet-option-title">30 hari terakhir</span><span class="sheet-option-subtitle" id="datePreset30">-</span></span>
+                    <span class="sheet-radio"></span>
+                </button>
+                <button class="sheet-option" type="button" data-date-preset="90" onclick="applyDatePreset(90)">
+                    <span><span class="sheet-option-title">90 hari terakhir</span><span class="sheet-option-subtitle" id="datePreset90">-</span></span>
+                    <span class="sheet-radio"></span>
+                </button>
+            </div>
+            <div class="sheet-option-title" style="margin-top:var(--space-lg);">Atur tanggal</div>
+            <div class="sheet-date-grid">
+                <label class="sheet-date-field">
+                    <span>Dari</span>
+                    <input type="date" id="sheetFromDate">
+                </label>
+                <label class="sheet-date-field">
+                    <span>Sampai</span>
+                    <input type="date" id="sheetToDate">
+                </label>
+            </div>
+            <button class="sheet-apply" type="button" onclick="applyCustomDateFilter()">Pasang filter</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="categoryFilterModal">
+        <div class="modal filter-sheet">
+            <div class="modal-handle"></div>
+            <div class="sheet-head">
+                <div class="sheet-title">Filter kategori</div>
+                <button class="sheet-clear" type="button" onclick="applyCategoryFilter('')">Hapus</button>
+            </div>
+            <div class="sheet-category-grid" id="categorySheetGrid"></div>
+            <button class="sheet-apply" type="button" onclick="closeModal('categoryFilterModal')">Pasang filter</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="searchFilterModal">
+        <div class="modal filter-sheet">
+            <div class="modal-handle"></div>
+            <div class="sheet-head">
+                <div class="sheet-title">Cari transaksi</div>
+                <button class="sheet-clear" type="button" onclick="clearSearchFilter()">Hapus</button>
+            </div>
+            <div class="sheet-search-box">
+                <input class="sheet-search-input" id="sheetSearchInput" type="search" placeholder="Nama transaksi, user, atau item">
+            </div>
+            <button class="sheet-apply" type="button" onclick="applySearchFilter()">Pasang filter</button>
+        </div>
+    </div>
+
     <!-- Bottom Nav -->
     <nav class="bottom-nav">
         <a href="dashboard.html" class="nav-item">
@@ -356,20 +550,38 @@
         let currentCategory = '';
         let jastipHistoryOrders = [];
         let currentHistoryRows = [];
+        const historyCategories = [
+            { value: '', label: 'Semua', icon: 'All' },
+            { value: 'Listrik', label: 'Listrik', icon: 'L' },
+            { value: 'Galon', label: 'Galon', icon: 'G' },
+            { value: 'Air', label: 'Air', icon: 'A' },
+            { value: 'Keamanan & Kebersihan', label: 'Keamanan', icon: 'K' },
+            { value: 'Titip Makanan', label: 'Makanan', icon: 'M' },
+            { value: 'Jastip', label: 'Jastip', icon: 'J' }
+        ];
 
         function formatDateFull(dateStr) {
             const d = new Date(dateStr);
             return d.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         }
 
+        function formatDateCompact(dateStr) {
+            if (!dateStr) return '';
+            return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+        }
+
         (async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
+            renderCategorySheet();
+            updateFilterChips();
             await Promise.all([loadUsers(), loadNotifications()]);
             await loadJastipHistory();
             await renderTransactions();
         })();
 
         async function renderTransactions(category = '') {
+            currentCategory = category;
+            updateFilterChips();
             const container = document.getElementById('transactionList');
             container.innerHTML = renderSkeletonList(3);
 
@@ -465,109 +677,145 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('fromDate').value = '';
             document.getElementById('toDate').value = '';
+            currentCategory = '';
+            renderTransactions('');
+        }
+
+        function updateFilterChips() {
+            const fromDate = document.getElementById('fromDate')?.value || '';
+            const toDate = document.getElementById('toDate')?.value || '';
+            const searchTerm = document.getElementById('searchInput')?.value.trim() || '';
+            const category = historyCategories.find(item => item.value === currentCategory);
+
+            setFilterChip('dateFilterChip', fromDate || toDate
+                ? `${fromDate ? formatDateCompact(fromDate) : 'Awal'} - ${toDate ? formatDateCompact(toDate) : 'Kini'}`
+                : 'Tanggal', Boolean(fromDate || toDate));
+            setFilterChip('categoryFilterChip', category && category.value ? category.label : 'Kategori', Boolean(category && category.value));
+            setFilterChip('searchFilterChip', searchTerm ? trimText(searchTerm, 12) : 'Cari', Boolean(searchTerm));
+            updateDatePresetState();
+            updateCategorySheetState();
+        }
+
+        function setFilterChip(id, label, active) {
+            const chip = document.getElementById(id);
+            if (!chip) return;
+            chip.querySelector('span').textContent = label;
+            chip.classList.toggle('active-filter', active);
+        }
+
+        function openDateFilterSheet() {
+            document.getElementById('sheetFromDate').value = document.getElementById('fromDate').value;
+            document.getElementById('sheetToDate').value = document.getElementById('toDate').value;
+            updateDatePresetLabels();
+            updateDatePresetState();
+            openModal('dateFilterModal');
+        }
+
+        function openCategoryFilterSheet() {
+            updateCategorySheetState();
+            openModal('categoryFilterModal');
+        }
+
+        function openSearchFilterSheet() {
+            const input = document.getElementById('sheetSearchInput');
+            input.value = document.getElementById('searchInput').value;
+            openModal('searchFilterModal');
+            setTimeout(() => input.focus(), 120);
+        }
+
+        function applyDatePreset(days) {
+            const to = new Date();
+            const from = new Date();
+            from.setDate(to.getDate() - (days - 1));
+            document.getElementById('fromDate').value = dateInputValue(from);
+            document.getElementById('toDate').value = dateInputValue(to);
+            closeModal('dateFilterModal');
             renderTransactions(currentCategory);
         }
 
-        function exportHistoryCsv() {
-            if (!currentHistoryRows.length) {
-                showToast('Tidak ada data untuk diexport', 'info');
-                return;
-            }
-
-            const headers = [
-                'tipe',
-                'tanggal',
-                'judul',
-                'kategori',
-                'dibayar_oleh',
-                'status',
-                'total',
-                'dibagi_ke',
-                'rincian_item'
-            ];
-
-            const rows = currentHistoryRows.map(row => row.type === 'jastip'
-                ? mapJastipCsvRow(row.data)
-                : mapExpenseCsvRow(row.data));
-            const csv = [headers, ...rows].map(cols => cols.map(csvEscape).join(',')).join('\r\n');
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const stamp = new Date().toISOString().slice(0, 10);
-            const category = currentCategory ? currentCategory.toLowerCase().replace(/[^a-z0-9]+/gi, '-') : 'semua';
-            link.href = url;
-            link.download = `riwayat-kontrakan-${category}-${stamp}.csv`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
-            showToast('CSV riwayat dibuat', 'success');
+        function applyCustomDateFilter() {
+            document.getElementById('fromDate').value = document.getElementById('sheetFromDate').value;
+            document.getElementById('toDate').value = document.getElementById('sheetToDate').value;
+            closeModal('dateFilterModal');
+            renderTransactions(currentCategory);
         }
 
-        function mapExpenseCsvRow(expense) {
-            const splits = Array.isArray(expense.splits) ? expense.splits : [];
-            const splitText = splits.map(split => {
-                const name = state.users.find(user => user.id == split.user_id)?.display_name || split.display_name || split.user_name || 'Unknown';
-                return `${name}: Rp ${Number(split.amount || 0).toLocaleString('id-ID')}`;
-            }).join(' | ');
-            const itemText = splits.flatMap(split => {
-                let items = [];
-                try {
-                    let parsed = split.items;
-                    while (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                    if (Array.isArray(parsed)) items = parsed;
-                } catch {}
-                const name = state.users.find(user => user.id == split.user_id)?.display_name || split.display_name || split.user_name || 'Unknown';
-                return items.map(item => `${name} - ${item.item || item.item_name || 'Item'} x${item.qty || 1}: Rp ${Number(item.price || 0).toLocaleString('id-ID')}`);
-            }).join(' | ');
-
-            return [
-                'transaksi',
-                formatCsvDate(expense.created_at),
-                expense.description || '',
-                expense.category || '',
-                expense.paid_by_name || '',
-                '',
-                Number(expense.amount || 0),
-                splitText,
-                itemText
-            ];
+        function clearDateFilterOnly() {
+            document.getElementById('fromDate').value = '';
+            document.getElementById('toDate').value = '';
+            document.getElementById('sheetFromDate').value = '';
+            document.getElementById('sheetToDate').value = '';
+            closeModal('dateFilterModal');
+            renderTransactions(currentCategory);
         }
 
-        function mapJastipCsvRow(order) {
-            const items = order.items || [];
-            const total = items
-                .filter(item => item.status === 'bought')
-                .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
-            const itemText = items.map(item => {
-                const qty = item.final_qty || item.requested_qty || 1;
-                const price = item.status === 'bought'
-                    ? `Rp ${Number(item.final_price || 0).toLocaleString('id-ID')}`
-                    : itemStatusLabel(item.status);
-                return `${item.user_name || '-'} - ${item.item_name} x${qty}: ${price}`;
-            }).join(' | ');
-
-            return [
-                'jastip',
-                formatCsvDate(order.completed_at || order.closed_at || order.created_at),
-                order.title || '',
-                'Jastip',
-                order.opened_by_name || '',
-                jastipStatusLabel(order.status),
-                total,
-                [...new Set(items.map(item => item.user_name).filter(Boolean))].join(' | '),
-                itemText
-            ];
+        function applyCategoryFilter(category) {
+            currentCategory = category;
+            closeModal('categoryFilterModal');
+            renderTransactions(currentCategory);
         }
 
-        function csvEscape(value) {
-            const text = String(value ?? '');
-            return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        function applySearchFilter() {
+            document.getElementById('searchInput').value = document.getElementById('sheetSearchInput').value.trim();
+            closeModal('searchFilterModal');
+            renderTransactions(currentCategory);
         }
 
-        function formatCsvDate(dateStr) {
-            if (!dateStr) return '';
-            return new Date(dateStr).toLocaleString('id-ID');
+        function clearSearchFilter() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('sheetSearchInput').value = '';
+            closeModal('searchFilterModal');
+            renderTransactions(currentCategory);
+        }
+
+        function renderCategorySheet() {
+            document.getElementById('categorySheetGrid').innerHTML = historyCategories.map(item => `
+                <button class="sheet-category" type="button" data-category-value="${escapeAttribute(item.value)}" onclick="applyCategoryFilter('${escapeAttribute(item.value)}')">
+                    <span class="sheet-category-icon">${escapeHtml(item.icon)}</span>
+                    <span>${escapeHtml(item.label)}</span>
+                </button>
+            `).join('');
+            updateCategorySheetState();
+        }
+
+        function updateCategorySheetState() {
+            document.querySelectorAll('.sheet-category').forEach(button => {
+                button.classList.toggle('active', button.dataset.categoryValue === currentCategory);
+            });
+        }
+
+        function updateDatePresetLabels() {
+            [7, 30, 90].forEach(days => {
+                const to = new Date();
+                const from = new Date();
+                from.setDate(to.getDate() - (days - 1));
+                const el = document.getElementById(`datePreset${days}`);
+                if (el) el.textContent = `${formatDateFull(from)} - ${formatDateFull(to)}`;
+            });
+        }
+
+        function updateDatePresetState() {
+            const fromDate = document.getElementById('fromDate')?.value || '';
+            const toDate = document.getElementById('toDate')?.value || '';
+            document.querySelectorAll('[data-date-preset]').forEach(button => {
+                const days = Number(button.dataset.datePreset);
+                const to = new Date();
+                const from = new Date();
+                from.setDate(to.getDate() - (days - 1));
+                button.classList.toggle('active', fromDate === dateInputValue(from) && toDate === dateInputValue(to));
+            });
+        }
+
+        function dateInputValue(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function trimText(value, maxLength) {
+            const text = String(value || '').trim();
+            return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
         }
 
         async function loadJastipHistory() {
@@ -715,10 +963,9 @@
             return ({ requested: 'Belum dicek', bought: 'Ada', unavailable: 'Kosong', cancelled: 'Batal' })[status] || status;
         }
 
-        // Event handlers for search and date filters
-        document.getElementById('searchInput').addEventListener('input', () => renderTransactions(currentCategory));
-        document.getElementById('fromDate').addEventListener('change', () => renderTransactions(currentCategory));
-        document.getElementById('toDate').addEventListener('change', () => renderTransactions(currentCategory));
+        document.getElementById('sheetSearchInput').addEventListener('keydown', event => {
+            if (event.key === 'Enter') applySearchFilter();
+        });
 
         async function loadListrikStats() {
             try {
@@ -793,15 +1040,6 @@
             openModal('transactionDetailModal');
         }
 
-        document.querySelectorAll('.filter-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentCategory = btn.dataset.category;
-                renderTransactions(currentCategory);
-            });
-        });
-
         function showReceipt(path) {
             document.getElementById('modalReceiptImage').src = imageUrl(path);
             openModal('receiptModal');
@@ -816,7 +1054,7 @@
             } catch (err) { showToast('Gagal', 'error'); }
         }
 
-        ['receiptModal', 'transactionDetailModal', 'jastipDetailModal'].forEach(id => {
+        ['receiptModal', 'transactionDetailModal', 'jastipDetailModal', 'dateFilterModal', 'categoryFilterModal', 'searchFilterModal'].forEach(id => {
             document.getElementById(id).addEventListener('click', (e) => {
                 if (e.target.classList.contains('modal-overlay')) closeModal(id);
             });

@@ -744,7 +744,10 @@
             <section class="tab-content" id="tab-transactions">
                 <div class="section-head">
                     <div class="section-title"><span class="admin-icon" data-icon="fileText"></span>Semua Transaksi</div>
-                    <span class="section-meta" id="txSummary">0 transaksi</span>
+                    <div class="row-actions">
+                        <span class="section-meta" id="txSummary">0 transaksi</span>
+                        <button class="mini-btn green" type="button" onclick="exportAdminTransactionsCsv()">Export CSV</button>
+                    </div>
                 </div>
                 <div class="filter-row">
                     <input class="form-input" id="txSearch" type="search" placeholder="Cari transaksi, kategori, user, item">
@@ -759,7 +762,10 @@
             <section class="tab-content" id="tab-payments">
                 <div class="section-head">
                     <div class="section-title"><span class="admin-icon" data-icon="creditCard"></span>Riwayat Pembayaran</div>
-                    <span class="section-meta" id="paySummary">0 catatan</span>
+                    <div class="row-actions">
+                        <span class="section-meta" id="paySummary">0 catatan</span>
+                        <button class="mini-btn green" type="button" onclick="exportAdminPaymentsCsv()">Export CSV</button>
+                    </div>
                 </div>
                 <div class="filter-row">
                     <input class="form-input" id="paySearch" type="search" placeholder="Cari pengirim atau penerima">
@@ -964,6 +970,8 @@
             info: [],
             jastip: [],
             audit: [],
+            filteredTransactions: [],
+            filteredPayments: [],
             refreshing: false,
             refreshTimer: null
         };
@@ -1227,6 +1235,7 @@
                 if (!q) return true;
                 return transactionSearchText(expense).includes(q);
             });
+            adminState.filteredTransactions = rows;
 
             setText('txSummary', `${rows.length} transaksi`);
             document.getElementById('txList').innerHTML = rows.length ? rows.map(expense => `
@@ -1261,6 +1270,7 @@
                 if (!q) return true;
                 return `${payment.from_name || ''} ${payment.to_name || ''}`.toLowerCase().includes(q);
             });
+            adminState.filteredPayments = rows;
 
             setText('paySummary', `${rows.length} catatan`);
             document.getElementById('payList').innerHTML = rows.length ? rows.map(payment => `
@@ -1280,6 +1290,78 @@
                     </div>
                 </div>
             `).join('') : '<div class="empty-state">Tidak ada pembayaran sesuai filter.</div>';
+        }
+
+        function exportAdminTransactionsCsv() {
+            const rows = adminState.filteredTransactions || [];
+            if (!rows.length) {
+                showToast('Tidak ada transaksi untuk diexport', 'info');
+                return;
+            }
+
+            const headers = ['tanggal', 'judul', 'kategori', 'dibayar_oleh', 'total', 'split', 'rincian_item', 'id'];
+            const csvRows = rows.map(expense => {
+                const splits = Array.isArray(expense.splits) ? expense.splits : [];
+                const splitText = splits.map(split => `${split.display_name || split.user_name || '-'}: Rp ${Number(split.amount || 0).toLocaleString('id-ID')}`).join(' | ');
+                const itemText = splits.flatMap(split => {
+                    const items = normalizeItems(split.items);
+                    return items.map(item => `${split.display_name || '-'} - ${item.item || item.name || item.item_name || 'Item'} x${item.qty || 1}: Rp ${Number(item.price || 0).toLocaleString('id-ID')}`);
+                }).join(' | ');
+                return [
+                    formatCsvDate(expense.created_at),
+                    expense.description || '',
+                    expense.category || '',
+                    expense.paid_by_name || '',
+                    Number(expense.amount || 0),
+                    splitText,
+                    itemText,
+                    expense.id || ''
+                ];
+            });
+            downloadAdminCsv('admin-transaksi', headers, csvRows);
+        }
+
+        function exportAdminPaymentsCsv() {
+            const rows = adminState.filteredPayments || [];
+            if (!rows.length) {
+                showToast('Tidak ada pembayaran untuk diexport', 'info');
+                return;
+            }
+
+            const headers = ['tanggal', 'dari', 'ke', 'nominal', 'bukti_transfer', 'id'];
+            const csvRows = rows.map(payment => [
+                formatCsvDate(payment.created_at),
+                payment.from_name || '',
+                payment.to_name || '',
+                Number(payment.amount || 0),
+                payment.receipt_image ? imageUrl(payment.receipt_image) : '',
+                payment.id || ''
+            ]);
+            downloadAdminCsv('admin-pembayaran', headers, csvRows);
+        }
+
+        function downloadAdminCsv(prefix, headers, rows) {
+            const csv = [headers, ...rows].map(cols => cols.map(csvEscape).join(',')).join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${prefix}-${new Date().toISOString().slice(0, 10)}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            showToast('CSV berhasil dibuat', 'success');
+        }
+
+        function csvEscape(value) {
+            const text = String(value ?? '');
+            return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        }
+
+        function formatCsvDate(dateStr) {
+            if (!dateStr) return '';
+            return new Date(dateStr).toLocaleString('id-ID');
         }
 
         function renderInfo() {

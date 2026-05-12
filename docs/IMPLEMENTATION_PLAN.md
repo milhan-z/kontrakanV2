@@ -7,8 +7,8 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 - Push notification sudah diperbaiki dan statusnya lebih jelas di Profil.
 - Jastip sudah punya flow open, nitip banyak item, owner checklist, reopen, close, complete, delete history.
 - Riwayat transaksi sudah menyatukan transaksi biasa dan jastip.
-- Riwayat transaksi bisa diexport ke CSV sesuai filter aktif.
-- Riwayat pembayaran bisa diexport ke CSV sesuai filter user dan tanggal.
+- Filter Riwayat member memakai bottom sheet model GoPay untuk tanggal, kategori, dan pencarian.
+- Export CSV dipusatkan di Admin untuk transaksi dan pembayaran.
 - Detail transaksi sudah menampilkan rincian item split bill/jastip.
 - Halaman Bayar/Tagih sudah lebih aman dari error inline handler dan punya shortcut chat WA.
 - Admin panel punya audit log dasar untuk aksi penting admin.
@@ -20,8 +20,8 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 
 Tujuan: kalau ada selisih tagihan, data bisa dicek tanpa buka database.
 
-- Export riwayat transaksi sesuai filter ke CSV.
-- Export pembayaran ke CSV. (selesai)
+- Export riwayat transaksi sesuai filter ke CSV di Admin. (selesai)
+- Export pembayaran ke CSV di Admin. (selesai)
 - Ringkasan bulanan: total per kategori, total per user, jastip selesai.
 - Admin audit log untuk aksi penting: reset password, edit user, hapus user, hapus jastip, reset data. (dasar selesai)
 
