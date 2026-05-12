@@ -14,13 +14,14 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 - Halaman Bayar/Tagih sudah lebih aman dari error inline handler dan punya shortcut chat WA.
 - Halaman Bayar/Tagih kini memuat patch detail hutang/piutang aktif, status pembayaran lebih eksplisit, dan empty/error state lebih jelas.
 - Detail hutang/piutang kini menampilkan pembayaran balik pada kasus transaksi dua arah, sehingga angka sisa cocok dengan kronologi.
+- Jastip tidak lagi menganggap aksi utama gagal hanya karena notifikasi/push gagal setelah data tersimpan.
 - Admin panel punya audit log dasar untuk aksi penting admin.
 - Admin panel bisa membuka detail jastip: daftar item, status hasil belanja, total final, dan rekap penitip.
 - Admin dashboard punya ringkasan bulan ini dan filter cepat Jastip.
 - Konfirmasi hapus/reset admin dibuat lebih spesifik untuk transaksi, pembayaran, info, dan jastip.
 - Notifikasi in-app sudah jadi inbox berkategori dengan mark read per item dan link ke halaman terkait.
 - Onboarding tour bisa pindah halaman, punya tombol aksi fitur, dan bisa direset dari Profil.
-- Mini tips fitur muncul setelah tour selesai dan berhenti muncul setelah ditutup/dipakai.
+- Mini tips fitur muncul maksimal sekali per user setelah tour selesai dan berhenti muncul setelah ditutup/dipakai.
 - Serverless function tetap 12 file, masih aman untuk batas Vercel Hobby.
 
 ## Prioritas Berikutnya

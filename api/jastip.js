@@ -198,13 +198,13 @@ async function createOrder(req, res, user, db) {
     return jsonResponse(res, { success: true, order, duplicate: true }, 200);
   }
 
-  await notifyUsers(
+  await safeNotify(() => notifyUsers(
     db,
     user.user_id,
     'Jastip Dibuka',
     `${user.display_name} buka jastip ${title}. Mau nitip?`,
     order.id
-  );
+  ), 'notify users for new jastip');
 
   return jsonResponse(res, { success: true, order }, 201);
 }
@@ -295,10 +295,28 @@ async function insertJastipItems(req, res, user, db, inputs) {
   }
 
   const client = await db.connect();
+  let inserted = [];
   try {
     await client.query('BEGIN');
-    const inserted = [];
     for (const item of normalized) {
+      const duplicate = await client.query(
+        `SELECT *
+         FROM jastip_items
+         WHERE jastip_id = $1
+           AND user_id = $2
+           AND LOWER(item_name) = LOWER($3)
+           AND requested_qty = $4
+           AND COALESCE(note, '') = COALESCE($5::text, '')
+           AND created_at > NOW() - INTERVAL '20 seconds'
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [firstJastipId, user.user_id, item.itemName, item.requestedQty, item.note]
+      );
+      if (duplicate.rows[0]) {
+        inserted.push(duplicate.rows[0]);
+        continue;
+      }
+
       const result = await client.query(
         `INSERT INTO jastip_items (jastip_id, user_id, item_name, requested_qty, note, estimated_price)
          VALUES ($1, $2, $3, $4, $5, $6)
@@ -308,11 +326,19 @@ async function insertJastipItems(req, res, user, db, inputs) {
       inserted.push(result.rows[0]);
     }
     await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    jsonResponse(res, { error: err.message || 'Gagal menyimpan nitipan' }, 500);
+    return null;
+  } finally {
+    client.release();
+  }
 
-    if (order.opened_by !== user.user_id) {
-      const itemLabel = inserted.length === 1
-        ? inserted[0].item_name
-        : `${inserted.length} barang`;
+  if (order.opened_by !== user.user_id) {
+    const itemLabel = inserted.length === 1
+      ? inserted[0].item_name
+      : `${inserted.length} barang`;
+    await safeNotify(async () => {
       await createNotification(
         db,
         order.opened_by,
@@ -322,16 +348,10 @@ async function insertJastipItems(req, res, user, db, inputs) {
       );
       await sendPushNotification(order.opened_by, 'Nitipan Baru', `${user.display_name} nitip ${itemLabel}`, '/jastip.html')
         .catch(err => console.error('Failed to send jastip item push:', err));
-    }
-
-    return { order, items: inserted };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    jsonResponse(res, { error: err.message || 'Gagal menyimpan nitipan' }, 500);
-    return null;
-  } finally {
-    client.release();
+    }, 'notify owner for jastip item');
   }
+
+  return { order, items: inserted };
 }
 
 async function closeOrder(req, res, user, db) {
@@ -346,7 +366,10 @@ async function closeOrder(req, res, user, db) {
     [id]
   );
 
-  await notifyParticipants(db, id, user.user_id, 'Jastip Ditutup', `Jastip ${order.title} sudah ditutup. Menunggu hasil belanja.`);
+  await safeNotify(
+    () => notifyParticipants(db, id, user.user_id, 'Jastip Ditutup', `Jastip ${order.title} sudah ditutup. Menunggu hasil belanja.`),
+    'notify participants for closed jastip'
+  );
   return jsonResponse(res, { success: true });
 }
 
@@ -364,13 +387,13 @@ async function reopenOrder(req, res, user, db) {
     [id]
   );
 
-  await notifyUsers(
+  await safeNotify(() => notifyUsers(
     db,
     user.user_id,
     'Jastip Dibuka Lagi',
     `${user.display_name} buka lagi jastip ${order.title}. Masih bisa nitip.`,
     order.id
-  );
+  ), 'notify users for reopened jastip');
   return jsonResponse(res, { success: true });
 }
 
@@ -382,7 +405,10 @@ async function cancelOrder(req, res, user, db) {
   if (order.status === 'completed') return jsonResponse(res, { error: 'Jastip yang selesai tidak bisa dibatalkan' }, 409);
 
   await db.query(`UPDATE jastip_orders SET status = 'cancelled' WHERE id = $1`, [id]);
-  await notifyParticipants(db, id, user.user_id, 'Jastip Dibatalkan', `Jastip ${order.title} dibatalkan.`);
+  await safeNotify(
+    () => notifyParticipants(db, id, user.user_id, 'Jastip Dibatalkan', `Jastip ${order.title} dibatalkan.`),
+    'notify participants for cancelled jastip'
+  );
   return jsonResponse(res, { success: true });
 }
 
@@ -630,6 +656,14 @@ async function createNotification(db, userId, title, message, relatedId, type = 
      VALUES ($1, $2, $3, $4, $5)`,
     [userId, title, message, type, relatedId]
   );
+}
+
+async function safeNotify(fn, label) {
+  try {
+    await fn();
+  } catch (err) {
+    console.error(`Jastip notification skipped (${label}):`, err);
+  }
 }
 
 async function notifyUsers(db, exceptUserId, title, message, relatedId) {

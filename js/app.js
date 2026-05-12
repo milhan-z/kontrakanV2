@@ -260,24 +260,48 @@ function getFeatureMiniTipKey(id) {
     return `kontrakan_feature_tip_${FEATURE_MINI_TIP_VERSION}_${userId}_${id}`;
 }
 
+function getFeatureMiniTipOnceKey() {
+    const userId = state.user?.id || state.user?.user_id || 'guest';
+    return `kontrakan_feature_tip_once_${FEATURE_MINI_TIP_VERSION}_${userId}`;
+}
+
+function hasSeenAnyFeatureMiniTip() {
+    const userId = state.user?.id || state.user?.user_id || 'guest';
+    const prefix = `kontrakan_feature_tip_${FEATURE_MINI_TIP_VERSION}_${userId}_`;
+    for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i) || '';
+        if (key.startsWith(prefix) && localStorage.getItem(key) === 'done') return true;
+    }
+    return false;
+}
+
 function markFeatureUsed(id) {
     if (!id || !state.user) return;
     localStorage.setItem(getFeatureMiniTipKey(id), 'done');
+    localStorage.setItem(getFeatureMiniTipOnceKey(), 'done');
 }
 
 function queueFeatureMiniTip() {
     if (!state.user || state.user.must_change_password) return;
     if (localStorage.getItem(getFeatureTourKey()) !== 'done') return;
+    if (localStorage.getItem(getFeatureMiniTipOnceKey()) === 'done') return;
+    if (hasSeenAnyFeatureMiniTip()) {
+        localStorage.setItem(getFeatureMiniTipOnceKey(), 'done');
+        return;
+    }
     const config = getFeatureMiniTipConfig();
     if (!config || localStorage.getItem(getFeatureMiniTipKey(config.id)) === 'done') return;
     setTimeout(() => {
         if (!state.user || document.querySelector('.feature-tour-overlay.active')) return;
         if (document.getElementById('featureMiniTip')) return;
+        if (localStorage.getItem(getFeatureMiniTipOnceKey()) === 'done') return;
         showFeatureMiniTip(config);
     }, 1700);
 }
 
 function showFeatureMiniTip(config) {
+    localStorage.setItem(getFeatureMiniTipKey(config.id), 'done');
+    localStorage.setItem(getFeatureMiniTipOnceKey(), 'done');
     const tip = document.createElement('div');
     tip.id = 'featureMiniTip';
     tip.className = 'feature-mini-tip';
