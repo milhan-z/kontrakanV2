@@ -12,6 +12,7 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 - Detail transaksi sudah menampilkan rincian item split bill/jastip.
 - Halaman Bayar/Tagih sudah lebih aman dari error inline handler dan punya shortcut chat WA.
 - Admin panel punya audit log dasar untuk aksi penting admin.
+- Admin panel bisa membuka detail jastip: daftar item, status hasil belanja, total final, dan rekap penitip.
 - Serverless function tetap 12 file, masih aman untuk batas Vercel Hobby.
 
 ## Prioritas Berikutnya
@@ -31,7 +32,7 @@ Tujuan: admin bisa beresin masalah tanpa takut salah hapus.
 
 - Tambahkan tab/log aktivitas admin.
 - Konfirmasi delete yang lebih spesifik per objek.
-- Detail jastip di admin: item, penitip, status, harga final.
+- Detail jastip di admin: item, penitip, status, harga final. (selesai)
 - Filter admin yang lebih cepat: aktif, ditutup, selesai, batal.
 
 ### 3. Bayar dan Tagih V2
@@ -66,7 +67,7 @@ Tujuan: user baru cepat paham tanpa harus dijelaskan manual.
 1. Export CSV riwayat transaksi. (selesai)
 2. Export CSV riwayat pembayaran. (selesai)
 3. Admin audit log dasar. (selesai)
-4. Detail jastip admin.
+4. Detail jastip admin. (selesai)
 5. Notifikasi inbox grouping.
 6. Onboarding action tour.
 

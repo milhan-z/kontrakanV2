@@ -552,6 +552,64 @@
             line-height: 1.35;
         }
 
+        .jastip-detail-summary {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: var(--space-sm);
+            margin: var(--space-md) 0;
+        }
+
+        .jastip-detail-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            background: var(--bg-secondary);
+        }
+
+        .jastip-detail-card span {
+            display: block;
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 800;
+            margin-bottom: 5px;
+        }
+
+        .jastip-detail-card strong {
+            color: var(--text-primary);
+            font-size: 0.98rem;
+        }
+
+        .jastip-item-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-md);
+            align-items: start;
+            padding: var(--space-md) 0;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .jastip-item-row:last-child {
+            border-bottom: 0;
+        }
+
+        .jastip-item-main {
+            min-width: 0;
+        }
+
+        .jastip-item-price {
+            text-align: right;
+            font-weight: 850;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+
+        .participant-block {
+            margin-top: var(--space-sm);
+            padding: var(--space-sm);
+            border-radius: var(--radius-md);
+            background: var(--bg-secondary);
+        }
+
         .password-result {
             display: none;
             margin-top: var(--space-md);
@@ -1413,7 +1471,7 @@
             document.getElementById('jastipList').innerHTML = rows.length ? rows.map(order => {
                 const counts = summarizeJastip(order);
                 return `
-                    <div class="data-row">
+                    <div class="data-row clickable" onclick="showJastipDetail(${Number(order.id)})">
                         <div class="data-main">
                             <div class="data-title">${escapeHtml(order.title)}</div>
                             <div class="data-subtitle">Dibuka ${escapeHtml(order.opened_by_name || '-')} - ${relativeTime(order.created_at)}</div>
@@ -1428,15 +1486,98 @@
                         <div>
                             <div class="amount">${counts.total ? formatCurrency(counts.total) : '-'}</div>
                             <div class="row-actions">
-                                ${order.status === 'open' ? `<button type="button" class="mini-btn yellow" onclick="handleJastipAction(${Number(order.id)}, 'close')">Tutup</button>` : ''}
-                                ${['open', 'closed'].includes(order.status) ? `<button type="button" class="mini-btn red" onclick="handleJastipAction(${Number(order.id)}, 'cancel')">Batal</button>` : ''}
-                                ${order.expense_id ? `<button type="button" class="mini-btn green" onclick="showTransactionDetail(${Number(order.expense_id)})">Tagihan</button>` : ''}
-                                <button type="button" class="mini-btn red" onclick="deleteJastip(${Number(order.id)})">Hapus</button>
+                                <button type="button" class="mini-btn" onclick="event.stopPropagation(); showJastipDetail(${Number(order.id)})">Detail</button>
+                                ${order.status === 'open' ? `<button type="button" class="mini-btn yellow" onclick="event.stopPropagation(); handleJastipAction(${Number(order.id)}, 'close')">Tutup</button>` : ''}
+                                ${['open', 'closed'].includes(order.status) ? `<button type="button" class="mini-btn red" onclick="event.stopPropagation(); handleJastipAction(${Number(order.id)}, 'cancel')">Batal</button>` : ''}
+                                ${order.expense_id ? `<button type="button" class="mini-btn green" onclick="event.stopPropagation(); showTransactionDetail(${Number(order.expense_id)})">Tagihan</button>` : ''}
+                                <button type="button" class="mini-btn red" onclick="event.stopPropagation(); deleteJastip(${Number(order.id)})">Hapus</button>
                             </div>
                         </div>
                     </div>
                 `;
             }).join('') : '<div class="empty-state">Tidak ada jastip sesuai filter.</div>';
+        }
+
+        function showJastipDetail(orderId) {
+            const order = adminState.jastip.find(item => Number(item.id) === Number(orderId));
+            if (!order) {
+                showToast('Jastip tidak ditemukan di data admin', 'error');
+                return;
+            }
+
+            const counts = summarizeJastip(order);
+            const items = order.items || [];
+            const participants = summarizeJastipParticipants(items);
+            const participantHtml = participants.length ? participants.map(participant => `
+                <div class="participant-block">
+                    <div class="data-title">${escapeHtml(participant.name)}</div>
+                    <div class="data-meta" style="margin-top:6px;">
+                        <span class="chip">${participant.count} item</span>
+                        <span class="chip green">${formatCurrency(participant.total)}</span>
+                    </div>
+                </div>
+            `).join('') : '<div class="empty-state">Belum ada penitip.</div>';
+            const itemHtml = items.length ? items.map(item => renderJastipAdminItem(item)).join('') : '<div class="empty-state">Belum ada nitipan.</div>';
+
+            document.getElementById('detailTitle').textContent = `Jastip ${order.title || '-'}`;
+            document.getElementById('detailContent').innerHTML = `
+                <div class="detail-stack">
+                    <div class="detail-line"><span class="detail-label">Owner</span><span class="detail-value">${escapeHtml(order.opened_by_name || '-')}</span></div>
+                    <div class="detail-line"><span class="detail-label">Status</span><span class="detail-value"><span class="chip ${statusTone(order.status)}">${statusLabel(order.status)}</span></span></div>
+                    <div class="detail-line"><span class="detail-label">Dibuka</span><span class="detail-value">${formatDate(order.created_at)}</span></div>
+                    ${order.closed_at ? `<div class="detail-line"><span class="detail-label">Ditutup</span><span class="detail-value">${formatDate(order.closed_at)}</span></div>` : ''}
+                    ${order.completed_at ? `<div class="detail-line"><span class="detail-label">Selesai</span><span class="detail-value">${formatDate(order.completed_at)}</span></div>` : ''}
+                    ${order.closes_at ? `<div class="detail-line"><span class="detail-label">Batas titip</span><span class="detail-value">${formatDate(order.closes_at)}</span></div>` : ''}
+                    ${order.note ? `<div class="detail-line"><span class="detail-label">Catatan</span><span class="detail-value">${escapeHtml(order.note)}</span></div>` : ''}
+                </div>
+
+                <div class="jastip-detail-summary">
+                    <div class="jastip-detail-card"><span>Nitipan</span><strong>${counts.items}</strong></div>
+                    <div class="jastip-detail-card"><span>Penitip</span><strong>${counts.participants}</strong></div>
+                    <div class="jastip-detail-card"><span>Ada</span><strong>${counts.bought}</strong></div>
+                    <div class="jastip-detail-card"><span>Total final</span><strong>${counts.total ? formatCurrency(counts.total) : '-'}</strong></div>
+                </div>
+
+                <div class="section" style="margin-top:var(--space-lg); margin-bottom:0;">
+                    <div class="section-head"><div class="section-title">Daftar Belanja</div></div>
+                    <div class="admin-panel"><div class="data-list">${itemHtml}</div></div>
+                </div>
+
+                <div class="section" style="margin-top:var(--space-lg); margin-bottom:0;">
+                    <div class="section-head"><div class="section-title">Per Penitip</div></div>
+                    <div class="admin-panel"><div class="panel-pad">${participantHtml}</div></div>
+                </div>
+
+                <div class="row-actions" style="margin-top:var(--space-lg); justify-content:flex-end;">
+                    ${order.expense_id ? `<button type="button" class="mini-btn green" onclick="showTransactionDetail(${Number(order.expense_id)})">Buka Tagihan</button>` : ''}
+                    ${order.status === 'open' ? `<button type="button" class="mini-btn yellow" onclick="handleJastipAction(${Number(order.id)}, 'close'); closeModal('detailModal');">Tutup</button>` : ''}
+                    ${['open', 'closed'].includes(order.status) ? `<button type="button" class="mini-btn red" onclick="handleJastipAction(${Number(order.id)}, 'cancel'); closeModal('detailModal');">Batal</button>` : ''}
+                    <button type="button" class="mini-btn red" onclick="deleteJastip(${Number(order.id)}); closeModal('detailModal');">Hapus</button>
+                </div>
+            `;
+            openModal('detailModal');
+        }
+
+        function renderJastipAdminItem(item) {
+            const status = itemStatusLabel(item.status);
+            const requestedQty = Number(item.requested_qty || 1);
+            const finalQty = item.final_qty ? Number(item.final_qty) : requestedQty;
+            const price = Number(item.final_price || 0);
+            return `
+                <div class="jastip-item-row">
+                    <div class="jastip-item-main">
+                        <div class="data-title">${escapeHtml(item.item_name || '-')} <span class="chip">x${finalQty || requestedQty}</span></div>
+                        <div class="data-meta" style="margin-top:6px;">
+                            <span class="chip">${escapeHtml(item.user_name || '-')}</span>
+                            <span class="chip ${itemStatusTone(item.status)}">${escapeHtml(status)}</span>
+                            ${item.estimated_price ? `<span class="chip">Est ${formatCurrency(Number(item.estimated_price || 0))}</span>` : ''}
+                        </div>
+                        ${item.note ? `<div class="split-item">Catatan: ${escapeHtml(item.note)}</div>` : ''}
+                        ${item.final_note ? `<div class="split-item">Hasil: ${escapeHtml(item.final_note)}</div>` : ''}
+                    </div>
+                    <div class="jastip-item-price">${item.status === 'bought' ? formatCurrency(price) : '-'}</div>
+                </div>
+            `;
         }
 
         function showTransactionDetail(expenseId) {
@@ -1731,6 +1872,23 @@
             return { items: items.length, participants, bought, unavailable, total };
         }
 
+        function summarizeJastipParticipants(items) {
+            const map = {};
+            (items || []).forEach(item => {
+                const key = item.user_id || item.user_name || 'unknown';
+                if (!map[key]) {
+                    map[key] = {
+                        name: item.user_name || '-',
+                        count: 0,
+                        total: 0
+                    };
+                }
+                map[key].count += 1;
+                if (item.status === 'bought') map[key].total += Number(item.final_price || 0);
+            });
+            return Object.values(map).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+        }
+
         function totalJastipBought(order) {
             return summarizeJastip(order).total;
         }
@@ -1749,6 +1907,24 @@
                 open: 'green',
                 closed: 'yellow',
                 completed: 'blue',
+                cancelled: 'red'
+            })[status] || '';
+        }
+
+        function itemStatusLabel(status) {
+            return ({
+                requested: 'Belum dicek',
+                bought: 'Ada',
+                unavailable: 'Kosong',
+                cancelled: 'Batal'
+            })[status] || status || '-';
+        }
+
+        function itemStatusTone(status) {
+            return ({
+                requested: 'yellow',
+                bought: 'green',
+                unavailable: 'red',
                 cancelled: 'red'
             })[status] || '';
         }
