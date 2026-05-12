@@ -412,7 +412,7 @@
                 if (myDebts.length > 0) {
                     debtsSection.style.display = 'block';
                     debtsList.innerHTML = myDebts.map(s => `
-                        <div class="transaction-item" onclick="showDebtDetail(${s.to_user_id}, ${JSON.stringify(s.to_name)}, ${s.amount})" style="cursor: pointer;">
+                        <div class="transaction-item" onclick="showDebtDetail(${s.to_user_id}, ${safeJsonForAttr(s.to_name)}, ${s.amount})" style="cursor: pointer;">
                             <div class="transaction-info">
                                 <div class="transaction-title">${escapeHtml(s.to_name)}</div>
                                 <div class="text-muted" style="font-size: 0.75rem;">Tap untuk lihat detail & bayar</div>
@@ -430,7 +430,7 @@
                 if (myCredits.length > 0) {
                     creditsSection.style.display = 'block';
                     creditsList.innerHTML = myCredits.map(s => `
-                        <div class="transaction-item" onclick="showCreditDetail(${s.from_user_id}, ${JSON.stringify(s.from_name)}, ${s.amount})" style="cursor: pointer;">
+                        <div class="transaction-item" onclick="showCreditDetail(${s.from_user_id}, ${safeJsonForAttr(s.from_name)}, ${s.amount})" style="cursor: pointer;">
                             <div class="transaction-info">
                                 <div class="transaction-title">${escapeHtml(s.from_name)}</div>
                                 <div class="text-muted" style="font-size: 0.75rem;">Tap untuk konfirmasi pembayaran</div>
@@ -461,13 +461,14 @@
                     historyEl.innerHTML = mySettlements.slice(0, 5).map(s => {
                         const isFromMe = parseInt(s.from_user) === currentUserId;
                         const isToMe = parseInt(s.to_user) === currentUserId;
-                        const direction = `${escapeHtml(s.from_name)} → ${escapeHtml(s.to_name)}`;
+                        const direction = `${s.from_name} -> ${s.to_name}`;
+                        const directionLabel = `${escapeHtml(s.from_name)} -> ${escapeHtml(s.to_name)}`;
                         const receiptIcon = s.receipt_image ? '<span style="font-size: 0.7rem; color: var(--green); margin-left: 4px;">📎</span>' : '';
                         return `
                             <div class="transaction-item" style="cursor: pointer;" 
-                                onclick="showPaymentDetailInSettle('${direction}', ${s.amount}, '${s.created_at}', '${s.receipt_image || ''}', ${isFromMe})">
+                                onclick="showPaymentDetailInSettle(${safeJsonForAttr(direction)}, ${s.amount}, ${safeJsonForAttr(s.created_at)}, ${safeJsonForAttr(s.receipt_image || '')}, ${isFromMe})">
                                 <div class="transaction-info">
-                                    <div class="transaction-title">${direction}${receiptIcon}</div>
+                                    <div class="transaction-title">${directionLabel}${receiptIcon}</div>
                                     <div class="transaction-meta">
                                         <span class="transaction-tag">${formatDate(s.created_at)}</span>
                                         ${isFromMe ? '<span class="transaction-tag hutang">Kamu bayar</span>' : ''}
@@ -509,7 +510,7 @@
                             ${expenses.slice(0, 5).map(e => `
                                 <div class="expense-item">
                                     <div style="display: flex; justify-content: space-between;">
-                                        <span>${e.description}</span>
+                                        <span>${escapeHtml(e.description)}</span>
                                         <span style="color: var(--red);">-Rp ${parseFloat(e.remaining_amount || e.split_amount).toLocaleString('id-ID')}</span>
                                     </div>
                                     <div class="text-muted" style="font-size: 0.6875rem;">${e.category} · ${formatDate(e.created_at)}</div>
@@ -529,7 +530,7 @@
                             <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">SUDAH DIBAYAR:</div>
                             ${settlements.slice(0, 5).map(s => `
                                 <div class="expense-item" style="cursor: ${s.receipt_image ? 'pointer' : 'default'};" 
-                                    ${s.receipt_image ? `onclick="showSettlementReceipt('${s.receipt_image}', ${s.amount}, '${s.created_at}')"` : ''}>
+                                    ${s.receipt_image ? `onclick="showSettlementReceipt(${safeJsonForAttr(s.receipt_image)}, ${s.amount}, ${safeJsonForAttr(s.created_at)})"` : ''}>
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
                                         <span>Pembayaran ${s.receipt_image ? '<span style="font-size: 0.7rem; color: var(--green);">📎</span>' : ''}</span>
                                         <span style="color: var(--green);">+Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</span>
@@ -579,10 +580,10 @@
                         paymentInfo += `
                             <div class="payment-row">
                                 <div>
-                                    <div class="payment-label">${b.name}</div>
-                                    <div class="payment-value">${b.account}</div>
+                                    <div class="payment-label">${escapeHtml(b.name)}</div>
+                                    <div class="payment-value">${escapeHtml(b.account)}</div>
                                 </div>
-                                <button class="copy-btn" onclick="copyText('${b.account}')">📋 Copy</button>
+                                <button class="copy-btn" onclick="copyText(${safeJsonForAttr(b.account)})">📋 Copy</button>
                             </div>
                         `;
                     });
@@ -595,10 +596,10 @@
                         paymentInfo += `
                             <div class="payment-row">
                                 <div>
-                                    <div class="payment-label">${e.type}</div>
-                                    <div class="payment-value">${e.number}</div>
+                                    <div class="payment-label">${escapeHtml(e.type)}</div>
+                                    <div class="payment-value">${escapeHtml(e.number)}</div>
                                 </div>
-                                <button class="copy-btn" onclick="copyText('${e.number}')">📋 Copy</button>
+                                <button class="copy-btn" onclick="copyText(${safeJsonForAttr(e.number)})">📋 Copy</button>
                             </div>
                         `;
                     });
@@ -611,9 +612,12 @@
                         <div class="payment-row">
                             <div>
                                 <div class="payment-label">WhatsApp</div>
-                                <div class="payment-value">${payInfo.phone_wa}</div>
+                                <div class="payment-value">${escapeHtml(payInfo.phone_wa)}</div>
                             </div>
-                            <button class="copy-btn" onclick="copyText('${payInfo.phone_wa}')">📋 Copy</button>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+                                <button class="copy-btn" onclick="copyText(${safeJsonForAttr(payInfo.phone_wa)})">📋 Copy</button>
+                                <button class="copy-btn" onclick="openPaymentWa(${safeJsonForAttr(payInfo.phone_wa)}, ${safeJsonForAttr(creditorName)}, ${amount})">Chat WA</button>
+                            </div>
                         </div>
                     `;
                 }
@@ -646,7 +650,7 @@
                     <div class="section" style="margin: 0; padding: var(--space-md);">
                         ${paymentInfo}
                     </div>
-                    <button class="btn btn-success btn-full btn-lg mt-md" onclick="markAsPaid(${creditorId}, '${creditorName}', ${amount})">
+                    <button class="btn btn-success btn-full btn-lg mt-md" onclick="markAsPaid(${creditorId}, ${safeJsonForAttr(creditorName)}, ${amount})">
                         ✓ Sudah Transfer
                     </button>
                 `;
@@ -696,7 +700,7 @@
                             ${expenses.slice(0, 5).map(e => `
                                 <div class="expense-item">
                                     <div style="display: flex; justify-content: space-between;">
-                                        <span>${e.description}</span>
+                                        <span>${escapeHtml(e.description)}</span>
                                         <span style="color: var(--green);">+Rp ${parseFloat(e.remaining_amount || e.split_amount).toLocaleString('id-ID')}</span>
                                     </div>
                                     <div class="text-muted" style="font-size: 0.6875rem;">${e.category} · ${formatDate(e.created_at)}</div>
@@ -780,10 +784,10 @@
                     <div class="modal-btn-group">
                         ${tagihButton}
                         <div class="modal-btn-row">
-                            <button class="btn btn-full btn-lg" onclick="openConfirmPayment(${debtorId}, '${debtorName}', ${amount})">
+                            <button class="btn btn-full btn-lg" onclick="openConfirmPayment(${debtorId}, ${safeJsonForAttr(debtorName)}, ${amount})">
                                 Konfirmasi Sebagian
                             </button>
-                            <button class="btn btn-success btn-lunas btn-full btn-lg" onclick="resetAndClear(${debtorId}, '${debtorName}', ${amount})">
+                            <button class="btn btn-success btn-lunas btn-full btn-lg" onclick="resetAndClear(${debtorId}, ${safeJsonForAttr(debtorName)}, ${amount})">
                                 ✓ Lunas
                             </button>
                         </div>
@@ -1011,6 +1015,12 @@ _Pesan otomatis dari Catatan Kontrakan_`;
         function copyText(text) {
             navigator.clipboard.writeText(text);
             showToast('Disalin!', 'success');
+        }
+
+        function openPaymentWa(phoneRaw, receiverName, amount) {
+            const phone = _formatPhone(String(phoneRaw || ''));
+            const message = `Halo ${receiverName}, aku mau bayar hutang kontrakan Rp ${Number(amount || 0).toLocaleString('id-ID')}. Nanti aku catat di app ya.`;
+            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
         }
 
         // Lunas - Creates settlement for remaining amount
