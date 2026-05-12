@@ -77,6 +77,15 @@
             font-size: 0.75rem;
         }
 
+        .history-actions {
+            display: flex;
+            gap: var(--space-sm);
+        }
+
+        .history-actions .btn {
+            flex: 1;
+        }
+
         .filter-scroll {
             display: flex;
             gap: 8px;
@@ -187,7 +196,11 @@
             <div class="date-filter">
                 <input type="date" class="date-input" id="fromDate">
                 <input type="date" class="date-input" id="toDate">
+            </div>
+
+            <div class="history-actions">
                 <button class="btn btn-clear" onclick="clearFilters()">Reset</button>
+                <button class="btn btn-primary btn-clear" onclick="exportHistoryCsv()">Export CSV</button>
             </div>
         </div>
 
@@ -299,6 +312,7 @@
     <script>
         let currentCategory = '';
         let jastipHistoryOrders = [];
+        let currentHistoryRows = [];
 
         function formatDateFull(dateStr) {
             const d = new Date(dateStr);
@@ -378,6 +392,7 @@
                     })));
                 }
                 rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+                currentHistoryRows = rows;
 
                 if (rows.length === 0) {
                     container.innerHTML = renderEmptyState({
@@ -393,6 +408,7 @@
                         : renderExpenseAsTransaction(row.data)
                 )).join('');
             } catch {
+                currentHistoryRows = [];
                 container.innerHTML = renderEmptyState({
                     title: 'Gagal memuat riwayat',
                     body: 'Koneksi atau server sedang bermasalah.',
@@ -407,6 +423,108 @@
             document.getElementById('fromDate').value = '';
             document.getElementById('toDate').value = '';
             renderTransactions(currentCategory);
+        }
+
+        function exportHistoryCsv() {
+            if (!currentHistoryRows.length) {
+                showToast('Tidak ada data untuk diexport', 'info');
+                return;
+            }
+
+            const headers = [
+                'tipe',
+                'tanggal',
+                'judul',
+                'kategori',
+                'dibayar_oleh',
+                'status',
+                'total',
+                'dibagi_ke',
+                'rincian_item'
+            ];
+
+            const rows = currentHistoryRows.map(row => row.type === 'jastip'
+                ? mapJastipCsvRow(row.data)
+                : mapExpenseCsvRow(row.data));
+            const csv = [headers, ...rows].map(cols => cols.map(csvEscape).join(',')).join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const stamp = new Date().toISOString().slice(0, 10);
+            const category = currentCategory ? currentCategory.toLowerCase().replace(/[^a-z0-9]+/gi, '-') : 'semua';
+            link.href = url;
+            link.download = `riwayat-kontrakan-${category}-${stamp}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            showToast('CSV riwayat dibuat', 'success');
+        }
+
+        function mapExpenseCsvRow(expense) {
+            const splits = Array.isArray(expense.splits) ? expense.splits : [];
+            const splitText = splits.map(split => {
+                const name = state.users.find(user => user.id == split.user_id)?.display_name || split.display_name || split.user_name || 'Unknown';
+                return `${name}: Rp ${Number(split.amount || 0).toLocaleString('id-ID')}`;
+            }).join(' | ');
+            const itemText = splits.flatMap(split => {
+                let items = [];
+                try {
+                    let parsed = split.items;
+                    while (typeof parsed === 'string') parsed = JSON.parse(parsed);
+                    if (Array.isArray(parsed)) items = parsed;
+                } catch {}
+                const name = state.users.find(user => user.id == split.user_id)?.display_name || split.display_name || split.user_name || 'Unknown';
+                return items.map(item => `${name} - ${item.item || item.item_name || 'Item'} x${item.qty || 1}: Rp ${Number(item.price || 0).toLocaleString('id-ID')}`);
+            }).join(' | ');
+
+            return [
+                'transaksi',
+                formatCsvDate(expense.created_at),
+                expense.description || '',
+                expense.category || '',
+                expense.paid_by_name || '',
+                '',
+                Number(expense.amount || 0),
+                splitText,
+                itemText
+            ];
+        }
+
+        function mapJastipCsvRow(order) {
+            const items = order.items || [];
+            const total = items
+                .filter(item => item.status === 'bought')
+                .reduce((sum, item) => sum + Number(item.final_price || 0), 0);
+            const itemText = items.map(item => {
+                const qty = item.final_qty || item.requested_qty || 1;
+                const price = item.status === 'bought'
+                    ? `Rp ${Number(item.final_price || 0).toLocaleString('id-ID')}`
+                    : itemStatusLabel(item.status);
+                return `${item.user_name || '-'} - ${item.item_name} x${qty}: ${price}`;
+            }).join(' | ');
+
+            return [
+                'jastip',
+                formatCsvDate(order.completed_at || order.closed_at || order.created_at),
+                order.title || '',
+                'Jastip',
+                order.opened_by_name || '',
+                jastipStatusLabel(order.status),
+                total,
+                [...new Set(items.map(item => item.user_name).filter(Boolean))].join(' | '),
+                itemText
+            ];
+        }
+
+        function csvEscape(value) {
+            const text = String(value ?? '');
+            return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        }
+
+        function formatCsvDate(dateStr) {
+            if (!dateStr) return '';
+            return new Date(dateStr).toLocaleString('id-ID');
         }
 
         async function loadJastipHistory() {
