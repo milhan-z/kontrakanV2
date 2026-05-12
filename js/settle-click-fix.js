@@ -292,6 +292,23 @@
         }).join('');
     }
 
+    function buildSettlementItems(settlements, sign, colorVar, label) {
+        return settlements.slice(0, 10).map(function (s) {
+            const amount = parseFloat(s.amount || 0);
+            const receiptText = s.receipt_image ? ' - ada bukti' : '';
+            return `
+                <div class="expense-item" style="cursor: ${s.receipt_image ? 'pointer' : 'default'};"
+                    ${s.receipt_image && typeof window.safeJsonForAttr === 'function' ? `onclick="showSettlementReceipt(${window.safeJsonForAttr(s.receipt_image)}, ${amount}, ${window.safeJsonForAttr(s.created_at)})"` : ''}>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>${safeText(label)}${receiptText}</span>
+                        <span style="color: ${colorVar};">${sign}${formatRupiah(amount)}</span>
+                    </div>
+                    <div class="text-muted" style="font-size: 0.6875rem;">${safeText(displayDate(s.created_at))}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
     function ensureDebtOffsetSection(content, data) {
         const reverseExpenses = Array.isArray(data.reverse_expenses) ? data.reverse_expenses : [];
         let section = content.querySelector('#reverseExpenseOffsetSection');
@@ -309,6 +326,27 @@
         if (firstBlock) firstBlock.insertAdjacentHTML('afterend', html);
     }
 
+    function ensureDebtReverseSettlementSection(content, data) {
+        const reverseSettlements = Array.isArray(data.reverse_settlements) ? data.reverse_settlements : [];
+        let section = content.querySelector('#reverseSettlementOffsetSection');
+        if (!reverseSettlements.length) { if (section) section.remove(); return; }
+
+        const html = `
+            <div id="reverseSettlementOffsetSection" style="margin-bottom: var(--space-md);">
+                <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">PEMBAYARAN BALIK:</div>
+                ${buildSettlementItems(reverseSettlements, '+', 'var(--red)', 'Dia bayar ke kamu')}
+                <div class="text-muted" style="font-size: 0.7rem; line-height: 1.4;">Pembayaran ini tercatat saat posisi teman masih punya hutang ke kamu, jadi ikut menambah sisa hutangmu di arah sekarang.</div>
+            </div>
+        `;
+        if (section) { section.outerHTML = html; return; }
+        const offsetSection = content.querySelector('#reverseExpenseOffsetSection');
+        if (offsetSection) offsetSection.insertAdjacentHTML('afterend', html);
+        else {
+            const firstBlock = getFirstExpenseBlock(content, 'debtDetailContent', ['YANG HARUS DIBAYAR:', 'DETAIL:']);
+            if (firstBlock) firstBlock.insertAdjacentHTML('afterend', html);
+        }
+    }
+
     function ensureCreditOffsetSection(content, data) {
         const reverseExpenses = Array.isArray(data.reverse_expenses) ? data.reverse_expenses : [];
         let section = content.querySelector('#creditReverseExpenseOffsetSection');
@@ -324,6 +362,27 @@
         if (section) { section.outerHTML = html; return; }
         const firstBlock = getFirstExpenseBlock(content, 'creditDetailContent', ['YANG KAMU TALANGIN:', 'DETAIL:']);
         if (firstBlock) firstBlock.insertAdjacentHTML('afterend', html);
+    }
+
+    function ensureCreditReverseSettlementSection(content, data) {
+        const reverseSettlements = Array.isArray(data.reverse_settlements) ? data.reverse_settlements : [];
+        let section = content.querySelector('#creditReverseSettlementOffsetSection');
+        if (!reverseSettlements.length) { if (section) section.remove(); return; }
+
+        const html = `
+            <div id="creditReverseSettlementOffsetSection" style="margin-bottom: var(--space-md);">
+                <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">PEMBAYARAN BALIK:</div>
+                ${buildSettlementItems(reverseSettlements, '+', 'var(--green)', 'Kamu bayar ke dia')}
+                <div class="text-muted" style="font-size: 0.7rem; line-height: 1.4;">Pembayaran balik ikut menambah sisa piutang di arah sekarang.</div>
+            </div>
+        `;
+        if (section) { section.outerHTML = html; return; }
+        const offsetSection = content.querySelector('#creditReverseExpenseOffsetSection');
+        if (offsetSection) offsetSection.insertAdjacentHTML('afterend', html);
+        else {
+            const firstBlock = getFirstExpenseBlock(content, 'creditDetailContent', ['YANG KAMU TALANGIN:', 'DETAIL:']);
+            if (firstBlock) firstBlock.insertAdjacentHTML('afterend', html);
+        }
     }
 
     function ensureSummaryRow(summary, id, label, amount, colorVar, afterLabel) {
@@ -358,10 +417,12 @@
                 const detailHeader = findHeaderIn('debtDetailContent', 'YANG HARUS DIBAYAR:');
                 if (detailHeader) detailHeader.textContent = 'DETAIL:';
                 ensureDebtOffsetSection(content, data);
+                ensureDebtReverseSettlementSection(content, data);
                 const summary = findSummaryBlock(content, ['Total Pengeluaran', 'Sudah Dibayar', 'Sisa Hutang']);
                 setSummaryAmount(summary, 'Total Pengeluaran', data.total_expenses || 0, 'var(--red)');
                 setSummaryAmount(summary, 'Sudah Dibayar', data.total_settled || 0, 'var(--green)');
                 ensureSummaryRow(summary, 'totalOffsetRow', 'Transaksi Pengurang', data.total_offset || 0, 'var(--green)', 'Sudah Dibayar');
+                ensureSummaryRow(summary, 'totalReverseSettlementRow', 'Pembayaran Balik', data.total_reverse_settled || 0, 'var(--red)', (Number(data.total_offset) || 0) > 0 ? 'Transaksi Pengurang' : 'Sudah Dibayar');
                 setSummaryAmount(summary, 'Sisa Hutang', data.remaining || 0, 'var(--red)');
                 const amountHeader = content.querySelector('.amount-value');
                 if (amountHeader) amountHeader.textContent = formatRupiah(data.remaining || 0);
@@ -389,10 +450,12 @@
                 const detailHeader = findHeaderIn('creditDetailContent', 'YANG KAMU TALANGIN:');
                 if (detailHeader) detailHeader.textContent = 'DETAIL:';
                 ensureCreditOffsetSection(content, data);
+                ensureCreditReverseSettlementSection(content, data);
                 const summary = findSummaryBlock(content, ['Total Ditalangin', 'Sudah Diterima', 'Sisa Piutang']);
                 setSummaryAmount(summary, 'Total Ditalangin', data.total_expenses || 0, 'var(--green)');
                 setSummaryAmount(summary, 'Sudah Diterima', data.total_settled || 0, 'var(--red)');
                 ensureSummaryRow(summary, 'creditTotalOffsetRow', 'Transaksi Pengurang', data.total_offset || 0, 'var(--red)', 'Sudah Diterima');
+                ensureSummaryRow(summary, 'creditTotalReverseSettlementRow', 'Pembayaran Balik', data.total_reverse_settled || 0, 'var(--green)', (Number(data.total_offset) || 0) > 0 ? 'Transaksi Pengurang' : 'Sudah Diterima');
                 setSummaryAmount(summary, 'Sisa Piutang', data.remaining || 0, 'var(--green)');
                 const amountHeader = content.querySelector('.amount-value');
                 if (amountHeader) amountHeader.textContent = formatRupiah(data.remaining || 0);

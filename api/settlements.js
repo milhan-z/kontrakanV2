@@ -43,7 +43,10 @@ function toTimestamp(value) {
  * UI semantics:
  * - total_settled is ONLY real transfer/payment settlements from debtor to creditor.
  * - reverse_expenses are shown as transaction offsets, not as "Sudah Dibayar".
- * - remaining = forward expenses - real settlements - reverse transaction offsets.
+ * - reverse_settlements are payments in the opposite direction. They are shown
+ *   explicitly as "Pembayaran Balik" because they add to the currently viewed
+ *   direction after debts flip again.
+ * - remaining = forward expenses - real settlements - reverse expenses + reverse settlements.
  */
 async function getDebtDetailsSummary(db, debtorId, creditorId) {
   const [expenseResult, settlementResult] = await Promise.all([

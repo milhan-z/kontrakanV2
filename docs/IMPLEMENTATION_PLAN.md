@@ -13,6 +13,7 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 - Detail transaksi sudah menampilkan rincian item split bill/jastip.
 - Halaman Bayar/Tagih sudah lebih aman dari error inline handler dan punya shortcut chat WA.
 - Halaman Bayar/Tagih kini memuat patch detail hutang/piutang aktif, status pembayaran lebih eksplisit, dan empty/error state lebih jelas.
+- Detail hutang/piutang kini menampilkan pembayaran balik pada kasus transaksi dua arah, sehingga angka sisa cocok dengan kronologi.
 - Admin panel punya audit log dasar untuk aksi penting admin.
 - Admin panel bisa membuka detail jastip: daftar item, status hasil belanja, total final, dan rekap penitip.
 - Admin dashboard punya ringkasan bulan ini dan filter cepat Jastip.

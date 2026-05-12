@@ -535,15 +535,20 @@
             const total = Number(detailData?.total_expenses || 0);
             const paid = Number(detailData?.total_settled || 0);
             const offset = Number(detailData?.total_offset || 0);
+            const reversePaid = Number(detailData?.total_reverse_settled || 0);
             const remaining = Number(detailData?.remaining ?? fallbackAmount ?? 0);
             if (remaining <= 0) {
                 return { className: 'clear', label: 'Lunas', note: 'Tidak ada sisa pembayaran untuk pasangan ini.' };
             }
-            if (paid > 0 || offset > 0) {
+            if (paid > 0 || offset > 0 || reversePaid > 0) {
+                const parts = [];
+                if (paid > 0) parts.push(`${money(paid)} dibayar`);
+                if (offset > 0) parts.push(`${money(offset)} terpotong transaksi balik`);
+                if (reversePaid > 0) parts.push(`${money(reversePaid)} pembayaran balik`);
                 return {
                     className: 'partial',
                     label: 'Sebagian',
-                    note: `${money(paid)} dibayar${offset > 0 ? `, ${money(offset)} terpotong transaksi balik` : ''}.`
+                    note: `${parts.join(', ')}.`
                 };
             }
             return {
@@ -583,8 +588,9 @@
             const color = options.color || 'var(--green)';
             const sign = options.sign || '+';
             const label = options.label || 'Pembayaran';
+            const idAttr = options.id ? ` id="${escapeHtml(options.id)}"` : '';
             return `
-                <div class="payment-timeline">
+                <div class="payment-timeline"${idAttr}>
                     <div class="payment-timeline-title">${escapeHtml(options.title || 'Timeline Pembayaran')}</div>
                     ${rows.slice(0, 5).map(s => {
                         const receipt = s.receipt_image ? safeJsonForAttr(s.receipt_image) : '';
@@ -739,6 +745,7 @@
                 let expenseList = '';
                 const expenses = detailData.expenses || [];
                 const settlements = detailData.settlements || [];
+                const reverseSettlements = detailData.reverse_settlements || [];
                 const remainingAmount = Number(detailData.remaining ?? amount);
 
                 expenseList += renderStatusCard(detailData, remainingAmount, 'Status hutang kamu');
@@ -782,9 +789,19 @@
                     `;
                 }
 
+                expenseList += renderPaymentTimeline(reverseSettlements, {
+                    id: 'reverseSettlementOffsetSection',
+                    title: 'Pembayaran Balik',
+                    label: `${creditorName} bayar ke kamu`,
+                    color: 'var(--red)',
+                    sign: '+'
+                });
+
                 // Summary
                 const totalExpenses = detailData.total_expenses || 0;
                 const totalSettled = detailData.total_settled || 0;
+                const totalOffset = detailData.total_offset || 0;
+                const totalReverseSettled = detailData.total_reverse_settled || 0;
                 expenseList += `
                     <div style="border-top: 1px solid var(--border-color); padding-top: var(--space-sm); margin-bottom: var(--space-md);">
                         <div style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
@@ -795,6 +812,18 @@
                             <span>Sudah Dibayar</span>
                             <span style="color: var(--green);">Rp ${totalSettled.toLocaleString('id-ID')}</span>
                         </div>
+                        ${totalOffset > 0 ? `
+                            <div id="totalOffsetRow" style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                                <span>Transaksi Pengurang</span>
+                                <span style="color: var(--green);">${money(totalOffset)}</span>
+                            </div>
+                        ` : ''}
+                        ${totalReverseSettled > 0 ? `
+                            <div id="totalReverseSettlementRow" style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                                <span>Pembayaran Balik</span>
+                                <span style="color: var(--red);">${money(totalReverseSettled)}</span>
+                            </div>
+                        ` : ''}
                         <div style="display: flex; justify-content: space-between; font-weight: 700; margin-top: var(--space-xs);">
                             <span>Sisa Hutang</span>
                             <span style="color: var(--red);">${money(remainingAmount)}</span>
@@ -921,6 +950,7 @@
                 let expenseList = '';
                 const expenses = detailData.expenses || [];
                 const settlements = detailData.settlements || [];
+                const reverseSettlements = detailData.reverse_settlements || [];
                 const remainingAmount = Number(detailData.remaining ?? amount);
 
                 expenseList += renderStatusCard(detailData, remainingAmount, 'Status piutang kamu');
@@ -974,9 +1004,19 @@
                     `;
                 }
 
+                expenseList += renderPaymentTimeline(reverseSettlements, {
+                    id: 'creditReverseSettlementOffsetSection',
+                    title: 'Pembayaran Balik',
+                    label: `Kamu bayar ke ${debtorName}`,
+                    color: 'var(--green)',
+                    sign: '+'
+                });
+
                 // Summary
                 const totalExpenses = detailData.total_expenses || 0;
                 const totalSettled = detailData.total_settled || 0;
+                const totalOffset = detailData.total_offset || 0;
+                const totalReverseSettled = detailData.total_reverse_settled || 0;
                 expenseList += `
                     <div style="border-top: 1px solid var(--border-color); padding-top: var(--space-sm); margin-bottom: var(--space-md);">
                         <div style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
@@ -987,6 +1027,18 @@
                             <span>Sudah Diterima</span>
                             <span style="color: var(--red);">Rp ${totalSettled.toLocaleString('id-ID')}</span>
                         </div>
+                        ${totalOffset > 0 ? `
+                            <div id="creditTotalOffsetRow" style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                                <span>Transaksi Pengurang</span>
+                                <span style="color: var(--red);">${money(totalOffset)}</span>
+                            </div>
+                        ` : ''}
+                        ${totalReverseSettled > 0 ? `
+                            <div id="creditTotalReverseSettlementRow" style="display: flex; justify-content: space-between; font-size: 0.8125rem;">
+                                <span>Pembayaran Balik</span>
+                                <span style="color: var(--green);">${money(totalReverseSettled)}</span>
+                            </div>
+                        ` : ''}
                         <div style="display: flex; justify-content: space-between; font-weight: 700; margin-top: var(--space-xs);">
                             <span>Sisa Piutang</span>
                             <span style="color: var(--green);">${money(remainingAmount)}</span>
