@@ -106,7 +106,9 @@ function updateThemeIcons() {
 }
 
 // ==================== Feature Tour ====================
-const FEATURE_TOUR_VERSION = 'v2';
+const FEATURE_TOUR_VERSION = 'v3';
+const FEATURE_TOUR_SESSION_KEY = 'kontrakan_feature_tour_resume';
+const FEATURE_TOUR_PENDING_ACTION_KEY = 'kontrakan_feature_tour_action';
 let featureTourIndex = 0;
 let featureTourSteps = [];
 let featureTourManual = false;
@@ -124,63 +126,79 @@ function getFeatureTourKey() {
 function getFeatureTourSteps() {
     const steps = [
         {
+            page: 'dashboard.html',
             eyebrow: 'Mulai dari Home',
             title: 'Pantau hutang, piutang, dan kabar kontrakan',
             body: 'Dashboard adalah ringkasan harian: saldo hutang/piutang, info terbaru, tombol tambah transaksi, dan banner jastip yang sedang open.',
             action: 'Area ini jadi titik awal sebelum kamu masuk ke fitur lain.',
-            target: ['.greeting', '.page-title']
+            target: ['.greeting', '.page-title'],
+            cta: { label: 'Buka Home', url: 'dashboard.html' }
         },
         {
+            page: 'add-expense.html',
             eyebrow: 'Tambah Transaksi',
             title: 'Catat patungan dan split bill',
             body: 'Masukkan total belanja, pilih siapa yang bayar, lalu tentukan siapa saja yang ikut. Untuk split bill detail, item bisa dibagi per orang atau per porsi.',
             action: 'Tekan tombol plus untuk mulai catat pengeluaran baru.',
-            target: ['.fab', 'a[href="add-expense.html"]']
+            target: ['.fab', 'a[href="add-expense.html"]'],
+            cta: { label: 'Tambah Transaksi', url: 'add-expense.html' }
         },
         {
+            page: 'settle.html',
             eyebrow: 'Bayar & Tagih',
             title: 'Selesaikan hutang tanpa hitung manual',
             body: 'Halaman Bayar menampilkan saran pembayaran paling ringkas. Info rekening, e-wallet, dan QRIS diambil dari Profil penerima.',
             action: 'Buka menu Bayar atau tombol Bayar/Tagih di kartu saldo.',
-            target: ['.bottom-nav a[href="settle.html"]', '.balance-cards']
+            target: ['.bottom-nav a[href="settle.html"]', '.balance-cards'],
+            cta: { label: 'Buka Bayar', url: 'settle.html' }
         },
         {
+            page: 'jastip.html',
             eyebrow: 'Jastip Kontrakan',
             title: 'Open jastip dan kumpulkan titipan teman',
             body: 'Saat ada yang open jastip, teman kontrakan dapat notif. Mereka bisa titip beberapa item sekaligus, lalu owner mengisi hasil belanja dan harga.',
             action: 'Buka menu Jastip. Kalau sedang ada yang open, bannernya juga muncul di dashboard.',
-            target: ['#activeJastipBanner.show', '.bottom-nav a[href="jastip.html"]', '#openJastipButton']
+            target: ['#activeJastipBanner.show', '.bottom-nav a[href="jastip.html"]', '#openJastipButton'],
+            cta: { label: 'Open Jastip', url: 'jastip.html', action: 'open-jastip' }
         },
         {
+            page: 'history.html',
             eyebrow: 'Riwayat',
             title: 'Cek transaksi dan jastip dalam satu timeline',
             body: 'Riwayat menyatukan transaksi biasa dan jastip. Pakai filter kategori, pencarian, dan tanggal untuk menemukan catatan lama.',
             action: 'Ketuk kartu riwayat untuk melihat detail split dan item.',
-            target: ['.bottom-nav a[href="history.html"]', '#transactionList']
+            target: ['.filter-pill-row', '.bottom-nav a[href="history.html"]', '#transactionList'],
+            cta: { label: 'Buka Riwayat', url: 'history.html' }
         },
         {
+            page: 'profile.html',
             eyebrow: 'Notifikasi HP',
             title: 'Aktifkan push supaya tidak kelewat kabar',
             body: 'Push dipakai untuk jastip baru, tagihan, dan update penting. Di iPhone, buka app dari Home Screen dulu sebelum mengaktifkan notifikasi.',
             action: 'Dari Profil, tekan tombol Aktifkan Notif HP.',
-            target: ['#enablePushBtn', 'a[href="notifications.html"]']
+            target: ['#enablePushBtn', 'a[href="notifications.html"]'],
+            cta: { label: 'Aktifkan Notif', url: 'profile.html', action: 'enable-push' }
         },
         {
+            page: 'profile.html',
             eyebrow: 'Profil',
             title: 'Lengkapi data pembayaranmu',
             body: 'Isi nomor WhatsApp, rekening bank, e-wallet, dan QRIS. Data ini muncul saat teman mau bayar hutang ke kamu.',
             action: 'Nomor WA yang sudah tersimpan sekarang langsung kelihatan di kartu profil.',
-            target: ['#phoneWa', '.bottom-nav a[href="profile.html"]']
+            target: ['#phoneWa', '.bottom-nav a[href="profile.html"]'],
+            cta: { label: 'Isi Profil', url: 'profile.html', action: 'focus-profile' }
         }
     ];
 
     if (state.user?.role === 'admin') {
         steps.push({
+            page: 'profile.html',
             eyebrow: 'Admin',
             title: 'Kelola user dan data kontrakan',
             body: 'Admin panel dipakai untuk reset password, edit user, cek transaksi, hapus data bermasalah, dan monitoring jastip.',
             action: 'Admin panel muncul di Profil khusus akun admin.',
-            target: ['#adminSection a', 'a[href="admin.html"]']
+            target: ['#adminSection a', 'a[href="admin.html"]'],
+            cta: { label: 'Buka Admin', url: 'admin.html' }
         });
     }
 
@@ -201,6 +219,8 @@ function queueAutoFeatureTour() {
 
 function queuePendingManualFeatureTour() {
     if (!state.user || state.user.must_change_password) return false;
+    const resumed = resumeFeatureTourFromSession();
+    if (resumed) return true;
     if (sessionStorage.getItem('kontrakan_start_feature_tour') !== '1') return false;
     sessionStorage.removeItem('kontrakan_start_feature_tour');
     setTimeout(() => {
@@ -220,7 +240,7 @@ function startFeatureTour(options = {}) {
         return;
     }
     featureTourSteps = getFeatureTourSteps();
-    featureTourIndex = 0;
+    featureTourIndex = clampNumber(Number(options.index || 0), 0, featureTourSteps.length - 1);
     renderFeatureTour();
 }
 
@@ -229,16 +249,56 @@ function finishFeatureTour(markDone = true) {
     if (overlay) overlay.classList.remove('active');
     document.body.classList.remove('tour-open');
     removeFeatureTourListeners();
+    sessionStorage.removeItem(FEATURE_TOUR_SESSION_KEY);
     if (markDone && state.user) {
         localStorage.setItem(getFeatureTourKey(), 'done');
     }
 }
 
+function resetFeatureTourProgress() {
+    if (state.user) localStorage.removeItem(getFeatureTourKey());
+    sessionStorage.removeItem(FEATURE_TOUR_SESSION_KEY);
+    sessionStorage.removeItem(FEATURE_TOUR_PENDING_ACTION_KEY);
+    showToast('Tour direset. Mulai ulang dari Home.', 'success');
+    startFeatureTour({ manual: true });
+}
+
 function moveFeatureTour(delta) {
     const next = featureTourIndex + delta;
     if (next < 0 || next >= featureTourSteps.length) return;
+    const nextStep = featureTourSteps[next];
+    if (shouldNavigateForFeatureTour(nextStep)) {
+        saveFeatureTourResume(next, featureTourManual);
+        window.location.href = nextStep.page;
+        return;
+    }
     featureTourIndex = next;
     renderFeatureTour();
+}
+
+function resumeFeatureTourFromSession() {
+    const raw = sessionStorage.getItem(FEATURE_TOUR_SESSION_KEY);
+    if (!raw) return false;
+    let data = null;
+    try { data = JSON.parse(raw); } catch {}
+    sessionStorage.removeItem(FEATURE_TOUR_SESSION_KEY);
+    if (!data) return false;
+    setTimeout(() => {
+        if (!state.user || document.querySelector('.feature-tour-overlay.active')) return;
+        startFeatureTour({ manual: Boolean(data.manual), stayOnPage: true, index: Number(data.index || 0) });
+    }, 650);
+    return true;
+}
+
+function saveFeatureTourResume(index, manual) {
+    sessionStorage.setItem(FEATURE_TOUR_SESSION_KEY, JSON.stringify({ index, manual: Boolean(manual) }));
+}
+
+function shouldNavigateForFeatureTour(step) {
+    if (!step?.page) return false;
+    const current = getCurrentPageName();
+    const target = step.page;
+    return target !== current && !(target === 'dashboard.html' && current === '');
 }
 
 function renderFeatureTour() {
@@ -261,6 +321,9 @@ function renderFeatureTour() {
 
     const isFirst = featureTourIndex === 0;
     const isLast = featureTourIndex === featureTourSteps.length - 1;
+    const ctaHtml = step.cta?.label
+        ? `<button type="button" class="feature-tour-action" onclick="runFeatureTourAction()">${escapeHtml(step.cta.label)}</button>`
+        : '';
     overlay.innerHTML = `
         <div class="feature-tour-spotlight" aria-hidden="true"></div>
         <div class="feature-tour-card" role="dialog" aria-modal="true" aria-labelledby="featureTourTitle">
@@ -274,6 +337,7 @@ function renderFeatureTour() {
             <h2 id="featureTourTitle" class="feature-tour-title">${escapeHtml(step.title)}</h2>
             <p class="feature-tour-body">${escapeHtml(step.body)}</p>
             <div class="feature-tour-note">${escapeHtml(step.action)}</div>
+            ${ctaHtml}
             <div class="feature-tour-footer">
                 <button type="button" class="btn" onclick="finishFeatureTour(true)">${featureTourManual ? 'Tutup' : 'Lewati'}</button>
                 <div class="feature-tour-nav">
@@ -288,6 +352,68 @@ function renderFeatureTour() {
     document.body.classList.add('tour-open');
     addFeatureTourListeners();
     scheduleFeatureTourLayout();
+}
+
+function runFeatureTourAction() {
+    const step = featureTourSteps[featureTourIndex];
+    const cta = step?.cta;
+    if (!cta) return;
+
+    finishFeatureTour(true);
+    if (cta.action) {
+        sessionStorage.setItem(FEATURE_TOUR_PENDING_ACTION_KEY, cta.action);
+    }
+
+    const targetUrl = cta.url || step.page;
+    if (targetUrl && shouldNavigateForUrl(targetUrl)) {
+        window.location.href = targetUrl;
+        return;
+    }
+
+    runPendingFeatureTourAction();
+}
+
+function shouldNavigateForUrl(url) {
+    if (!url) return false;
+    const current = getCurrentPageName();
+    const target = url.split('?')[0].split('#')[0] || 'dashboard.html';
+    return target !== current && !(target === 'dashboard.html' && current === '');
+}
+
+function runPendingFeatureTourAction() {
+    const action = sessionStorage.getItem(FEATURE_TOUR_PENDING_ACTION_KEY);
+    if (!action) return;
+    sessionStorage.removeItem(FEATURE_TOUR_PENDING_ACTION_KEY);
+
+    setTimeout(() => {
+        if (action === 'open-jastip') {
+            if (typeof window.openOpenJastipModal === 'function') {
+                window.openOpenJastipModal();
+            } else {
+                document.getElementById('openJastipButton')?.click();
+            }
+            return;
+        }
+
+        if (action === 'enable-push') {
+            const btn = document.getElementById('enablePushBtn');
+            if (btn && !btn.classList.contains('hidden')) {
+                btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                btn.focus();
+                showToast('Tekan tombol ini untuk mengaktifkan notif HP.', 'info');
+            }
+            return;
+        }
+
+        if (action === 'focus-profile') {
+            const input = document.getElementById('phoneWa') || document.getElementById('displayName');
+            if (input) {
+                input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                input.focus();
+                showToast('Lengkapi profil lalu simpan.', 'info');
+            }
+        }
+    }, 450);
 }
 
 function getFeatureTourSelectorList(step) {
@@ -530,6 +656,7 @@ async function checkAuth() {
             }
             setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
             setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
+            setTimeout(runPendingFeatureTourAction, 300);
             if (!queuePendingManualFeatureTour()) queueAutoFeatureTour();
             return true;
         }
@@ -543,6 +670,7 @@ async function checkAuth() {
             }
             setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
             setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
+            setTimeout(runPendingFeatureTourAction, 300);
             if (!queuePendingManualFeatureTour()) queueAutoFeatureTour();
             return true;
         }
@@ -570,6 +698,7 @@ async function login(username, password) {
     }
     setTimeout(() => { if (typeof syncPushSubscription === 'function') syncPushSubscription(); }, 0);
     setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
+    setTimeout(runPendingFeatureTourAction, 300);
     if (!queuePendingManualFeatureTour()) queueAutoFeatureTour();
     return data;
 }
@@ -1411,3 +1540,5 @@ window.refreshActiveJastipBanner = refreshActiveJastipBanner;
 window.startFeatureTour = startFeatureTour;
 window.finishFeatureTour = finishFeatureTour;
 window.moveFeatureTour = moveFeatureTour;
+window.runFeatureTourAction = runFeatureTourAction;
+window.resetFeatureTourProgress = resetFeatureTourProgress;

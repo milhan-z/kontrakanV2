@@ -14,6 +14,7 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 - Admin panel punya audit log dasar untuk aksi penting admin.
 - Admin panel bisa membuka detail jastip: daftar item, status hasil belanja, total final, dan rekap penitip.
 - Notifikasi in-app sudah jadi inbox berkategori dengan mark read per item dan link ke halaman terkait.
+- Onboarding tour bisa pindah halaman, punya tombol aksi fitur, dan bisa direset dari Profil.
 - Serverless function tetap 12 file, masih aman untuk batas Vercel Hobby.
 
 ## Prioritas Berikutnya
@@ -58,9 +59,9 @@ Tujuan: notif tidak cuma badge, tapi bisa dipahami sebagai inbox.
 
 Tujuan: user baru cepat paham tanpa harus dijelaskan manual.
 
-- Tour bisa pindah halaman dan highlight elemen yang tepat.
-- Tambahkan tombol aksi di step tour: buka Jastip, isi Profil, aktifkan Notif.
-- Tambahkan reset tour di Profil.
+- Tour bisa pindah halaman dan highlight elemen yang tepat. (selesai)
+- Tambahkan tombol aksi di step tour: buka Jastip, isi Profil, aktifkan Notif. (selesai)
+- Tambahkan reset tour di Profil. (selesai)
 - Mini tips hanya muncul saat user belum pernah memakai fitur tersebut.
 
 ## Paket Implementasi Berurutan
@@ -70,7 +71,7 @@ Tujuan: user baru cepat paham tanpa harus dijelaskan manual.
 3. Admin audit log dasar. (selesai)
 4. Detail jastip admin. (selesai)
 5. Notifikasi inbox grouping. (selesai)
-6. Onboarding action tour.
+6. Onboarding action tour. (selesai)
 
 ## Catatan Teknis
 

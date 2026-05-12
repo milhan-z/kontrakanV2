@@ -1005,6 +1005,20 @@ body.tour-open {
     line-height: 1.4;
 }
 
+.feature-tour-action {
+    width: 100%;
+    min-height: 44px;
+    border: 0;
+    border-radius: var(--radius-full);
+    background: var(--green);
+    color: white;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 850;
+    margin-bottom: var(--space-sm);
+    cursor: pointer;
+}
+
 .feature-tour-footer {
     margin-top: var(--space-md);
 }
