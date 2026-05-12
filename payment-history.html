@@ -116,6 +116,16 @@
             font-size: 0.75rem;
         }
 
+        .payment-actions {
+            display: flex;
+            gap: var(--space-sm);
+            flex-wrap: wrap;
+        }
+
+        .payment-actions .btn {
+            min-height: 38px;
+        }
+
         .sticky-header {
             position: sticky;
             top: 0;
@@ -148,7 +158,10 @@
             <div class="date-filter">
                 <input type="date" class="date-input" id="fromDate">
                 <input type="date" class="date-input" id="toDate">
-                <button class="btn btn-clear-date" onclick="clearDateFilter()">Reset</button>
+                <div class="payment-actions">
+                    <button class="btn btn-clear-date" onclick="clearDateFilter()">Reset</button>
+                    <button class="btn btn-clear-date" onclick="exportPaymentCsv()">Export CSV</button>
+                </div>
             </div>
         </div>
         <div id="paymentList">
@@ -224,6 +237,7 @@
     <script src="js/app.js"></script>
     <script>
         let allSettlements = [];
+        let currentPaymentRows = [];
         let currentUserId = null;
         let allUsers = [];
 
@@ -299,7 +313,13 @@
                 renderPayments('all');
             } catch (err) {
                 console.error('Error loading settlements:', err);
-                document.getElementById('paymentList').innerHTML = '<div class="empty-state">Gagal memuat data</div>';
+                currentPaymentRows = [];
+                document.getElementById('paymentList').innerHTML = renderEmptyState({
+                    title: 'Gagal memuat pembayaran',
+                    body: 'Koneksi atau server sedang bermasalah.',
+                    action: 'loadSettlements()',
+                    actionText: 'Coba Lagi'
+                });
             }
         }
 
@@ -338,25 +358,39 @@
                 return true;
             });
 
+            filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            currentPaymentRows = filtered;
+
             if (filtered.length === 0) {
-                container.innerHTML = '<div class="empty-state">Belum ada pembayaran</div>';
+                container.innerHTML = renderEmptyState({
+                    title: 'Belum ada pembayaran',
+                    body: 'Pembayaran yang cocok dengan filter akan muncul di sini.'
+                });
                 return;
             }
 
             container.innerHTML = filtered.map(s => {
-                const isOutgoing = s.from_user === currentUserId;
+                const fromUser = parseInt(s.from_user);
+                const isOutgoing = fromUser === currentUserId;
                 const otherName = isOutgoing ? s.to_name : s.from_name;
-                const direction = isOutgoing ? `Kamu → ${escapeHtml(otherName)}` : `${escapeHtml(s.from_name)} → Kamu`;
+                const direction = isOutgoing ? `Kamu -> ${otherName || '-'}` : `${s.from_name || '-'} -> Kamu`;
                 const amountClass = isOutgoing ? 'out' : '';
                 const prefix = isOutgoing ? '-' : '+';
-                const receiptIcon = s.receipt_image ? `<span style="font-size: 0.7rem; color: var(--green); margin-left: 4px;">📎</span>` : '';
+                const receiptIcon = s.receipt_image ? `<span style="font-size: 0.7rem; color: var(--green); margin-left: 4px;">Bukti</span>` : '';
+                const detail = {
+                    direction,
+                    amount: Number(s.amount || 0),
+                    createdAt: s.created_at,
+                    receiptImage: s.receipt_image || '',
+                    isOutgoing
+                };
 
                 return `
                     <div class="payment-item" style="cursor: pointer;" 
-                        onclick="showPaymentDetail('${direction}', ${s.amount}, '${s.created_at}', '${s.receipt_image || ''}', ${isOutgoing})">
+                        onclick="showPaymentDetail(${safeJsonForAttr(detail)})">
                         <div class="payment-info">
-                            <div class="payment-users">${direction}${receiptIcon}</div>
-                            <div class="payment-date">${formatDateRelative(s.created_at)} · ${formatDateFull(s.created_at)}</div>
+                            <div class="payment-users">${escapeHtml(direction)}${receiptIcon}</div>
+                            <div class="payment-date">${formatDateRelative(s.created_at)} - ${formatDateFull(s.created_at)}</div>
                         </div>
                         <div class="payment-amount ${amountClass}">${prefix}Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</div>
                     </div>
@@ -371,6 +405,72 @@
             renderPayments(activeUser);
         }
 
+        function exportPaymentCsv() {
+            if (!currentPaymentRows.length) {
+                showToast('Tidak ada pembayaran untuk diexport', 'info');
+                return;
+            }
+
+            const headers = [
+                'tanggal',
+                'dari',
+                'ke',
+                'arah',
+                'nominal',
+                'bukti_transfer',
+                'id'
+            ];
+            const rows = currentPaymentRows.map(mapPaymentCsvRow);
+            const csv = [headers, ...rows].map(cols => cols.map(csvEscape).join(',')).join('\r\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const activeUser = document.querySelector('.filter-btn.active')?.dataset.user || 'all';
+            const filterName = activeUser === 'all'
+                ? 'semua'
+                : (allUsers.find(user => String(user.id) === String(activeUser))?.name || 'user')
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/gi, '-');
+            const stamp = new Date().toISOString().slice(0, 10);
+            link.href = url;
+            link.download = `riwayat-pembayaran-${filterName}-${stamp}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+            showToast('CSV pembayaran dibuat', 'success');
+        }
+
+        function mapPaymentCsvRow(settlement) {
+            const fromUser = parseInt(settlement.from_user);
+            const toUser = parseInt(settlement.to_user);
+            const direction = fromUser === currentUserId
+                ? 'kamu_bayar'
+                : toUser === currentUserId
+                    ? 'kamu_terima'
+                    : 'lainnya';
+
+            return [
+                formatCsvDate(settlement.created_at),
+                settlement.from_name || '',
+                settlement.to_name || '',
+                direction,
+                Number(settlement.amount || 0),
+                settlement.receipt_image ? imageUrl(settlement.receipt_image) : '',
+                settlement.id || ''
+            ];
+        }
+
+        function csvEscape(value) {
+            const text = String(value ?? '');
+            return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+        }
+
+        function formatCsvDate(dateStr) {
+            if (!dateStr) return '';
+            return new Date(dateStr).toLocaleString('id-ID');
+        }
+
         // Date filter change handlers
         document.getElementById('fromDate').addEventListener('change', () => {
             const activeUser = document.querySelector('.filter-btn.active').dataset.user;
@@ -382,7 +482,12 @@
         });
 
         // Show payment detail modal
-        function showPaymentDetail(direction, amount, createdAt, imagePath, isOutgoing) {
+        function showPaymentDetail(detail) {
+            const direction = detail.direction || '-';
+            const amount = Number(detail.amount || 0);
+            const createdAt = detail.createdAt;
+            const imagePath = detail.receiptImage || '';
+            const isOutgoing = Boolean(detail.isOutgoing);
             const amountColor = isOutgoing ? 'var(--red)' : 'var(--green)';
             const prefix = isOutgoing ? '-' : '+';
 

@@ -8,6 +8,7 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 - Jastip sudah punya flow open, nitip banyak item, owner checklist, reopen, close, complete, delete history.
 - Riwayat transaksi sudah menyatukan transaksi biasa dan jastip.
 - Riwayat transaksi bisa diexport ke CSV sesuai filter aktif.
+- Riwayat pembayaran bisa diexport ke CSV sesuai filter user dan tanggal.
 - Detail transaksi sudah menampilkan rincian item split bill/jastip.
 - Halaman Bayar/Tagih sudah lebih aman dari error inline handler dan punya shortcut chat WA.
 - Serverless function tetap 12 file, masih aman untuk batas Vercel Hobby.
@@ -19,7 +20,7 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 Tujuan: kalau ada selisih tagihan, data bisa dicek tanpa buka database.
 
 - Export riwayat transaksi sesuai filter ke CSV.
-- Export pembayaran ke CSV.
+- Export pembayaran ke CSV. (selesai)
 - Ringkasan bulanan: total per kategori, total per user, jastip selesai.
 - Admin audit log untuk aksi penting: reset password, edit user, hapus transaksi, hapus jastip, reset data.
 
@@ -61,8 +62,8 @@ Tujuan: user baru cepat paham tanpa harus dijelaskan manual.
 
 ## Paket Implementasi Berurutan
 
-1. Export CSV riwayat transaksi.
-2. Export CSV riwayat pembayaran.
+1. Export CSV riwayat transaksi. (selesai)
+2. Export CSV riwayat pembayaran. (selesai)
 3. Admin audit log dasar.
 4. Detail jastip admin.
 5. Notifikasi inbox grouping.
