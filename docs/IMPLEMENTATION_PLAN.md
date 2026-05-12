@@ -11,6 +11,7 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 - Riwayat pembayaran bisa diexport ke CSV sesuai filter user dan tanggal.
 - Detail transaksi sudah menampilkan rincian item split bill/jastip.
 - Halaman Bayar/Tagih sudah lebih aman dari error inline handler dan punya shortcut chat WA.
+- Admin panel punya audit log dasar untuk aksi penting admin.
 - Serverless function tetap 12 file, masih aman untuk batas Vercel Hobby.
 
 ## Prioritas Berikutnya
@@ -22,7 +23,7 @@ Tujuan: kalau ada selisih tagihan, data bisa dicek tanpa buka database.
 - Export riwayat transaksi sesuai filter ke CSV.
 - Export pembayaran ke CSV. (selesai)
 - Ringkasan bulanan: total per kategori, total per user, jastip selesai.
-- Admin audit log untuk aksi penting: reset password, edit user, hapus transaksi, hapus jastip, reset data.
+- Admin audit log untuk aksi penting: reset password, edit user, hapus user, hapus jastip, reset data. (dasar selesai)
 
 ### 2. Admin Panel Lebih Aman
 
@@ -64,7 +65,7 @@ Tujuan: user baru cepat paham tanpa harus dijelaskan manual.
 
 1. Export CSV riwayat transaksi. (selesai)
 2. Export CSV riwayat pembayaran. (selesai)
-3. Admin audit log dasar.
+3. Admin audit log dasar. (selesai)
 4. Detail jastip admin.
 5. Notifikasi inbox grouping.
 6. Onboarding action tour.

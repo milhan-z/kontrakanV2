@@ -47,16 +47,38 @@
             border-color: var(--text-primary);
         }
 
-        .date-filter {
-            display: flex;
+        .date-toolbar {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
             gap: var(--space-sm);
             margin-bottom: var(--space-sm);
-            flex-wrap: wrap;
+            align-items: end;
+        }
+
+        .date-filter {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: var(--space-sm);
+            min-width: 0;
+        }
+
+        .date-field {
+            display: grid;
+            gap: 5px;
+            min-width: 0;
+        }
+
+        .date-label {
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding-left: 3px;
+            text-transform: uppercase;
         }
 
         .date-input {
-            flex: 1;
-            min-width: 100px;
+            width: 100%;
+            min-width: 0;
             padding: var(--space-sm) var(--space-md);
             border: 1px solid var(--border-color);
             border-radius: var(--radius-full);
@@ -72,7 +94,8 @@
         }
 
         .btn-clear {
-            padding: var(--space-sm) var(--space-md);
+            min-height: 38px;
+            padding: 8px 14px;
             border-radius: var(--radius-full);
             font-size: 0.75rem;
         }
@@ -80,10 +103,13 @@
         .history-actions {
             display: flex;
             gap: var(--space-sm);
+            justify-content: flex-end;
+            align-items: end;
         }
 
         .history-actions .btn {
-            flex: 1;
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
 
         .filter-scroll {
@@ -162,6 +188,16 @@
             padding-top: var(--space-md);
             font-weight: 800;
         }
+
+        @media (max-width: 520px) {
+            .date-toolbar {
+                grid-template-columns: 1fr;
+            }
+
+            .history-actions {
+                margin-top: 2px;
+            }
+        }
     </style>
     <link rel="prefetch" href="dashboard.html">
     <link rel="prefetch" href="settle.html">
@@ -192,15 +228,22 @@
                 <input type="text" class="search-input" id="searchInput" placeholder="Cari transaksi...">
             </div>
 
-            <!-- Date Filter -->
-            <div class="date-filter">
-                <input type="date" class="date-input" id="fromDate">
-                <input type="date" class="date-input" id="toDate">
-            </div>
+            <div class="date-toolbar">
+                <div class="date-filter">
+                    <label class="date-field">
+                        <span class="date-label">Dari</span>
+                        <input type="date" class="date-input" id="fromDate">
+                    </label>
+                    <label class="date-field">
+                        <span class="date-label">Sampai</span>
+                        <input type="date" class="date-input" id="toDate">
+                    </label>
+                </div>
 
-            <div class="history-actions">
-                <button class="btn btn-clear" onclick="clearFilters()">Reset</button>
-                <button class="btn btn-primary btn-clear" onclick="exportHistoryCsv()">Export CSV</button>
+                <div class="history-actions">
+                    <button class="btn btn-clear" onclick="clearFilters()">Reset</button>
+                    <button class="btn btn-primary btn-clear" onclick="exportHistoryCsv()">Export CSV</button>
+                </div>
             </div>
         </div>
 

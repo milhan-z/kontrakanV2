@@ -657,6 +657,7 @@
             <button class="tab-btn" data-tab="payments"><span class="tab-icon" data-icon="creditCard"></span>Bayar</button>
             <button class="tab-btn" data-tab="jastip"><span class="tab-icon" data-icon="package"></span>Jastip</button>
             <button class="tab-btn" data-tab="info"><span class="tab-icon" data-icon="info"></span>Info</button>
+            <button class="tab-btn" data-tab="audit"><span class="tab-icon" data-icon="history"></span>Audit</button>
             <button class="tab-btn" data-tab="reset"><span class="tab-icon" data-icon="alertTriangle"></span>Reset</button>
         </nav>
 
@@ -796,6 +797,16 @@
                 </div>
                 <div class="admin-panel">
                     <div class="data-list" id="infoList"><div class="empty-state">Memuat...</div></div>
+                </div>
+            </section>
+
+            <section class="tab-content" id="tab-audit">
+                <div class="section-head">
+                    <div class="section-title"><span class="admin-icon" data-icon="history"></span>Audit Admin</div>
+                    <span class="section-meta" id="auditSummary">0 log</span>
+                </div>
+                <div class="admin-panel">
+                    <div class="data-list" id="auditList"><div class="empty-state">Memuat...</div></div>
                 </div>
             </section>
 
@@ -952,6 +963,7 @@
             settlements: [],
             info: [],
             jastip: [],
+            audit: [],
             refreshing: false,
             refreshTimer: null
         };
@@ -1028,13 +1040,14 @@
             try {
                 if (!silent) showLoading();
 
-                const [usersData, statsData, expData, settleData, infoData, jastipData] = await Promise.all([
+                const [usersData, statsData, expData, settleData, infoData, jastipData, auditData] = await Promise.all([
                     apiGetFresh('users'),
                     apiGetFresh('admin?action=stats'),
                     apiGetFresh('expenses?limit=500'),
                     apiGetFresh('settlements?limit=500'),
                     apiGetFresh('info?limit=200'),
-                    apiGetFresh('jastip?limit=100')
+                    apiGetFresh('jastip?limit=100'),
+                    apiGetFresh('admin?action=audit&limit=50')
                 ]);
 
                 state.users = usersData.users || [];
@@ -1043,6 +1056,7 @@
                 adminState.settlements = settleData.settlements || [];
                 adminState.info = infoData.info || [];
                 adminState.jastip = jastipData.orders || [];
+                adminState.audit = auditData.logs || [];
 
                 renderDashboard();
                 renderUsers();
@@ -1050,6 +1064,7 @@
                 renderPayments();
                 renderInfo();
                 renderJastip();
+                renderAudit();
                 document.getElementById('lastUpdated').textContent = `Update ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
             } catch (err) {
                 console.error(err);
@@ -1065,6 +1080,7 @@
             renderTransactions();
             renderPayments();
             renderJastip();
+            renderAudit();
         }
 
         function renderDashboard() {
@@ -1283,6 +1299,29 @@
                     <button class="mini-btn red" onclick="deleteInfo(${Number(info.id)})">Hapus</button>
                 </div>
             `).join('') : '<div class="empty-state">Belum ada info.</div>';
+        }
+
+        function renderAudit() {
+            const rows = adminState.audit || [];
+            setText('auditSummary', `${rows.length} log terbaru`);
+            document.getElementById('auditList').innerHTML = rows.length ? rows.map(log => {
+                const meta = normalizeObject(log.metadata);
+                const detail = auditDetailText(meta);
+                return `
+                    <div class="data-row">
+                        <div class="data-main">
+                            <div class="data-title">${escapeHtml(auditActionLabel(log.action))}</div>
+                            <div class="data-subtitle">${escapeHtml(log.target_label || auditTargetLabel(log.target_type) || '-')}</div>
+                            <div class="data-meta">
+                                <span class="chip blue">${escapeHtml(log.admin_name || log.admin_username || 'Admin')}</span>
+                                <span class="chip">${formatDateShort(log.created_at)}</span>
+                                ${log.target_type ? `<span class="chip">${escapeHtml(auditTargetLabel(log.target_type))}</span>` : ''}
+                            </div>
+                            ${detail ? `<div class="data-subtitle">${escapeHtml(detail)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('') : '<div class="empty-state">Belum ada audit log. Aksi admin berikutnya akan tercatat di sini.</div>';
         }
 
         function renderJastip() {
@@ -1630,6 +1669,49 @@
                 completed: 'blue',
                 cancelled: 'red'
             })[status] || '';
+        }
+
+        function auditActionLabel(action) {
+            return ({
+                add_user: 'Tambah user',
+                update_user: 'Edit user',
+                reset_password: 'Reset password',
+                delete_user: 'Hapus user',
+                delete_jastip: 'Hapus jastip',
+                clear_expenses: 'Clear transaksi',
+                reset_data: 'Reset data'
+            })[action] || String(action || 'Aktivitas admin').replace(/_/g, ' ');
+        }
+
+        function auditTargetLabel(targetType) {
+            return ({
+                user: 'User',
+                jastip: 'Jastip',
+                system: 'Sistem'
+            })[targetType] || targetType || '';
+        }
+
+        function auditDetailText(meta) {
+            if (!meta || typeof meta !== 'object') return '';
+            if (meta.target) return `Target: ${meta.target}`;
+            if (meta.username) return `Username: ${meta.username}`;
+            if (meta.before && meta.after) {
+                const changed = ['username', 'display_name', 'phone_wa', 'role', 'must_change_password']
+                    .filter(key => String(meta.before[key] ?? '') !== String(meta.after[key] ?? ''));
+                return changed.length ? `Diubah: ${changed.join(', ')}` : '';
+            }
+            return '';
+        }
+
+        function normalizeObject(value) {
+            if (!value) return {};
+            if (typeof value === 'object') return value;
+            try {
+                const parsed = JSON.parse(value);
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            } catch {
+                return {};
+            }
         }
 
         function isWithinDateRange(dateStr, fromDate, toDate) {

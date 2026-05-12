@@ -1,6 +1,7 @@
 /**
  * api/admin.js - Admin API
  * GET    ?action=stats              - Statistics
+ * GET    ?action=audit              - Admin audit log
  * POST   ?action=add-user           - Add member
  * PUT    ?action=update-user        - Update member data
  * PUT    ?action=reset-password     - Reset password
@@ -23,15 +24,16 @@ module.exports = async function handler(req, res) {
   const action = req.query.action || '';
 
   // Route /api/reset → reset handler (admin-only data wipe)
-  if ((req.url || '').includes('/reset')) return resetData(req, res);
+  if ((req.url || '').includes('/reset')) return resetData(req, res, user);
 
   if (req.method === 'GET'    && action === 'stats')          return getStats(req, res);
-  if (req.method === 'POST'   && action === 'add-user')       return addUser(req, res);
+  if (req.method === 'GET'    && action === 'audit')          return getAuditLogs(req, res);
+  if (req.method === 'POST'   && action === 'add-user')       return addUser(req, res, user);
   if (req.method === 'PUT'    && action === 'update-user')    return updateUser(req, res, user);
-  if (req.method === 'PUT'    && action === 'reset-password') return resetPassword(req, res);
-  if (req.method === 'DELETE' && action === 'delete-user')    return deleteUser(req, res);
-  if (req.method === 'DELETE' && action === 'delete-jastip')  return deleteJastip(req, res);
-  if (req.method === 'DELETE' && action === 'clear-expenses') return clearExpenses(req, res);
+  if (req.method === 'PUT'    && action === 'reset-password') return resetPassword(req, res, user);
+  if (req.method === 'DELETE' && action === 'delete-user')    return deleteUser(req, res, user);
+  if (req.method === 'DELETE' && action === 'delete-jastip')  return deleteJastip(req, res, user);
+  if (req.method === 'DELETE' && action === 'clear-expenses') return clearExpenses(req, res, user);
 
   return jsonResponse(res, { error: 'Invalid action' }, 400);
 };
@@ -94,7 +96,29 @@ async function getStats(req, res) {
   });
 }
 
-async function addUser(req, res) {
+async function getAuditLogs(req, res) {
+  const db = getDB();
+  await ensureAuditTable(db);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || '50', 10) || 50, 1), 100);
+  const rows = await safeRows(db, `
+    SELECT l.id,
+           l.action,
+           l.target_type,
+           l.target_id,
+           l.target_label,
+           l.metadata,
+           l.created_at,
+           u.display_name AS admin_name,
+           u.username AS admin_username
+    FROM admin_audit_logs l
+    LEFT JOIN users u ON u.id = l.admin_user_id
+    ORDER BY l.created_at DESC
+    LIMIT $1
+  `, [limit]);
+  return jsonResponse(res, { logs: rows });
+}
+
+async function addUser(req, res, adminUser) {
   const input = await getBody(req);
   const normalizedUsername = String(input.username || '').trim().toLowerCase();
   const normalizedDisplayName = String(input.display_name || '').trim();
@@ -124,6 +148,10 @@ async function addUser(req, res) {
     "INSERT INTO users (username, password_hash, display_name, role, must_change_password) VALUES ($1, $2, $3, 'member', TRUE) RETURNING id",
     [normalizedUsername, hash, normalizedDisplayName]
   );
+  await logAdminAction(db, adminUser, 'add_user', 'user', result.rows[0].id, normalizedDisplayName, {
+    username: normalizedUsername,
+    role: 'member',
+  });
 
   return jsonResponse(res, {
     success: true,
@@ -201,6 +229,22 @@ async function updateUser(req, res, adminUser) {
     [normalizedUsername, normalizedDisplayName, phoneWa, role, mustChangePassword, userId]
   );
   const updatedUser = result.rows[0];
+  await logAdminAction(db, adminUser, 'update_user', 'user', userId, updatedUser.display_name, {
+    before: {
+      username: current.username,
+      display_name: current.display_name,
+      phone_wa: current.phone_wa,
+      role: current.role,
+      must_change_password: current.must_change_password,
+    },
+    after: {
+      username: updatedUser.username,
+      display_name: updatedUser.display_name,
+      phone_wa: updatedUser.phone_wa,
+      role: updatedUser.role,
+      must_change_password: updatedUser.must_change_password,
+    },
+  });
 
   let token = null;
   if (userId === adminUser.user_id) {
@@ -220,7 +264,7 @@ async function updateUser(req, res, adminUser) {
   });
 }
 
-async function resetPassword(req, res) {
+async function resetPassword(req, res, adminUser) {
   const input = await getBody(req);
   const userId = parseInt(input.user_id || '0');
   if (!userId) return jsonResponse(res, { error: 'User ID required' }, 400);
@@ -230,10 +274,12 @@ async function resetPassword(req, res) {
 
   const temporaryPassword = generateTemporaryPassword();
   const hash = await bcrypt.hash(temporaryPassword, 10);
-  await db.query(
-    'UPDATE users SET password_hash = $1, must_change_password = TRUE WHERE id = $2',
+  const result = await db.query(
+    'UPDATE users SET password_hash = $1, must_change_password = TRUE WHERE id = $2 RETURNING id, display_name',
     [hash, userId]
   );
+  if (!result.rows[0]) return jsonResponse(res, { error: 'User tidak ditemukan' }, 404);
+  await logAdminAction(db, adminUser, 'reset_password', 'user', userId, result.rows[0].display_name);
 
   return jsonResponse(res, {
     success: true,
@@ -243,7 +289,7 @@ async function resetPassword(req, res) {
   });
 }
 
-async function deleteUser(req, res) {
+async function deleteUser(req, res, adminUser) {
   const userId = parseInt(req.query.id || '0');
   if (!userId) return jsonResponse(res, { error: 'User ID required' }, 400);
 
@@ -274,18 +320,20 @@ async function deleteUser(req, res) {
     return jsonResponse(res, { error: 'User masih punya nitipan di jastip aktif.' }, 400);
 
   await db.query('DELETE FROM users WHERE id = $1', [userId]);
+  await logAdminAction(db, adminUser, 'delete_user', 'user', userId, user.display_name);
   return jsonResponse(res, { success: true, message: `Member ${user.display_name} berhasil dihapus` });
 }
 
-async function clearExpenses(req, res) {
+async function clearExpenses(req, res, adminUser) {
   const db = getDB();
   await db.query('DELETE FROM expenses');
   await db.query('DELETE FROM settlements');
   await db.query('DELETE FROM notifications');
+  await logAdminAction(db, adminUser, 'clear_expenses', 'system', null, 'Transaksi dan pembayaran');
   return jsonResponse(res, { success: true, message: 'All expenses, settlements, and notifications cleared' });
 }
 
-async function deleteJastip(req, res) {
+async function deleteJastip(req, res, adminUser) {
   const id = parseInt(req.query.id || req.query.order_id || '0', 10);
   if (!id) return jsonResponse(res, { error: 'Jastip ID required' }, 400);
 
@@ -294,6 +342,7 @@ async function deleteJastip(req, res) {
   if (!existing[0]) return jsonResponse(res, { error: 'Jastip tidak ditemukan' }, 404);
 
   await db.query('DELETE FROM jastip_orders WHERE id = $1', [id]);
+  await logAdminAction(db, adminUser, 'delete_jastip', 'jastip', id, existing[0].title);
   return jsonResponse(res, {
     success: true,
     message: `Jastip ${existing[0].title} berhasil dihapus`,
@@ -301,7 +350,7 @@ async function deleteJastip(req, res) {
 }
 
 // Reset specific data (served via /api/reset → /api/admin.js)
-async function resetData(req, res) {
+async function resetData(req, res, adminUser) {
   const input = req.method === 'POST' ? await require('../lib/db').getBody(req) : {};
   const target = normalizeResetTarget(input.target || input.type);
   const db = getDB();
@@ -319,12 +368,14 @@ async function resetData(req, res) {
       await deleteTable(client, 'notifications');
       await deleteTable(client, 'info_kontrakan');
       await client.query('COMMIT');
+      await logAdminAction(db, adminUser, 'reset_data', 'system', null, 'Semua Sistem', { target });
       return jsonResponse(res, { success: true, message: 'Semua data sistem berhasil direset' });
     }
 
     if (target === 'settlements') {
       await deleteTable(client, 'settlements');
       await client.query('COMMIT');
+      await logAdminAction(db, adminUser, 'reset_data', 'system', null, 'Pembayaran', { target });
       return jsonResponse(res, { success: true, message: 'Riwayat pembayaran berhasil dihapus' });
     }
 
@@ -332,18 +383,21 @@ async function resetData(req, res) {
       await deleteTable(client, 'expense_splits');
       await deleteTable(client, 'expenses');
       await client.query('COMMIT');
+      await logAdminAction(db, adminUser, 'reset_data', 'system', null, 'Transaksi', { target });
       return jsonResponse(res, { success: true, message: 'Transaksi berhasil dihapus' });
     }
 
     if (target === 'info') {
       await deleteTable(client, 'info_kontrakan');
       await client.query('COMMIT');
+      await logAdminAction(db, adminUser, 'reset_data', 'system', null, 'Info', { target });
       return jsonResponse(res, { success: true, message: 'Info kontrakan berhasil dihapus' });
     }
 
     if (target === 'notifications') {
       await deleteTable(client, 'notifications');
       await client.query('COMMIT');
+      await logAdminAction(db, adminUser, 'reset_data', 'system', null, 'Notifikasi', { target });
       return jsonResponse(res, { success: true, message: 'Notifikasi berhasil dihapus' });
     }
 
@@ -351,6 +405,7 @@ async function resetData(req, res) {
       await deleteTable(client, 'jastip_items');
       await deleteTable(client, 'jastip_orders');
       await client.query('COMMIT');
+      await logAdminAction(db, adminUser, 'reset_data', 'system', null, 'Jastip', { target });
       return jsonResponse(res, { success: true, message: 'Data jastip berhasil dihapus' });
     }
 
@@ -373,6 +428,46 @@ async function ensureUserColumns(db) {
     ALTER TABLE users
     ADD COLUMN IF NOT EXISTS phone_wa VARCHAR(20) DEFAULT NULL
   `);
+}
+
+async function ensureAuditTable(db) {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS admin_audit_logs (
+      id SERIAL PRIMARY KEY,
+      admin_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+      action VARCHAR(80) NOT NULL,
+      target_type VARCHAR(60),
+      target_id INT,
+      target_label TEXT,
+      metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_created
+    ON admin_audit_logs(created_at DESC)
+  `);
+}
+
+async function logAdminAction(db, adminUser, action, targetType, targetId, targetLabel, metadata = {}) {
+  try {
+    await ensureAuditTable(db);
+    await db.query(
+      `INSERT INTO admin_audit_logs
+       (admin_user_id, action, target_type, target_id, target_label, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+      [
+        adminUser?.user_id || null,
+        action,
+        targetType || null,
+        targetId || null,
+        targetLabel || null,
+        JSON.stringify(metadata || {}),
+      ]
+    );
+  } catch (err) {
+    console.error('Failed to write admin audit log:', err);
+  }
 }
 
 function generateTemporaryPassword() {
