@@ -1294,6 +1294,143 @@ body.tour-open {
     font-size: 0.8125rem;
 }
 
+.rich-empty {
+    display: grid;
+    gap: 8px;
+    justify-items: center;
+}
+
+.rich-empty-title {
+    color: var(--text-primary);
+    font-weight: 750;
+}
+
+.rich-empty-body {
+    max-width: 280px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.rich-empty-action {
+    margin-top: 4px;
+}
+
+.skeleton-list {
+    display: grid;
+    gap: 12px;
+}
+
+.skeleton-row {
+    display: grid;
+    gap: 8px;
+    padding: var(--space-md) 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.skeleton-row:last-child {
+    border-bottom: 0;
+}
+
+.skeleton-title {
+    width: 62%;
+    height: 16px;
+}
+
+.skeleton-line {
+    width: 42%;
+    height: 12px;
+}
+
+.detail-section {
+    margin-top: var(--space-md);
+}
+
+.detail-section-title {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: var(--space-sm);
+}
+
+.detail-muted {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.4;
+}
+
+.detail-split-list,
+.detail-item-list {
+    display: grid;
+    gap: 8px;
+}
+
+.detail-split-card {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-secondary);
+    padding: 12px;
+}
+
+.detail-split-head,
+.detail-item-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-sm);
+    align-items: start;
+}
+
+.detail-split-head {
+    color: var(--text-primary);
+    font-weight: 750;
+}
+
+.detail-item-list {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-light);
+}
+
+.detail-item-row {
+    font-size: 0.82rem;
+}
+
+.detail-item-name {
+    color: var(--text-primary);
+    font-weight: 650;
+    overflow-wrap: anywhere;
+}
+
+.detail-item-name span {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 650;
+}
+
+#pushStatus {
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-hover);
+    line-height: 1.35;
+}
+
+#pushStatus[data-status="success"] {
+    color: var(--green) !important;
+    background: var(--green-light);
+}
+
+#pushStatus[data-status="warning"] {
+    color: var(--yellow) !important;
+    background: var(--yellow-light);
+}
+
+#pushStatus[data-status="error"] {
+    color: var(--red) !important;
+    background: var(--red-light);
+}
+
 /* ===== PAGE HEADER ===== */
 .page-header {
     display: flex;

@@ -688,7 +688,8 @@ function formatCurrency(amount) {
 }
 
 function formatCurrencyPlain(amount) {
-    return 'Rp ' + parseFloat(amount).toLocaleString('id-ID');
+    const num = Number(amount);
+    return 'Rp ' + (Number.isFinite(num) ? num : 0).toLocaleString('id-ID');
 }
 
 function formatCurrencyShort(amount) {
@@ -713,6 +714,125 @@ function formatDate(dateStr) {
     if (diff < 604800000) return `${Math.floor(diff / 86400000)}h lalu`;
 
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+}
+
+function formatDateFullSafe(dateStr) {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+}
+
+function parseSplitItems(items) {
+    try {
+        let parsed = items;
+        while (typeof parsed === 'string') parsed = JSON.parse(parsed);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch {
+        return [];
+    }
+}
+
+function getSplitUserName(split) {
+    return state.users.find(user => user.id == split.user_id)?.display_name
+        || split.display_name
+        || split.user_name
+        || 'Unknown';
+}
+
+function renderEmptyState({ title = 'Belum ada data', body = '', action = '', actionText = 'Coba lagi' } = {}) {
+    return `
+        <div class="empty-state rich-empty">
+            <div class="rich-empty-title">${escapeHtml(title)}</div>
+            ${body ? `<div class="rich-empty-body">${escapeHtml(body)}</div>` : ''}
+            ${action ? `<button class="btn btn-primary rich-empty-action" onclick="${escapeAttribute(action)}">${escapeHtml(actionText)}</button>` : ''}
+        </div>
+    `;
+}
+
+function renderSkeletonList(count = 3) {
+    return `
+        <div class="skeleton-list">
+            ${Array.from({ length: count }).map(() => `
+                <div class="skeleton-row">
+                    <div class="skeleton skeleton-title"></div>
+                    <div class="skeleton skeleton-line"></div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderTransactionDetailContent(tx, options = {}) {
+    const isPayer = tx.paid_by == state.user?.id;
+    const canDelete = options.canDelete ?? (isPayer || state.user?.role === 'admin');
+    const deleteAction = options.deleteAction || `deleteExpenseFromDetail(${Number(tx.id)})`;
+    const amountColor = tx.category === 'Listrik'
+        ? 'var(--text-primary)'
+        : (isPayer ? 'var(--green)' : 'var(--red)');
+    const splits = Array.isArray(tx.splits) ? tx.splits : [];
+    const itemCount = splits.reduce((sum, split) => sum + parseSplitItems(split.items).length, 0);
+
+    let splitInfo = '';
+    if (tx.category === 'Listrik') {
+        splitInfo = `
+            <div class="detail-section">
+                <div class="detail-section-title">Pembagian</div>
+                <div class="detail-muted">Sistem rotasi, tidak dibagi ke semua orang.</div>
+            </div>
+        `;
+    } else if (splits.length > 0) {
+        splitInfo = `
+            <div class="detail-section">
+                <div class="detail-section-title">Dibagi ke ${splits.length} orang${itemCount ? ` - ${itemCount} item` : ''}</div>
+                <div class="detail-split-list">
+                    ${splits.map(split => {
+                        const userName = getSplitUserName(split);
+                        const items = parseSplitItems(split.items);
+                        return `
+                            <div class="detail-split-card">
+                                <div class="detail-split-head">
+                                    <span>${escapeHtml(userName)}</span>
+                                    <strong>${formatCurrencyPlain(split.amount || 0)}</strong>
+                                </div>
+                                ${items.length ? `
+                                    <div class="detail-item-list">
+                                        ${items.map(item => `
+                                            <div class="detail-item-row">
+                                                <div>
+                                                    <div class="detail-item-name">${escapeHtml(item.item || item.item_name || 'Item')} ${item.qty ? `<span>x${escapeHtml(item.qty)}</span>` : ''}</div>
+                                                    ${item.note ? `<div class="detail-muted">${escapeHtml(item.note)}</div>` : ''}
+                                                </div>
+                                                <strong>${formatCurrencyPlain(item.price || 0)}</strong>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : '<div class="detail-muted">Tidak ada rincian item.</div>'}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        ${tx.receipt_image ? `<img src="${escapeAttribute(imageUrl(tx.receipt_image))}" class="info-detail-image" alt="Bukti">` : ''}
+        <h2 style="margin-bottom: var(--space-sm);">${escapeHtml(tx.description)}</h2>
+        <div style="font-size: 1.5rem; font-weight: 700; color: ${amountColor}; margin-bottom: var(--space-md);">
+            ${formatCurrencyPlain(tx.amount || 0)}
+        </div>
+        <div class="info-detail-meta">
+            <div><strong>Kategori:</strong> ${escapeHtml(tx.category)}</div>
+            <div><strong>Dibayar oleh:</strong> ${escapeHtml(tx.paid_by_name)}</div>
+            <div><strong>Tanggal:</strong> ${formatDateFullSafe(tx.created_at)}</div>
+        </div>
+        ${splitInfo}
+        ${canDelete ? `<button class="btn btn-danger btn-full mt-md" onclick="${escapeAttribute(deleteAction)}">Hapus Transaksi</button>` : ''}
+    `;
 }
 
 // ==================== Toast ====================
@@ -1085,27 +1205,51 @@ function urlBase64ToUint8Array(base64String) {
 async function updatePushUi() {
     const btn = document.getElementById('enablePushBtn');
     const status = document.getElementById('pushStatus');
+    const testBtn = document.getElementById('testPushBtn');
 
-    if (!btn && !status) return;
+    if (!btn && !status && !testBtn) return;
 
     let active = false;
+    let message = 'Notif HP belum aktif';
+    let statusType = 'muted';
     try {
-        if ('serviceWorker' in navigator && 'PushManager' in window) {
+        if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+            message = 'Browser ini belum mendukung push notification.';
+            statusType = 'error';
+        } else if (isIosDevice() && !isStandalonePwa()) {
+            message = 'iPhone perlu buka app dari Home Screen agar push aktif.';
+            statusType = 'warning';
+        } else if (Notification.permission === 'denied') {
+            message = 'Notif diblokir. Aktifkan lagi dari pengaturan browser.';
+            statusType = 'error';
+        } else if (pushAvailability.checked && !pushAvailability.enabled) {
+            message = pushAvailability.message || 'Push belum dikonfigurasi di server.';
+            statusType = 'error';
+        } else {
             const registration = await navigator.serviceWorker.ready;
             const subscription = await registration.pushManager.getSubscription();
             active = Notification.permission === 'granted' && !!subscription;
+            message = active
+                ? 'Notifikasi HP aktif dan siap menerima update.'
+                : 'Notif HP belum aktif. Aktifkan agar jastip dan tagihan tetap masuk.';
+            statusType = active ? 'success' : 'muted';
         }
     } catch (err) {
         console.warn('Failed to update push UI:', err);
+        message = 'Status notif belum bisa dicek.';
+        statusType = 'warning';
     }
 
-    if (btn) btn.classList.toggle('hidden', active);
-    if (status) {
-        status.classList.toggle('hidden', !active);
-        if (active) {
-            status.textContent = pushAvailability.message || 'Notifikasi HP sudah aktif';
-        }
+    if (btn) {
+        btn.classList.toggle('hidden', active);
+        btn.textContent = 'Aktifkan Notif HP';
     }
+    if (status) {
+        status.classList.remove('hidden');
+        status.dataset.status = statusType;
+        status.textContent = message;
+    }
+    if (testBtn) testBtn.classList.toggle('hidden', !active);
 }
 
 async function unsubscribeFromPush() {
@@ -1260,6 +1404,9 @@ document.addEventListener('DOMContentLoaded', () => {
 window.escapeHtml = escapeHtml;
 window.escapeAttribute = escapeAttribute;
 window.safeJsonForAttr = safeJsonForAttr;
+window.renderEmptyState = renderEmptyState;
+window.renderSkeletonList = renderSkeletonList;
+window.renderTransactionDetailContent = renderTransactionDetailContent;
 window.refreshActiveJastipBanner = refreshActiveJastipBanner;
 window.startFeatureTour = startFeatureTour;
 window.finishFeatureTour = finishFeatureTour;

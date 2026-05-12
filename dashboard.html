@@ -77,8 +77,9 @@
                 <a href="#" class="section-link" onclick="openAddInfoModal(); return false;">Tambah Info</a>
             </div>
             <div id="infoList">
-                <div class="empty-state">
-                    <div class="spinner" style="margin: 0 auto;"></div>
+                <div class="skeleton-list">
+                    <div class="skeleton-row"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line"></div></div>
+                    <div class="skeleton-row"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line"></div></div>
                 </div>
             </div>
             <div class="section-footer">
@@ -100,8 +101,10 @@
                 <span class="section-title">Riwayat Transaksi</span>
             </div>
             <div id="transactionList">
-                <div class="empty-state">
-                    <div class="spinner" style="margin: 0 auto;"></div>
+                <div class="skeleton-list">
+                    <div class="skeleton-row"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line"></div></div>
+                    <div class="skeleton-row"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line"></div></div>
+                    <div class="skeleton-row"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line"></div></div>
                 </div>
             </div>
             <div class="section-footer">
@@ -359,7 +362,12 @@
                 const infoList = document.getElementById('infoList');
 
                 if (!data.info || data.info.length === 0) {
-                    infoList.innerHTML = '<div class="empty-state">Belum ada info</div>';
+                    infoList.innerHTML = renderEmptyState({
+                        title: 'Belum ada info',
+                        body: 'Catatan penting kontrakan nanti muncul di sini.',
+                        action: 'openAddInfoModal()',
+                        actionText: 'Tambah Info'
+                    });
                 } else {
                     infoList.innerHTML = data.info.map(i => `
                         <div class="info-item" onclick="showInfoDetail(${safeJsonForAttr(i)})">
@@ -376,7 +384,12 @@
                     `).join('');
                 }
             } catch {
-                document.getElementById('infoList').innerHTML = '<div class="empty-state">Belum ada info</div>';
+                document.getElementById('infoList').innerHTML = renderEmptyState({
+                    title: 'Info gagal dimuat',
+                    body: 'Coba refresh halaman kalau koneksi sedang lambat.',
+                    action: 'location.reload()',
+                    actionText: 'Coba Lagi'
+                });
             }
 
             // Transactions (preloaded above)
@@ -387,7 +400,12 @@
                 const listEl = document.getElementById('transactionList');
 
                 if (expenses.length === 0) {
-                    listEl.innerHTML = '<div class="empty-state">Belum ada transaksi</div>';
+                    listEl.innerHTML = renderEmptyState({
+                        title: 'Belum ada transaksi',
+                        body: 'Catat pengeluaran pertama lewat tombol plus.',
+                        action: "window.location.href='add-expense.html'",
+                        actionText: 'Tambah Transaksi'
+                    });
                 } else {
                     listEl.innerHTML = expenses.slice(0, 5).map(e => {
                         const isPayer = e.paid_by == state.user.id;
@@ -420,68 +438,25 @@
                         `;
                     }).join('');
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('transactionList').innerHTML = renderEmptyState({
+                    title: 'Transaksi gagal dimuat',
+                    body: 'Data belum berhasil diambil dari server.',
+                    action: 'location.reload()',
+                    actionText: 'Coba Lagi'
+                });
+            }
         })();
 
         function showTransactionDetail(tx) {
             const content = document.getElementById('transactionDetailContent');
             const isPayer = tx.paid_by == state.user.id;
             const canDelete = isPayer || state.user.role === 'admin';
-
-            let splitInfo = '';
-            if (tx.category === 'Listrik') {
-                splitInfo = `<div class="text-muted" style="font-size: 0.875rem;">Sistem rotasi - tidak dibagi</div>`;
-            } else if (tx.splits && tx.splits.length > 0) {
-                splitInfo = `
-                    <div style="margin-top: var(--space-md);">
-                        <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">DIBAGI KE:</div>
-                        ${tx.splits.map(s => {
-                    const userName = state.users.find(u => u.id == s.user_id)?.display_name || 'Unknown';
-                    let itemsArr = [];
-                    try {
-                        let parsed = s.items;
-                        while (typeof parsed === 'string') parsed = JSON.parse(parsed);
-                        if (Array.isArray(parsed)) itemsArr = parsed;
-                    } catch(e) {}
-                    return `
-                                <div style="padding: var(--space-sm) 0; border-bottom: 1px solid var(--border-color);">
-                                    <div style="display: flex; justify-content: space-between; gap: var(--space-sm);">
-                                        <span>${escapeHtml(userName)}</span>
-                                        <span style="font-weight: 600;">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</span>
-                                    </div>
-                                    ${itemsArr.length > 0 ? `
-                                        <div style="margin-top: 8px; padding: 8px; background: var(--bg-secondary); border-radius: var(--radius-sm); font-size: 0.75rem;">
-                                            ${itemsArr.map(i => `
-                                                <div style="display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px;">
-                                                    <span style="color: var(--text-muted); flex:1;">${escapeHtml(String(i.item || 'Item')).toUpperCase()}${i.qty ? ` <span style="font-size:0.7rem;">x${escapeHtml(i.qty)}</span>` : ''}</span>
-                                                    <span style="font-weight: 500;">Rp ${Number(i.price || 0).toLocaleString('id-ID')}</span>
-                                                </div>
-                                            `).join('')}
-                                        </div>
-                                    ` : ''}
-                                </div>
-                            `;
-                }).join('')}
-                    </div>
-                `;
-            }
-
-            content.innerHTML = `
-                ${tx.receipt_image ? `<img src="${escapeAttribute(imageUrl(tx.receipt_image))}" class="info-detail-image" alt="Bukti">` : ''}
-                <h2 style="margin-bottom: var(--space-sm);">${escapeHtml(tx.description)}</h2>
-                <div style="font-size: 1.5rem; font-weight: 700; color: ${tx.category === 'Listrik' ? 'var(--text-primary)' : (isPayer ? 'var(--green)' : 'var(--red)')}; margin-bottom: var(--space-md);">
-                    Rp ${parseFloat(tx.amount).toLocaleString('id-ID')}
-                </div>
-                <div class="info-detail-meta">
-                    <div><strong>Kategori:</strong> ${escapeHtml(tx.category)}</div>
-                    <div><strong>Dibayar oleh:</strong> ${escapeHtml(tx.paid_by_name)}</div>
-                    <div><strong>Tanggal:</strong> ${formatDateFull(tx.created_at)}</div>
-                </div>
-                ${splitInfo}
-                ${canDelete ? `
-                    <button class="btn btn-danger btn-full mt-md" onclick="deleteTransaction(${tx.id})">Hapus Transaksi</button>
-                ` : ''}
-            `;
+            content.innerHTML = renderTransactionDetailContent(tx, {
+                canDelete,
+                deleteAction: `deleteTransaction(${Number(tx.id)})`
+            });
             openModal('transactionDetailModal');
         }
 

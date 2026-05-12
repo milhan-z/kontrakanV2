@@ -218,8 +218,10 @@
 
         <div class="section" id="transactionSection">
             <div id="transactionList">
-                <div class="empty-state">
-                    <div class="spinner" style="margin: 0 auto;"></div>
+                <div class="skeleton-list">
+                    <div class="skeleton-row"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line"></div></div>
+                    <div class="skeleton-row"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line"></div></div>
+                    <div class="skeleton-row"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line"></div></div>
                 </div>
             </div>
         </div>
@@ -312,7 +314,7 @@
 
         async function renderTransactions(category = '') {
             const container = document.getElementById('transactionList');
-            container.innerHTML = '<div class="empty-state"><div class="spinner" style="margin: 0 auto;"></div></div>';
+            container.innerHTML = renderSkeletonList(3);
 
             // Get filter values
             const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
@@ -378,7 +380,10 @@
                 rows.sort((a, b) => new Date(b.date) - new Date(a.date));
 
                 if (rows.length === 0) {
-                    container.innerHTML = '<div class="empty-state">Tidak ada transaksi ditemukan</div>';
+                    container.innerHTML = renderEmptyState({
+                        title: 'Tidak ada transaksi',
+                        body: 'Coba ubah filter, tanggal, atau kata pencarian.'
+                    });
                     return;
                 }
 
@@ -387,7 +392,14 @@
                         ? renderJastipAsTransaction(row.data)
                         : renderExpenseAsTransaction(row.data)
                 )).join('');
-            } catch { container.innerHTML = '<div class="empty-state">Gagal memuat</div>'; }
+            } catch {
+                container.innerHTML = renderEmptyState({
+                    title: 'Gagal memuat riwayat',
+                    body: 'Koneksi atau server sedang bermasalah.',
+                    action: 'renderTransactions(currentCategory)',
+                    actionText: 'Coba Lagi'
+                });
+            }
         }
 
         function clearFilters() {
@@ -613,62 +625,10 @@
             const content = document.getElementById('transactionDetailContent');
             const isPayer = tx.paid_by == state.user.id;
             const canDelete = isPayer || state.user.role === 'admin';
-
-            let splitInfo = '';
-            if (tx.category === 'Listrik') {
-                splitInfo = `<div class="text-muted" style="font-size: 0.875rem;">Sistem rotasi - tidak dibagi</div>`;
-            } else if (tx.splits && tx.splits.length > 0) {
-                splitInfo = `
-                    <div style="margin-top: var(--space-md);">
-                        <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">DIBAGI KE:</div>
-                        ${tx.splits.map(s => {
-                    const userName = state.users.find(u => u.id == s.user_id)?.display_name || 'Unknown';
-                    let itemsArr = [];
-                    try {
-                        let parsed = s.items;
-                        while (typeof parsed === 'string') {
-                            parsed = JSON.parse(parsed);
-                        }
-                        if (Array.isArray(parsed)) itemsArr = parsed;
-                    } catch(e){}
-
-                    return `
-                                <div style="padding: var(--space-sm) 0; border-bottom: 1px solid var(--border-color);">
-                                    <div style="display: flex; justify-content: space-between; cursor: pointer;" onclick="document.getElementById('items-${tx.id}-${s.user_id}').classList.toggle('hidden')">
-                                        <span style="font-weight: 500;">${userName} ${itemsArr.length > 0 ? '<span style="font-size:0.7rem; color:var(--text-muted); margin-left:4px;">▼ detail</span>' : ''}</span>
-                                        <span style="font-weight: 600;">Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</span>
-                                    </div>
-                                    ${itemsArr.length > 0 ? 
-                                        `<div id="items-${tx.id}-${s.user_id}" class="hidden" style="margin-top: 8px; padding: 8px; background: rgba(0,0,0,0.03); border-radius: 4px; font-size: 0.75rem;">
-                                            ${itemsArr.map(i => `
-                                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                                    <span style="color: var(--text-muted); flex:1; padding-right:8px;">${escapeHtml(String(i.item || 'Item')).toUpperCase()}${i.qty ? ` <span style="font-size:0.7rem;">x${escapeHtml(i.qty)}</span>` : ''}</span>
-                                                    <span style="font-weight: 500;">Rp ${Number(i.price || 0).toLocaleString('id-ID')}</span>
-                                                </div>
-                                            `).join('')}
-                                        </div>` 
-                                    : ''}
-                                </div>
-                            `;
-                }).join('')}
-                    </div>
-                `;
-            }
-
-            content.innerHTML = `
-                ${tx.receipt_image ? `<img src="${imageUrl(tx.receipt_image)}" class="info-detail-image" alt="Bukti">` : ''}
-                <h2 style="margin-bottom: var(--space-sm);">${tx.description}</h2>
-                <div style="font-size: 1.5rem; font-weight: 700; color: ${tx.category === 'Listrik' ? 'var(--text-primary)' : (isPayer ? 'var(--green)' : 'var(--red)')}; margin-bottom: var(--space-md);">
-                    Rp ${parseFloat(tx.amount).toLocaleString('id-ID')}
-                </div>
-                <div class="info-detail-meta">
-                    <div><strong>Kategori:</strong> ${tx.category}</div>
-                    <div><strong>Dibayar oleh:</strong> ${tx.paid_by_name}</div>
-                    <div><strong>Tanggal:</strong> ${formatDateFull(tx.created_at)}</div>
-                </div>
-                ${splitInfo}
-                ${canDelete ? `<button class="btn btn-danger btn-full mt-md" onclick="handleDelete(${tx.id}); closeModal('transactionDetailModal');">Hapus</button>` : ''}
-            `;
+            content.innerHTML = renderTransactionDetailContent(tx, {
+                canDelete,
+                deleteAction: `handleDelete(${Number(tx.id)}); closeModal('transactionDetailModal');`
+            });
             openModal('transactionDetailModal');
         }
 

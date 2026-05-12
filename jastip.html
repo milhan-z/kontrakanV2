@@ -206,6 +206,37 @@
             align-items: center;
         }
 
+        .result-choice {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+        }
+
+        .result-choice button {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            padding: 10px 8px;
+            font: inherit;
+            font-size: 0.78rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .result-choice button.active[data-status="bought"] {
+            border-color: var(--green);
+            background: var(--green-light);
+            color: var(--green);
+        }
+
+        .result-choice button.active[data-status="unavailable"],
+        .result-choice button.active[data-status="cancelled"] {
+            border-color: var(--red);
+            background: var(--red-light);
+            color: var(--red);
+        }
+
         .owner-result-fields {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -399,10 +430,13 @@
             <div class="section-header">
                 <span class="icon"><svg viewBox="0 0 24 24"><path d="M6 2l1 5h10l1-5"/><path d="M3 7h18l-2 14H5L3 7z"/><path d="M9 11a3 3 0 0 0 6 0"/></svg></span>
                 <span class="section-title">Jastip Kontrakan</span>
-                <a href="notifications.html" class="section-link">Notifikasi</a>
+                <span id="jastipRefreshStatus" class="section-link">Memuat...</span>
             </div>
             <div id="jastipList">
-                <div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>
+                <div class="skeleton-list">
+                    <div class="skeleton-row"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line"></div></div>
+                    <div class="skeleton-row"><div class="skeleton skeleton-title"></div><div class="skeleton skeleton-line"></div></div>
+                </div>
             </div>
         </div>
     </div>
@@ -490,7 +524,7 @@
         async function loadJastip({ silent = false } = {}) {
             const container = document.getElementById('jastipList');
             if (!silent && jastipOrders.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:0 auto;"></div></div>';
+                container.innerHTML = renderSkeletonList(2);
             }
             try {
                 const data = await apiGetFresh('jastip');
@@ -501,10 +535,25 @@
                     lastJastipSignature = signature;
                     renderJastip();
                 }
+                updateJastipRefreshStatus();
             } catch (err) {
                 console.error(err);
-                if (!silent) container.innerHTML = '<div class="empty-state">Gagal memuat jastip</div>';
+                updateJastipRefreshStatus('Gagal update');
+                if (!silent) {
+                    container.innerHTML = renderEmptyState({
+                        title: 'Gagal memuat jastip',
+                        body: 'Coba lagi, biasanya karena koneksi atau server sedang lambat.',
+                        action: 'loadJastip()',
+                        actionText: 'Coba Lagi'
+                    });
+                }
             }
+        }
+
+        function updateJastipRefreshStatus(text = '') {
+            const el = document.getElementById('jastipRefreshStatus');
+            if (!el) return;
+            el.textContent = text || `Update ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
         }
 
         function startJastipRealtimeRefresh() {
@@ -524,7 +573,12 @@
             const previewHistory = historyOrders.slice(0, 2);
 
             if (activeOrders.length === 0 && historyOrders.length === 0) {
-                container.innerHTML = '<div class="empty-jastip">Belum ada jastip. Open kalau ada yang mau belanja keluar.</div>';
+                container.innerHTML = renderEmptyState({
+                    title: 'Belum ada jastip',
+                    body: 'Open jastip kalau ada yang mau belanja keluar dan teman-teman bisa nitip.',
+                    action: state.user?.role === 'admin' ? '' : 'openOpenJastipModal()',
+                    actionText: 'Open Jastip'
+                });
                 return;
             }
 
@@ -545,6 +599,8 @@
             const canManage = Boolean(order.can_manage);
             const canAdd = order.status === 'open' && !canManage && state.user?.role !== 'admin';
             const pendingCount = items.filter(item => item.status === 'requested').length;
+            const boughtCount = items.filter(item => item.status === 'bought').length;
+            const unavailableCount = items.filter(item => ['unavailable', 'cancelled'].includes(item.status)).length;
             const canComplete = canManage && order.status === 'closed' && items.length > 0 && pendingCount === 0;
 
             return `
@@ -561,6 +617,11 @@
                     </div>
 
                     ${order.note ? `<div class="order-note">${escapeHtml(order.note)}</div>` : ''}
+                    ${canManage && order.status === 'closed' ? `
+                        <div class="order-note">
+                            Checklist belanja: ${pendingCount} belum dicek, ${boughtCount} ada, ${unavailableCount} kosong/batal.
+                        </div>
+                    ` : ''}
 
                     <div class="shopping-list">
                         ${items.length ? items.map(item => canManage ? renderOwnerItem(order, item) : renderUserItem(order, item)).join('') : '<div class="shopping-row simple"><div class="item-meta">Belum ada nitipan.</div></div>'}
@@ -622,22 +683,22 @@
                     ${['open','closed'].includes(order.status) ? `
                         <div class="owner-result">
                             <div class="owner-result-main">
-                                <select id="status-${item.id}" onchange="toggleResultFields(${item.id})">
-                                    <option value="requested" ${item.status === 'requested' ? 'selected' : ''}>Belum dicek</option>
-                                    <option value="bought" ${item.status === 'bought' ? 'selected' : ''}>Ada</option>
-                                    <option value="unavailable" ${item.status === 'unavailable' ? 'selected' : ''}>Kosong</option>
-                                    <option value="cancelled" ${item.status === 'cancelled' ? 'selected' : ''}>Batal</option>
-                                </select>
+                                <input id="status-${item.id}" type="hidden" value="${escapeAttribute(item.status || 'requested')}">
+                                <div class="result-choice" data-item-id="${item.id}">
+                                    <button type="button" data-status="bought" class="${item.status === 'bought' ? 'active' : ''}" onclick="setItemStatus(${item.id}, 'bought')">Ada</button>
+                                    <button type="button" data-status="unavailable" class="${item.status === 'unavailable' ? 'active' : ''}" onclick="setItemStatus(${item.id}, 'unavailable')">Kosong</button>
+                                    <button type="button" data-status="cancelled" class="${item.status === 'cancelled' ? 'active' : ''}" onclick="setItemStatus(${item.id}, 'cancelled')">Batal</button>
+                                </div>
                                 <button class="btn" onclick="saveItemResult(${item.id})">Simpan</button>
                             </div>
                             <div id="fields-${item.id}" class="owner-result-fields" style="display:${showFields ? 'grid' : 'none'};">
                                 <div>
-                                    <label>Jumlah didapat</label>
-                                    <input id="qty-${item.id}" type="number" min="0" value="${item.final_qty ?? ''}" placeholder="${item.requested_qty || 1}" inputmode="numeric">
+                                    <label>Qty terbeli</label>
+                                    <input id="qty-${item.id}" type="number" min="0" value="${item.final_qty ?? ''}" placeholder="Diminta ${item.requested_qty || 1}" inputmode="numeric">
                                 </div>
                                 <div>
-                                    <label>Total harga</label>
-                                    <input id="price-${item.id}" type="number" min="0" value="${finalPrice > 0 ? Math.round(finalPrice) : ''}" placeholder="Rp" inputmode="numeric">
+                                    <label>Total harga barang</label>
+                                    <input id="price-${item.id}" type="number" min="0" value="${finalPrice > 0 ? Math.round(finalPrice) : ''}" placeholder="Isi harga final" inputmode="numeric">
                                 </div>
                             </div>
                             <input id="note-${item.id}" type="text" value="${escapeAttribute(item.final_note || '')}" placeholder="Catatan hasil (opsional)">
@@ -791,6 +852,21 @@
             const status = document.getElementById(`status-${itemId}`).value;
             const fields = document.getElementById(`fields-${itemId}`);
             if (fields) fields.style.display = status === 'bought' ? 'grid' : 'none';
+        }
+
+        function setItemStatus(itemId, status) {
+            const input = document.getElementById(`status-${itemId}`);
+            if (!input) return;
+            input.value = status;
+            document.querySelectorAll(`.result-choice[data-item-id="${itemId}"] button`).forEach(button => {
+                button.classList.toggle('active', button.dataset.status === status);
+            });
+            const qtyInput = document.getElementById(`qty-${itemId}`);
+            if (status === 'bought' && qtyInput && !qtyInput.value) {
+                const item = jastipOrders.flatMap(order => order.items || []).find(row => Number(row.id) === Number(itemId));
+                qtyInput.value = item?.requested_qty || 1;
+            }
+            toggleResultFields(itemId);
         }
 
         async function createJastip() {
