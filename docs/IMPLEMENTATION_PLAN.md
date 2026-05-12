@@ -14,6 +14,7 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 - Halaman Bayar/Tagih sudah lebih aman dari error inline handler dan punya shortcut chat WA.
 - Admin panel punya audit log dasar untuk aksi penting admin.
 - Admin panel bisa membuka detail jastip: daftar item, status hasil belanja, total final, dan rekap penitip.
+- Admin dashboard punya ringkasan bulan ini dan filter cepat Jastip.
 - Notifikasi in-app sudah jadi inbox berkategori dengan mark read per item dan link ke halaman terkait.
 - Onboarding tour bisa pindah halaman, punya tombol aksi fitur, dan bisa direset dari Profil.
 - Serverless function tetap 12 file, masih aman untuk batas Vercel Hobby.
@@ -26,17 +27,17 @@ Tujuan: kalau ada selisih tagihan, data bisa dicek tanpa buka database.
 
 - Export riwayat transaksi sesuai filter ke CSV di Admin. (selesai)
 - Export pembayaran ke CSV di Admin. (selesai)
-- Ringkasan bulanan: total per kategori, total per user, jastip selesai.
+- Ringkasan bulanan: total per kategori, total per user, jastip selesai. (selesai)
 - Admin audit log untuk aksi penting: reset password, edit user, hapus user, hapus jastip, reset data. (dasar selesai)
 
 ### 2. Admin Panel Lebih Aman
 
 Tujuan: admin bisa beresin masalah tanpa takut salah hapus.
 
-- Tambahkan tab/log aktivitas admin.
+- Tambahkan tab/log aktivitas admin. (selesai)
 - Konfirmasi delete yang lebih spesifik per objek.
 - Detail jastip di admin: item, penitip, status, harga final. (selesai)
-- Filter admin yang lebih cepat: aktif, ditutup, selesai, batal.
+- Filter admin yang lebih cepat: aktif, ditutup, selesai, batal. (selesai untuk Jastip)
 
 ### 3. Bayar dan Tagih V2
 

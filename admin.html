@@ -305,6 +305,38 @@
             margin-bottom: var(--space-md);
         }
 
+        .quick-filter-row {
+            display: flex;
+            gap: var(--space-sm);
+            overflow-x: auto;
+            padding: 2px 2px var(--space-sm);
+            margin-bottom: var(--space-sm);
+            scrollbar-width: none;
+        }
+
+        .quick-filter-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .quick-filter {
+            flex: 0 0 auto;
+            min-height: 34px;
+            padding: 7px 12px;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font: inherit;
+            font-size: 0.74rem;
+            font-weight: 800;
+        }
+
+        .quick-filter.active {
+            background: var(--text-primary);
+            border-color: var(--text-primary);
+            color: var(--bg-primary);
+        }
+
         .form-input,
         .form-select {
             width: 100%;
@@ -327,6 +359,58 @@
         .data-list {
             display: flex;
             flex-direction: column;
+        }
+
+        .monthly-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: var(--space-sm);
+        }
+
+        .monthly-card {
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            background: var(--bg-card);
+            min-width: 0;
+        }
+
+        .monthly-card.wide {
+            grid-column: 1 / -1;
+        }
+
+        .monthly-label {
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            font-weight: 850;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .monthly-value {
+            color: var(--text-primary);
+            font-size: 1.05rem;
+            font-weight: 900;
+            overflow-wrap: anywhere;
+        }
+
+        .monthly-list {
+            display: grid;
+            gap: 8px;
+            margin-top: var(--space-sm);
+        }
+
+        .monthly-line {
+            display: flex;
+            justify-content: space-between;
+            gap: var(--space-sm);
+            color: var(--text-secondary);
+            font-size: 0.78rem;
+        }
+
+        .monthly-line strong {
+            color: var(--text-primary);
+            text-align: right;
         }
 
         .data-row {
@@ -768,6 +852,18 @@
 
                 <div class="section">
                     <div class="section-head">
+                        <div class="section-title"><span class="admin-icon" data-icon="history"></span>Ringkasan Bulan Ini</div>
+                        <span class="section-meta" id="monthlySummaryLabel">-</span>
+                    </div>
+                    <div class="admin-panel">
+                        <div class="panel-pad">
+                            <div class="monthly-grid" id="monthlySummary"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-head">
                         <div class="section-title"><span class="admin-icon" data-icon="list"></span>Per Kategori</div>
                         <span class="section-meta" id="categoryCount">0 kategori</span>
                     </div>
@@ -840,6 +936,7 @@
                     <div class="section-title"><span class="admin-icon" data-icon="package"></span>Jastip Kontrakan</div>
                     <span class="section-meta">Monitoring admin</span>
                 </div>
+                <div class="quick-filter-row" id="jastipQuickFilters"></div>
                 <div class="toolbar">
                     <select class="form-select" id="jastipStatusFilter">
                         <option value="all">Semua status</option>
@@ -1131,6 +1228,7 @@
                 renderInfo();
                 renderJastip();
                 renderAudit();
+                renderJastipQuickFilters();
                 document.getElementById('lastUpdated').textContent = `Update ${new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`;
             } catch (err) {
                 console.error(err);
@@ -1147,6 +1245,7 @@
             renderPayments();
             renderJastip();
             renderAudit();
+            renderJastipQuickFilters();
         }
 
         function renderDashboard() {
@@ -1183,7 +1282,49 @@
             `).join('');
 
             renderCategoryStats();
+            renderMonthlySummary();
             renderRecentActivity();
+        }
+
+        function renderMonthlySummary() {
+            const monthKey = getCurrentMonthKey();
+            const monthExpenses = adminState.expenses.filter(item => getMonthKey(item.created_at) === monthKey);
+            const monthSettlements = adminState.settlements.filter(item => getMonthKey(item.created_at) === monthKey);
+            const completedJastip = adminState.jastip.filter(item =>
+                item.status === 'completed' && getMonthKey(item.completed_at || item.created_at) === monthKey
+            );
+            const categoryRows = topEntries(groupSum(monthExpenses, item => item.category || 'Lainnya', item => Number(item.amount || 0)), 3);
+            const userRows = topEntries(groupSum(monthExpenses, item => item.paid_by_name || '-', item => Number(item.amount || 0)), 3);
+            const totalExpense = sumBy(monthExpenses, 'amount');
+            const totalSettlement = sumBy(monthSettlements, 'amount');
+            const jastipTotal = completedJastip.reduce((sum, item) => sum + totalJastipBought(item), 0);
+
+            setText('monthlySummaryLabel', formatMonthLabel(monthKey));
+            document.getElementById('monthlySummary').innerHTML = `
+                <div class="monthly-card">
+                    <div class="monthly-label">Transaksi</div>
+                    <div class="monthly-value">${formatCurrencyShort(totalExpense)}</div>
+                    <div class="data-subtitle">${monthExpenses.length} catatan</div>
+                </div>
+                <div class="monthly-card">
+                    <div class="monthly-label">Pembayaran</div>
+                    <div class="monthly-value">${formatCurrencyShort(totalSettlement)}</div>
+                    <div class="data-subtitle">${monthSettlements.length} catatan</div>
+                </div>
+                <div class="monthly-card">
+                    <div class="monthly-label">Jastip selesai</div>
+                    <div class="monthly-value">${completedJastip.length}</div>
+                    <div class="data-subtitle">${jastipTotal ? formatCurrency(jastipTotal) : 'Belum ada total'}</div>
+                </div>
+                <div class="monthly-card">
+                    <div class="monthly-label">Kategori top</div>
+                    <div class="monthly-list">${renderMonthlyLines(categoryRows, 'Belum ada kategori')}</div>
+                </div>
+                <div class="monthly-card wide">
+                    <div class="monthly-label">Pembayar terbesar</div>
+                    <div class="monthly-list">${renderMonthlyLines(userRows, 'Belum ada transaksi')}</div>
+                </div>
+            `;
         }
 
         function renderCategoryStats() {
@@ -1496,6 +1637,34 @@
                     </div>
                 `;
             }).join('') : '<div class="empty-state">Tidak ada jastip sesuai filter.</div>';
+        }
+
+        function renderJastipQuickFilters() {
+            const active = document.getElementById('jastipStatusFilter')?.value || 'all';
+            const counts = adminState.jastip.reduce((map, order) => {
+                map.all += 1;
+                map[order.status] = (map[order.status] || 0) + 1;
+                return map;
+            }, { all: 0, open: 0, closed: 0, completed: 0, cancelled: 0 });
+            const filters = [
+                ['all', 'Semua'],
+                ['open', 'Aktif'],
+                ['closed', 'Ditutup'],
+                ['completed', 'Selesai'],
+                ['cancelled', 'Batal']
+            ];
+            document.getElementById('jastipQuickFilters').innerHTML = filters.map(([value, label]) => `
+                <button type="button" class="quick-filter ${active === value ? 'active' : ''}" onclick="setJastipStatusFilter('${value}')">
+                    ${escapeHtml(label)} (${counts[value] || 0})
+                </button>
+            `).join('');
+        }
+
+        function setJastipStatusFilter(value) {
+            const select = document.getElementById('jastipStatusFilter');
+            select.value = value;
+            renderJastip();
+            renderJastipQuickFilters();
         }
 
         function showJastipDetail(orderId) {
@@ -1891,6 +2060,47 @@
 
         function totalJastipBought(order) {
             return summarizeJastip(order).total;
+        }
+
+        function getCurrentMonthKey() {
+            return getMonthKey(new Date());
+        }
+
+        function getMonthKey(dateValue) {
+            const date = new Date(dateValue);
+            if (Number.isNaN(date.getTime())) return '';
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function formatMonthLabel(monthKey) {
+            const [year, month] = String(monthKey || '').split('-').map(Number);
+            if (!year || !month) return '-';
+            return new Date(year, month - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        }
+
+        function groupSum(rows, keyFn, valueFn) {
+            return rows.reduce((map, row) => {
+                const key = keyFn(row);
+                map[key] = (map[key] || 0) + valueFn(row);
+                return map;
+            }, {});
+        }
+
+        function topEntries(map, limit) {
+            return Object.entries(map)
+                .map(([label, total]) => ({ label, total }))
+                .sort((a, b) => b.total - a.total)
+                .slice(0, limit);
+        }
+
+        function renderMonthlyLines(rows, emptyText) {
+            if (!rows.length) return `<div class="monthly-line"><span>${escapeHtml(emptyText)}</span><strong>-</strong></div>`;
+            return rows.map(row => `
+                <div class="monthly-line">
+                    <span>${escapeHtml(row.label)}</span>
+                    <strong>${formatCurrency(row.total)}</strong>
+                </div>
+            `).join('');
         }
 
         function statusLabel(status) {
