@@ -879,6 +879,7 @@
             setButtonBusy('openJastipSubmit', true, 'Membuka...');
             try {
                 const result = await apiPost('jastip?action=create', { title, note });
+                if (typeof markFeatureUsed === 'function') markFeatureUsed('jastip');
                 closeModal('openJastipModal');
                 showToast(result.duplicate ? 'Jastip sudah kebuka' : 'Jastip dibuka', 'success');
                 await loadJastip();
@@ -909,6 +910,7 @@
             setButtonBusy('addItemsSubmit', true, 'Mengirim...');
             try {
                 await apiPost('jastip?action=items', { jastip_id: jastipId, items });
+                if (typeof markFeatureUsed === 'function') markFeatureUsed('jastip');
                 closeModal('addJastipItemModal');
                 showToast(`${items.length} nitipan masuk`, 'success');
                 await loadJastip();

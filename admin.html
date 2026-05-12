@@ -1919,7 +1919,11 @@
         }
 
         async function deleteExpense(id) {
-            if (!confirm('Hapus transaksi ini?')) return;
+            const expense = adminState.expenses.find(item => Number(item.id) === Number(id));
+            const label = expense
+                ? `"${expense.description}" (${formatCurrency(Number(expense.amount || 0))})`
+                : `ID ${id}`;
+            if (!confirm(`Hapus transaksi ${label}? Pembagian tagihan transaksi ini juga ikut hilang.`)) return;
             try {
                 await apiDelete(`expenses?id=${id}`);
                 showToast('Transaksi dihapus', 'success');
@@ -1930,7 +1934,11 @@
         }
 
         async function deleteSettlement(id) {
-            if (!confirm('Hapus pembayaran ini?')) return;
+            const payment = adminState.settlements.find(item => Number(item.id) === Number(id));
+            const label = payment
+                ? `${payment.from_name || '-'} ke ${payment.to_name || '-'} (${formatCurrency(Number(payment.amount || 0))})`
+                : `ID ${id}`;
+            if (!confirm(`Hapus pembayaran ${label}? Saldo hutang/piutang akan dihitung ulang.`)) return;
             try {
                 await apiDelete(`settlements?id=${id}`);
                 showToast('Pembayaran dihapus', 'success');
@@ -1941,7 +1949,9 @@
         }
 
         async function deleteInfo(id) {
-            if (!confirm('Hapus info ini?')) return;
+            const info = adminState.info.find(item => Number(item.id) === Number(id));
+            const title = info?.title ? `"${info.title}"` : `ID ${id}`;
+            if (!confirm(`Hapus info ${title}? Info ini tidak akan tampil lagi untuk member.`)) return;
             try {
                 await apiDelete(`info?id=${id}`);
                 showToast('Info dihapus', 'success');
@@ -1953,7 +1963,9 @@
 
         async function handleJastipAction(id, action) {
             const label = action === 'close' ? 'tutup' : 'batalkan';
-            if (!confirm(`Yakin ${label} jastip ini?`)) return;
+            const order = adminState.jastip.find(item => Number(item.id) === Number(id));
+            const title = order?.title ? ` "${order.title}"` : '';
+            if (!confirm(`Yakin ${label} jastip${title}? Member akan melihat status terbaru setelah refresh.`)) return;
             try {
                 await apiPut(`jastip?action=${action}`, { id });
                 showToast(`Jastip berhasil di${label}`, 'success');

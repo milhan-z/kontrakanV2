@@ -12,11 +12,14 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 - Export CSV dipusatkan di Admin untuk transaksi dan pembayaran.
 - Detail transaksi sudah menampilkan rincian item split bill/jastip.
 - Halaman Bayar/Tagih sudah lebih aman dari error inline handler dan punya shortcut chat WA.
+- Halaman Bayar/Tagih kini memuat patch detail hutang/piutang aktif, status pembayaran lebih eksplisit, dan empty/error state lebih jelas.
 - Admin panel punya audit log dasar untuk aksi penting admin.
 - Admin panel bisa membuka detail jastip: daftar item, status hasil belanja, total final, dan rekap penitip.
 - Admin dashboard punya ringkasan bulan ini dan filter cepat Jastip.
+- Konfirmasi hapus/reset admin dibuat lebih spesifik untuk transaksi, pembayaran, info, dan jastip.
 - Notifikasi in-app sudah jadi inbox berkategori dengan mark read per item dan link ke halaman terkait.
 - Onboarding tour bisa pindah halaman, punya tombol aksi fitur, dan bisa direset dari Profil.
+- Mini tips fitur muncul setelah tour selesai dan berhenti muncul setelah ditutup/dipakai.
 - Serverless function tetap 12 file, masih aman untuk batas Vercel Hobby.
 
 ## Prioritas Berikutnya
@@ -35,7 +38,7 @@ Tujuan: kalau ada selisih tagihan, data bisa dicek tanpa buka database.
 Tujuan: admin bisa beresin masalah tanpa takut salah hapus.
 
 - Tambahkan tab/log aktivitas admin. (selesai)
-- Konfirmasi delete yang lebih spesifik per objek.
+- Konfirmasi delete yang lebih spesifik per objek. (selesai)
 - Detail jastip di admin: item, penitip, status, harga final. (selesai)
 - Filter admin yang lebih cepat: aktif, ditutup, selesai, batal. (selesai untuk Jastip)
 
@@ -44,9 +47,9 @@ Tujuan: admin bisa beresin masalah tanpa takut salah hapus.
 Tujuan: pembayaran makin jelas untuk semua penghuni.
 
 - Tombol chat WA untuk bayar dan tagih dengan template yang rapi.
-- Bukti transfer tampil di timeline detail pembayaran.
-- Status pembayaran parsial/lunas lebih eksplisit.
-- Empty/error state di halaman `settle.html` dibuat sekonsisten Dashboard/Riwayat.
+- Bukti transfer tampil di detail pembayaran dan bisa dibuka dari riwayat/detail. (selesai)
+- Status pembayaran parsial/lunas lebih eksplisit. (selesai)
+- Empty/error state di halaman `settle.html` dibuat sekonsisten Dashboard/Riwayat. (selesai)
 
 ### 4. Notifikasi In-App
 
@@ -64,7 +67,7 @@ Tujuan: user baru cepat paham tanpa harus dijelaskan manual.
 - Tour bisa pindah halaman dan highlight elemen yang tepat. (selesai)
 - Tambahkan tombol aksi di step tour: buka Jastip, isi Profil, aktifkan Notif. (selesai)
 - Tambahkan reset tour di Profil. (selesai)
-- Mini tips hanya muncul saat user belum pernah memakai fitur tersebut.
+- Mini tips hanya muncul saat user belum pernah memakai fitur tersebut. (selesai)
 
 ## Paket Implementasi Berurutan
 

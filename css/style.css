@@ -1330,6 +1330,64 @@ body.tour-open {
     margin-top: 4px;
 }
 
+.feature-mini-tip {
+    position: fixed;
+    left: max(16px, env(safe-area-inset-left));
+    right: max(16px, env(safe-area-inset-right));
+    bottom: calc(var(--bottom-nav-height, 76px) + env(safe-area-inset-bottom) + 14px);
+    z-index: 3200;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 14px 14px 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(16px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.feature-mini-tip.show {
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.has-active-jastip-banner .feature-mini-tip {
+    bottom: calc(150px + env(safe-area-inset-bottom));
+}
+
+.feature-mini-tip-title {
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 850;
+}
+
+.feature-mini-tip-body {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.35;
+    margin-top: 3px;
+}
+
+.feature-mini-tip-close {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
 .skeleton-list {
     display: grid;
     gap: 12px;

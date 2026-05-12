@@ -109,6 +109,7 @@ function updateThemeIcons() {
 const FEATURE_TOUR_VERSION = 'v3';
 const FEATURE_TOUR_SESSION_KEY = 'kontrakan_feature_tour_resume';
 const FEATURE_TOUR_PENDING_ACTION_KEY = 'kontrakan_feature_tour_action';
+const FEATURE_MINI_TIP_VERSION = 'v1';
 let featureTourIndex = 0;
 let featureTourSteps = [];
 let featureTourManual = false;
@@ -217,6 +218,88 @@ function queueAutoFeatureTour() {
     }, 1100);
 }
 
+function getFeatureMiniTipConfig() {
+    const page = getCurrentPageName();
+    const tips = {
+        'dashboard.html': {
+            id: 'dashboard',
+            title: 'Tip Home',
+            body: 'Kalau ada jastip aktif, banner nempel di bawah. Tap Pantau buat langsung masuk ke list titipan.'
+        },
+        'add-expense.html': {
+            id: 'add-expense',
+            title: 'Tip Split Bill',
+            body: 'Untuk belanja banyak item, pakai mode detail supaya porsi tiap orang bisa beda.'
+        },
+        'settle.html': {
+            id: 'settle',
+            title: 'Tip Bayar',
+            body: 'Tap nama teman untuk lihat rincian hutang, rekening, QRIS, dan bukti pembayaran.'
+        },
+        'jastip.html': {
+            id: 'jastip',
+            title: 'Tip Jastip',
+            body: 'Titip beberapa barang sekaligus dari tombol Titip Barang, jadi tidak perlu bolak-balik.'
+        },
+        'history.html': {
+            id: 'history',
+            title: 'Tip Riwayat',
+            body: 'Pakai filter Tanggal, Kategori, dan Cari untuk menemukan transaksi lama lebih cepat.'
+        },
+        'profile.html': {
+            id: 'profile',
+            title: 'Tip Profil',
+            body: 'Lengkapi nomor WA dan metode bayar supaya tombol tagih teman langsung siap dipakai.'
+        }
+    };
+    return tips[page] || tips['dashboard.html'];
+}
+
+function getFeatureMiniTipKey(id) {
+    const userId = state.user?.id || state.user?.user_id || 'guest';
+    return `kontrakan_feature_tip_${FEATURE_MINI_TIP_VERSION}_${userId}_${id}`;
+}
+
+function markFeatureUsed(id) {
+    if (!id || !state.user) return;
+    localStorage.setItem(getFeatureMiniTipKey(id), 'done');
+}
+
+function queueFeatureMiniTip() {
+    if (!state.user || state.user.must_change_password) return;
+    if (localStorage.getItem(getFeatureTourKey()) !== 'done') return;
+    const config = getFeatureMiniTipConfig();
+    if (!config || localStorage.getItem(getFeatureMiniTipKey(config.id)) === 'done') return;
+    setTimeout(() => {
+        if (!state.user || document.querySelector('.feature-tour-overlay.active')) return;
+        if (document.getElementById('featureMiniTip')) return;
+        showFeatureMiniTip(config);
+    }, 1700);
+}
+
+function showFeatureMiniTip(config) {
+    const tip = document.createElement('div');
+    tip.id = 'featureMiniTip';
+    tip.className = 'feature-mini-tip';
+    tip.innerHTML = `
+        <div>
+            <div class="feature-mini-tip-title">${escapeHtml(config.title)}</div>
+            <div class="feature-mini-tip-body">${escapeHtml(config.body)}</div>
+        </div>
+        <button type="button" class="feature-mini-tip-close" aria-label="Tutup tip" onclick="dismissFeatureMiniTip(${safeJsonForAttr(config.id)})">&times;</button>
+    `;
+    document.body.appendChild(tip);
+    requestAnimationFrame(() => tip.classList.add('show'));
+}
+
+function dismissFeatureMiniTip(id) {
+    markFeatureUsed(id);
+    const tip = document.getElementById('featureMiniTip');
+    if (!tip) return;
+    tip.classList.remove('show');
+    setTimeout(() => tip.remove(), 200);
+}
+
 function queuePendingManualFeatureTour() {
     if (!state.user || state.user.must_change_password) return false;
     const resumed = resumeFeatureTourFromSession();
@@ -252,6 +335,7 @@ function finishFeatureTour(markDone = true) {
     sessionStorage.removeItem(FEATURE_TOUR_SESSION_KEY);
     if (markDone && state.user) {
         localStorage.setItem(getFeatureTourKey(), 'done');
+        queueFeatureMiniTip();
     }
 }
 
@@ -658,6 +742,7 @@ async function checkAuth() {
             setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
             setTimeout(runPendingFeatureTourAction, 300);
             if (!queuePendingManualFeatureTour()) queueAutoFeatureTour();
+            queueFeatureMiniTip();
             return true;
         }
         // Fallback: verifikasi ke server
@@ -672,6 +757,7 @@ async function checkAuth() {
             setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
             setTimeout(runPendingFeatureTourAction, 300);
             if (!queuePendingManualFeatureTour()) queueAutoFeatureTour();
+            queueFeatureMiniTip();
             return true;
         }
         return false;
@@ -700,6 +786,7 @@ async function login(username, password) {
     setTimeout(() => { if (typeof refreshActiveJastipBanner === 'function') refreshActiveJastipBanner({ force: true }); }, 0);
     setTimeout(runPendingFeatureTourAction, 300);
     if (!queuePendingManualFeatureTour()) queueAutoFeatureTour();
+    queueFeatureMiniTip();
     return data;
 }
 
@@ -769,7 +856,9 @@ async function loadExpenses(category = null) {
 }
 
 async function createExpense(data) {
-    return await apiPost('expenses', data);
+    const result = await apiPost('expenses', data);
+    markFeatureUsed('add-expense');
+    return result;
 }
 
 async function deleteExpense(id) {
@@ -782,7 +871,9 @@ async function loadSettlements() {
 }
 
 async function createSettlement(toUser, amount) {
-    return await apiPost('settlements', { to_user: toUser, amount });
+    const result = await apiPost('settlements', { to_user: toUser, amount });
+    markFeatureUsed('settle');
+    return result;
 }
 
 // ==================== Upload ====================

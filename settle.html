@@ -179,6 +179,147 @@
             color: var(--text-muted);
             font-size: 0.875rem;
         }
+
+        .settle-clear-card {
+            display: grid;
+            gap: 8px;
+            justify-items: center;
+            text-align: center;
+        }
+
+        .settle-clear-card .title {
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 800;
+        }
+
+        .settle-clear-card .body {
+            max-width: 280px;
+            color: var(--text-muted);
+            font-size: 0.8125rem;
+            line-height: 1.45;
+        }
+
+        .settle-status-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: var(--space-sm);
+            padding: var(--space-md);
+            border-radius: var(--radius-md);
+            margin-bottom: var(--space-md);
+            border: 1px solid var(--border-color);
+            background: var(--bg-hover);
+        }
+
+        .settle-status-main {
+            display: grid;
+            gap: 3px;
+            min-width: 0;
+        }
+
+        .settle-status-label {
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 800;
+        }
+
+        .settle-status-note {
+            color: var(--text-muted);
+            font-size: 0.74rem;
+            line-height: 1.35;
+        }
+
+        .settle-chip {
+            flex: 0 0 auto;
+            border-radius: var(--radius-full);
+            padding: 7px 10px;
+            font-size: 0.7rem;
+            font-weight: 850;
+            line-height: 1;
+            white-space: nowrap;
+        }
+
+        .settle-chip.pending {
+            color: var(--red);
+            background: var(--red-light);
+        }
+
+        .settle-chip.partial {
+            color: #b7791f;
+            background: rgba(245, 158, 11, 0.14);
+        }
+
+        .settle-chip.clear {
+            color: var(--green);
+            background: var(--green-light);
+        }
+
+        .payment-timeline {
+            display: grid;
+            gap: 0;
+            margin-bottom: var(--space-md);
+        }
+
+        .payment-timeline-title {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            margin-bottom: var(--space-sm);
+            text-transform: uppercase;
+        }
+
+        .payment-timeline-item {
+            display: grid;
+            grid-template-columns: 22px minmax(0, 1fr) auto;
+            gap: var(--space-sm);
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-light);
+            cursor: default;
+        }
+
+        .payment-timeline-item.has-receipt {
+            cursor: pointer;
+        }
+
+        .payment-timeline-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--green);
+            margin: 5px auto 0;
+            box-shadow: 0 0 0 5px var(--green-light);
+        }
+
+        .payment-timeline-name {
+            color: var(--text-primary);
+            font-size: 0.82rem;
+            font-weight: 750;
+        }
+
+        .payment-timeline-meta {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            margin-top: 2px;
+        }
+
+        .payment-timeline-amount {
+            color: var(--green);
+            font-size: 0.82rem;
+            font-weight: 850;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .receipt-empty {
+            display: grid;
+            place-items: center;
+            min-height: 150px;
+            border-radius: var(--radius-md);
+            border: 1px dashed var(--border-color);
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            padding: var(--space-md);
+        }
     </style>
     <link rel="prefetch" href="dashboard.html">
     <link rel="prefetch" href="payment-history.html">
@@ -202,6 +343,14 @@
                 <div class="label">Total Piutang</div>
                 <div class="amount" id="piutangAmount">Rp 0</div>
                 <div class="desc">Yang akan kamu terima</div>
+            </div>
+        </div>
+
+        <div class="section hidden" id="settleAllClear">
+            <div class="settle-clear-card">
+                <div class="title">Semua beres</div>
+                <div class="body">Belum ada hutang atau piutang aktif. Nanti kalau ada transaksi baru, daftar bayar/tagih muncul di sini.</div>
+                <a href="history.html" class="btn-pill">Lihat Riwayat</a>
             </div>
         </div>
 
@@ -378,6 +527,86 @@
     <script>
         let balanceData = null;
 
+        function money(value) {
+            return 'Rp ' + Math.max(0, Math.round(Number(value) || 0)).toLocaleString('id-ID');
+        }
+
+        function paymentStatus(detailData, fallbackAmount) {
+            const total = Number(detailData?.total_expenses || 0);
+            const paid = Number(detailData?.total_settled || 0);
+            const offset = Number(detailData?.total_offset || 0);
+            const remaining = Number(detailData?.remaining ?? fallbackAmount ?? 0);
+            if (remaining <= 0) {
+                return { className: 'clear', label: 'Lunas', note: 'Tidak ada sisa pembayaran untuk pasangan ini.' };
+            }
+            if (paid > 0 || offset > 0) {
+                return {
+                    className: 'partial',
+                    label: 'Sebagian',
+                    note: `${money(paid)} dibayar${offset > 0 ? `, ${money(offset)} terpotong transaksi balik` : ''}.`
+                };
+            }
+            return {
+                className: 'pending',
+                label: 'Belum dibayar',
+                note: total > 0 ? 'Semua tagihan aktif belum punya catatan pembayaran.' : 'Belum ada detail tagihan aktif.'
+            };
+        }
+
+        function renderStatusCard(detailData, fallbackAmount, title) {
+            const status = paymentStatus(detailData, fallbackAmount);
+            return `
+                <div class="settle-status-card">
+                    <div class="settle-status-main">
+                        <div class="settle-status-label">${escapeHtml(title)}</div>
+                        <div class="settle-status-note">${escapeHtml(status.note)}</div>
+                    </div>
+                    <span class="settle-chip ${status.className}">${escapeHtml(status.label)}</span>
+                </div>
+            `;
+        }
+
+        function renderEmptySettle(title, body, href = '') {
+            const action = href ? `<a href="${href}" class="btn-pill rich-empty-action">Buka</a>` : '';
+            return `
+                <div class="empty-state rich-empty">
+                    <div class="rich-empty-title">${escapeHtml(title)}</div>
+                    <div class="rich-empty-body">${escapeHtml(body)}</div>
+                    ${action}
+                </div>
+            `;
+        }
+
+        function renderPaymentTimeline(settlements, options = {}) {
+            const rows = Array.isArray(settlements) ? settlements : [];
+            if (!rows.length) return '';
+            const color = options.color || 'var(--green)';
+            const sign = options.sign || '+';
+            const label = options.label || 'Pembayaran';
+            return `
+                <div class="payment-timeline">
+                    <div class="payment-timeline-title">${escapeHtml(options.title || 'Timeline Pembayaran')}</div>
+                    ${rows.slice(0, 5).map(s => {
+                        const receipt = s.receipt_image ? safeJsonForAttr(s.receipt_image) : '';
+                        const click = s.receipt_image
+                            ? `onclick="showSettlementReceipt(${receipt}, ${Number(s.amount) || 0}, ${safeJsonForAttr(s.created_at)})"`
+                            : '';
+                        return `
+                            <div class="payment-timeline-item ${s.receipt_image ? 'has-receipt' : ''}" ${click}>
+                                <span class="payment-timeline-dot" style="background:${color};"></span>
+                                <div>
+                                    <div class="payment-timeline-name">${escapeHtml(label)}${s.receipt_image ? ' - ada bukti' : ''}</div>
+                                    <div class="payment-timeline-meta">${formatDate(s.created_at)}${s.receipt_image ? ' - tap untuk lihat bukti' : ''}</div>
+                                </div>
+                                <div class="payment-timeline-amount" style="color:${color};">${sign}${money(s.amount)}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                    ${rows.length > 5 ? `<div class="text-muted" style="font-size: 0.75rem; text-align: center;">+${rows.length - 5} pembayaran lain</div>` : ''}
+                </div>
+            `;
+        }
+
         (async () => {
             if (!await checkAuth()) { window.location.href = 'login.html'; return; }
             await Promise.all([loadUsers(), loadNotifications()]);
@@ -405,6 +634,7 @@
 
                 document.getElementById('hutangAmount').textContent = 'Rp ' + myHutang.toLocaleString('id-ID');
                 document.getElementById('piutangAmount').textContent = 'Rp ' + myPiutang.toLocaleString('id-ID');
+                document.getElementById('settleAllClear').classList.toggle('hidden', myDebts.length > 0 || myCredits.length > 0);
 
                 // My Debts
                 const debtsSection = document.getElementById('myDebtsSection');
@@ -456,7 +686,7 @@
                 });
 
                 if (mySettlements.length === 0) {
-                    historyEl.innerHTML = '<div class="empty-state">Belum ada riwayat</div>';
+                    historyEl.innerHTML = renderEmptySettle('Belum ada riwayat pembayaran', 'Kalau ada yang mencatat transfer, riwayat singkatnya akan muncul di sini.', 'payment-history.html');
                 } else {
                     historyEl.innerHTML = mySettlements.slice(0, 5).map(s => {
                         const isFromMe = parseInt(s.from_user) === currentUserId;
@@ -480,7 +710,14 @@
                         `;
                     }).join('');
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('settleAllClear').classList.add('hidden');
+                document.getElementById('myDebtsSection').style.display = 'block';
+                document.getElementById('myCreditsSection').style.display = 'none';
+                document.getElementById('myDebtsList').innerHTML = renderEmptySettle('Gagal memuat data bayar', 'Coba refresh. Kalau masih gagal, kemungkinan koneksi atau server lagi bermasalah.');
+                document.getElementById('settlementHistory').innerHTML = renderEmptySettle('Riwayat belum bisa dimuat', 'Data pembayaran tidak hilang, hanya belum berhasil dibaca dari server.');
+            }
         }
 
         // Show debt detail modal (for debtor to pay)
@@ -502,6 +739,9 @@
                 let expenseList = '';
                 const expenses = detailData.expenses || [];
                 const settlements = detailData.settlements || [];
+                const remainingAmount = Number(detailData.remaining ?? amount);
+
+                expenseList += renderStatusCard(detailData, remainingAmount, 'Status hutang kamu');
 
                 if (expenses.length > 0) {
                     expenseList += `
@@ -557,7 +797,7 @@
                         </div>
                         <div style="display: flex; justify-content: space-between; font-weight: 700; margin-top: var(--space-xs);">
                             <span>Sisa Hutang</span>
-                            <span style="color: var(--red);">Rp ${amount.toLocaleString('id-ID')}</span>
+                            <span style="color: var(--red);">${money(remainingAmount)}</span>
                         </div>
                     </div>
                 `;
@@ -616,7 +856,7 @@
                             </div>
                             <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
                                 <button class="copy-btn" onclick="copyText(${safeJsonForAttr(payInfo.phone_wa)})">📋 Copy</button>
-                                <button class="copy-btn" onclick="openPaymentWa(${safeJsonForAttr(payInfo.phone_wa)}, ${safeJsonForAttr(creditorName)}, ${amount})">Chat WA</button>
+                                <button class="copy-btn" onclick="openPaymentWa(${safeJsonForAttr(payInfo.phone_wa)}, ${safeJsonForAttr(creditorName)}, ${remainingAmount})">Chat WA</button>
                             </div>
                         </div>
                     `;
@@ -643,20 +883,20 @@
 
                 content.innerHTML = `
                     <div style="text-align: center; margin-bottom: var(--space-lg);">
-                        <div style="font-size: 2rem; font-weight: 700; color: var(--red);">Rp ${amount.toLocaleString('id-ID')}</div>
+                        <div style="font-size: 2rem; font-weight: 700; color: var(--red);">${money(remainingAmount)}</div>
                         <div class="text-muted">ke ${creditorName}</div>
                     </div>
                     ${expenseList}
                     <div class="section" style="margin: 0; padding: var(--space-md);">
                         ${paymentInfo}
                     </div>
-                    <button class="btn btn-success btn-full btn-lg mt-md" onclick="markAsPaid(${creditorId}, ${safeJsonForAttr(creditorName)}, ${amount})">
+                    <button class="btn btn-success btn-full btn-lg mt-md" onclick="markAsPaid(${creditorId}, ${safeJsonForAttr(creditorName)}, ${remainingAmount})">
                         ✓ Sudah Transfer
                     </button>
                 `;
             } catch (err) {
                 console.error(err);
-                content.innerHTML = '<div class="empty-state">Gagal memuat</div>';
+                content.innerHTML = renderEmptySettle('Gagal memuat detail hutang', 'Coba buka ulang. Data hutang tetap aman di server.');
             }
         }
 
@@ -681,6 +921,9 @@
                 let expenseList = '';
                 const expenses = detailData.expenses || [];
                 const settlements = detailData.settlements || [];
+                const remainingAmount = Number(detailData.remaining ?? amount);
+
+                expenseList += renderStatusCard(detailData, remainingAmount, 'Status piutang kamu');
 
                 // Build expense details for WhatsApp message
                 let waExpenseDetails = '';
@@ -718,9 +961,10 @@
                         <div style="margin-bottom: var(--space-md);">
                             <div class="text-muted" style="font-size: 0.75rem; margin-bottom: var(--space-sm);">SUDAH DITERIMA:</div>
                             ${settlements.slice(0, 5).map(s => `
-                                <div class="expense-item">
+                                <div class="expense-item" style="cursor: ${s.receipt_image ? 'pointer' : 'default'};"
+                                    ${s.receipt_image ? `onclick="showSettlementReceipt(${safeJsonForAttr(s.receipt_image)}, ${s.amount}, ${safeJsonForAttr(s.created_at)})"` : ''}>
                                     <div style="display: flex; justify-content: space-between;">
-                                        <span>Pembayaran</span>
+                                        <span>Pembayaran ${s.receipt_image ? '<span style="font-size: 0.7rem; color: var(--green);">ada bukti</span>' : ''}</span>
                                         <span style="color: var(--red);">-Rp ${parseFloat(s.amount).toLocaleString('id-ID')}</span>
                                     </div>
                                     <div class="text-muted" style="font-size: 0.6875rem;">${formatDate(s.created_at)}</div>
@@ -745,7 +989,7 @@
                         </div>
                         <div style="display: flex; justify-content: space-between; font-weight: 700; margin-top: var(--space-xs);">
                             <span>Sisa Piutang</span>
-                            <span style="color: var(--green);">Rp ${amount.toLocaleString('id-ID')}</span>
+                            <span style="color: var(--green);">${money(remainingAmount)}</span>
                         </div>
                     </div>
                 `;
@@ -754,7 +998,7 @@
                 window.currentTagihData = {
                     debtorName,
                     debtorPhone,
-                    amount,
+                    amount: remainingAmount,
                     expenseDetails: waExpenseDetails,
                     creditorName: state.user.display_name,
                     paymentInfo: myPaymentInfo
@@ -775,7 +1019,7 @@
 
                 content.innerHTML = `
                     <div class="amount-header piutang">
-                        <div class="amount-value" style="color: var(--green);">Rp ${amount.toLocaleString('id-ID')}</div>
+                        <div class="amount-value" style="color: var(--green);">${money(remainingAmount)}</div>
                         <div class="amount-label">dari ${debtorName}</div>
                     </div>
                     <div class="detail-card">
@@ -784,10 +1028,10 @@
                     <div class="modal-btn-group">
                         ${tagihButton}
                         <div class="modal-btn-row">
-                            <button class="btn btn-full btn-lg" onclick="openConfirmPayment(${debtorId}, ${safeJsonForAttr(debtorName)}, ${amount})">
+                            <button class="btn btn-full btn-lg" onclick="openConfirmPayment(${debtorId}, ${safeJsonForAttr(debtorName)}, ${remainingAmount})">
                                 Konfirmasi Sebagian
                             </button>
-                            <button class="btn btn-success btn-lunas btn-full btn-lg" onclick="resetAndClear(${debtorId}, ${safeJsonForAttr(debtorName)}, ${amount})">
+                            <button class="btn btn-success btn-lunas btn-full btn-lg" onclick="resetAndClear(${debtorId}, ${safeJsonForAttr(debtorName)}, ${remainingAmount})">
                                 ✓ Lunas
                             </button>
                         </div>
@@ -795,7 +1039,7 @@
                 `;
             } catch (err) {
                 console.error(err);
-                content.innerHTML = '<div class="empty-state">Gagal memuat</div>';
+                content.innerHTML = renderEmptySettle('Gagal memuat detail piutang', 'Coba buka ulang. Data piutang tetap aman di server.');
             }
         }
 
@@ -1107,6 +1351,7 @@ _Pesan otomatis dari Catatan Kontrakan_`;
                 }
 
                 await apiPost('settlements', payload);
+                if (typeof markFeatureUsed === 'function') markFeatureUsed('settle');
 
                 showToast('Pembayaran dicatat!', 'success');
                 closeModal('confirmPaymentModal');
@@ -1125,8 +1370,10 @@ _Pesan otomatis dari Catatan Kontrakan_`;
 
         // Show receipt from settlement
         function showSettlementReceipt(imagePath, amount, createdAt) {
-            document.getElementById('receiptImage').src = imageUrl(imagePath);
-            document.getElementById('receiptAmount').textContent = 'Rp ' + parseFloat(amount).toLocaleString('id-ID');
+            document.getElementById('receiptAmount').style.color = 'var(--green)';
+            document.getElementById('receiptImage').style.display = imagePath ? 'block' : 'none';
+            if (imagePath) document.getElementById('receiptImage').src = imageUrl(imagePath);
+            document.getElementById('receiptAmount').textContent = money(amount);
             document.getElementById('receiptDate').textContent = formatDate(createdAt);
             openModal('receiptModal');
         }
@@ -1147,6 +1394,7 @@ _Pesan otomatis dari Catatan Kontrakan_`;
                 img.style.display = 'block';
             } else {
                 img.style.display = 'none';
+                document.getElementById('receiptDate').textContent = `${formatDate(createdAt)} - belum ada bukti transfer`;
             }
 
             openModal('receiptModal');
@@ -1158,6 +1406,7 @@ _Pesan otomatis dari Catatan Kontrakan_`;
             });
         });
     </script>
+    <script src="js/settle-click-fix.js"></script>
 </body>
 
 </html>
