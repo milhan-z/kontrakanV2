@@ -5,6 +5,7 @@ Dokumen ini jadi catatan kerja agar pengembangan tidak loncat-loncat dan tetap a
 ## Status Terakhir
 
 - Push notification sudah diperbaiki dan statusnya lebih jelas di Profil.
+- Info kontrakan baru mengirim notifikasi in-app dan push ke penghuni lain.
 - Jastip sudah punya flow open, nitip banyak item, owner checklist, reopen, close, complete, delete history.
 - Riwayat transaksi sudah menyatukan transaksi biasa dan jastip.
 - Filter Riwayat member memakai bottom sheet model GoPay untuk tanggal, kategori, dan pencarian.

@@ -6,6 +6,7 @@
  */
 
 const { getDB, setCors, jsonResponse, requireAuth, getBody, handleOptions } = require('../lib/db');
+const { sendPushNotification } = require('../lib/webpush');
 
 module.exports = async function handler(req, res) {
   setCors(res);
@@ -45,12 +46,48 @@ async function addInfo(req, res, user) {
   if (!title) return jsonResponse(res, { error: 'Title is required' }, 400);
 
   const db = getDB();
-  const result = await db.query(
-    'INSERT INTO info_kontrakan (user_id, title, content, image_path) VALUES ($1, $2, $3, $4) RETURNING id',
-    [user.user_id, title, content, image_path]
-  );
+  const client = await db.connect();
+  let infoId;
+  const pushJobs = [];
 
-  return jsonResponse(res, { success: true, id: result.rows[0].id }, 201);
+  try {
+    await client.query('BEGIN');
+
+    const result = await client.query(
+      'INSERT INTO info_kontrakan (user_id, title, content, image_path) VALUES ($1, $2, $3, $4) RETURNING id',
+      [user.user_id, title, content, image_path]
+    );
+    infoId = result.rows[0].id;
+
+    const users = await client.query('SELECT id FROM users WHERE id != $1', [user.user_id]);
+    const message = content
+      ? `${user.display_name || 'Teman kontrakan'} menambahkan info: ${String(content).slice(0, 120)}`
+      : `${user.display_name || 'Teman kontrakan'} menambahkan info baru`;
+
+    for (const row of users.rows) {
+      await client.query(
+        `INSERT INTO notifications (user_id, title, message, type, related_id)
+         VALUES ($1, $2, $3, 'info', $4)`,
+        [row.id, title, message, infoId]
+      );
+      pushJobs.push(
+        sendPushNotification(row.id, 'Info Kontrakan Baru', title, '/dashboard.html')
+          .catch(err => console.error('Failed to send info push notification:', err))
+      );
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    return jsonResponse(res, { error: 'Failed to create info: ' + err.message }, 500);
+  } finally {
+    client.release();
+  }
+
+  await Promise.allSettled(pushJobs);
+
+  return jsonResponse(res, { success: true, id: infoId }, 201);
 }
 
 async function deleteInfo(req, res, user) {
