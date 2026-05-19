@@ -1,41 +1,65 @@
 # KontrakanV2
 
-Aplikasi manajemen keuangan kontrakan berbasis Vercel Serverless Functions dan PostgreSQL.
+![Node.js](https://img.shields.io/badge/Node.js-24.x-339933?logo=node.js&logoColor=white)
+![Vercel](https://img.shields.io/badge/Deploy-Vercel-000000?logo=vercel&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?logo=postgresql&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-supported-5A0FC8)
 
-## Features
+**KontrakanV2** adalah aplikasi manajemen keuangan kontrakan berbasis **Vercel Serverless Functions** dan **PostgreSQL**.
 
-- Authentication JWT
-- Manajemen penghuni kontrakan
-- Pencatatan pengeluaran
-- Settlement & balance calculation
-- Upload bukti pembayaran
-- Push notification
-- Progressive Web App (PWA)
-- Deploy via Vercel
+Project ini membantu penghuni kontrakan, rumah sewa bersama, atau komunitas kecil untuk mencatat pengeluaran, menghitung settlement, mengelola data penghuni, dan menyimpan bukti pembayaran secara lebih rapi dan transparan.
+
+> English: KontrakanV2 is an open-source rental finance management app for shared housing communities, built with Vercel Serverless Functions and PostgreSQL.
 
 ---
 
-# Installation
+## Features
 
-## Clone Repository
+- JWT Authentication
+- Tenant Management
+- Expense Tracking
+- Settlement & Balance Calculation
+- Payment Proof Uploads
+- Push Notifications
+- Progressive Web App (PWA)
+- Vercel Serverless Deployment
+
+---
+
+## Tech Stack
+
+- Node.js 24.x
+- PostgreSQL
+- Vercel Serverless Functions
+- JSON Web Token (JWT)
+- bcryptjs
+- Cloudinary
+- web-push
+- multer
+
+---
+
+## Getting Started
+
+### Clone Repository
 
 ```bash
 git clone https://github.com/milhan-z/kontrakanV2.git
 cd kontrakanV2
 ```
 
-## Install Dependency
+### Install Dependencies
 
 ```bash
 npm install
 ```
 
-## Environment Variables
+### Setup Environment Variables
 
-Buat file `.env.local`
+Create `.env.local` file:
 
 ```env
-DATABASE_URL=
+DATABASE_URL=postgresql://username:password@host:5432/database
 JWT_SECRET=
 
 CLOUDINARY_CLOUD_NAME=
@@ -44,11 +68,10 @@ CLOUDINARY_API_SECRET=
 
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
+VAPID_SUBJECT=mailto:admin@example.com
 ```
 
----
-
-# Running Locally
+### Run Locally
 
 ```bash
 npm run dev
@@ -56,7 +79,7 @@ npm run dev
 
 ---
 
-# Deploy Vercel
+## Deployment
 
 ```bash
 vercel login
@@ -65,20 +88,30 @@ vercel --prod
 
 ---
 
-# Troubleshooting
+## Roadmap
 
-## Database Error
+- Add screenshots and demo video
+- Add API documentation
+- Improve automated tests
+- Add role-based access control
+- Multi-house support
+- Export reports
 
-Pastikan DATABASE_URL valid.
+---
 
-## JWT Error
+## Contributing
 
-Pastikan JWT_SECRET terisi.
+Contributions are welcome.
 
-## Cloudinary Error
+You can help by:
 
-Pastikan config Cloudinary benar.
+- Reporting bugs
+- Suggesting features
+- Improving documentation
+- Submitting pull requests
 
-## Notification Error
+---
 
-Pastikan VAPID key valid.
+## License
+
+MIT License
